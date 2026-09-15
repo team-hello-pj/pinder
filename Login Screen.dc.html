@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>p:nder - 로그인</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" as="style" crossorigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css">
+  <style>
+    body{margin:0;font-family:'Pretendard',-apple-system,sans-serif}
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .pd-fade{transition:background-color .35s ease,color .35s ease,border-color .35s ease}
+    .pd-btn{transition:transform .12s ease,opacity .15s ease}
+    .pd-btn:hover{opacity:.92}
+    .pd-btn:active{transform:scale(0.98)}
+    .pd-icon-btn:hover{opacity:.75}
+    .pd-input:focus-within{box-shadow:inset 0 0 0 1.5px #7BCB93 !important}
+    [style*="cursor:pointer"],[style*="cursor: pointer"]{transition:transform .06s ease,filter .1s ease}
+    [style*="cursor:pointer"]:hover,[style*="cursor: pointer"]:hover{filter:brightness(1.03)}
+    [style*="cursor:pointer"]:active,[style*="cursor: pointer"]:active{transform:scale(0.95)}
+    .pd-logo-link,.pd-logo-link:hover,.pd-logo-link:active{transform:none !important;filter:none !important}
+    .pd-login-btn:hover{background-color:#68BC82;transform:translateY(-1px);box-shadow:0 4px 10px rgba(23,59,37,.2)}
+    .pd-login-btn:active{transform:translateY(0) scale(0.99);box-shadow:0 1px 2px rgba(23,59,37,.15)}
+  </style>
+</helmet>
+
+<div class="pd-fade pd-login-wrap" style="width:100%;min-height:100vh;display:flex;justify-content:center;background:{{ c.bg }};color:{{ c.text }};box-sizing:border-box;padding:48px 16px">
+  <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:32px;animation:fadeUp .4s ease">
+
+    <div style="display:flex;justify-content:flex-end">
+      <div onClick="{{ toggleTheme }}" class="pd-icon-btn" title="테마 전환" style="cursor:pointer;width:36px;height:36px;border-radius:10px;border:1px solid {{ c.border }};display:flex;align-items:center;justify-content:center;font-size:15px">
+        <sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}">☀</sc-if>
+        <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="./uploads/moon-icon.png" alt="" style="width:15px;height:15px;object-fit:contain"></sc-if>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:4px">
+      
+      <a href="./main(home).dc.html" class="pd-logo-link" style="display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: {{ c.text }}; text-decoration: none; cursor: pointer; position: relative; left: -12px">
+        <div style="width: 52px; height: 58px; flex-shrink: 0; background: {{ c.text }}; -webkit-mask: url('./uploads/pinder_ant.png') center/contain no-repeat; mask: url('./uploads/pinder_ant.png') center/contain no-repeat"></div><span style="font-size: 28px">p<span style="color:#26AB4E;font-size:1.4em;position:relative;top:-0.05em">:</span>nder</span>
+      </a><p style="margin: 0; font-size: 14px; color: {{ c.textSub }}; text-align: center; margin-top: -10px">로그인하고 최적의 동선을 만들어보세요</p>
+    </div>
+
+    <form style="display:flex;flex-direction:column;gap:16px" onsubmit="{{ handleSubmit }}">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:13px;font-weight:600;color:{{ c.text }}">이메일</label>
+        <div class="pd-input pd-fade" style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:{{ c.cardBg }};box-shadow:inset 0 0 0 1px {{ emailBorderColor }}">
+          <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0"><path fill="{{ c.textSub }}" fill-rule="evenodd" clip-rule="evenodd" d="M4 5.5C2.89543 5.5 2 6.39543 2 7.5V16.5C2 17.6046 2.89543 18.5 4 18.5H20C21.1046 18.5 22 17.6046 22 16.5V7.5C22 6.39543 21.1046 5.5 20 5.5H4ZM4.6 7.3L12 12.5L19.4 7.3H4.6Z"></path></svg>
+          <input type="email" placeholder="you@example.com" value="{{ email }}" oninput="{{ onEmailChange }}" style="border:none;outline:none;background:transparent;font:inherit;font-size:15px;color:{{ c.text }};width:100%">
+        </div>
+        
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:13px;font-weight:600;color:{{ c.text }}">비밀번호</label>
+        <div class="pd-input pd-fade" style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:{{ c.cardBg }};box-shadow:inset 0 0 0 1px {{ c.border }}">
+          <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0"><path fill="{{ c.textSub }}" fill-rule="evenodd" clip-rule="evenodd" d="M12 2C9.79086 2 8 3.79086 8 6V9H7C5.89543 9 5 9.89543 5 11V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V11C19 9.89543 18.1046 9 17 9H16V6C16 3.79086 14.2091 2 12 2ZM14 9V6C14 4.89543 13.1046 4 12 4C10.8954 4 10 4.89543 10 6V9H14Z"></path></svg>
+          <input type="password" placeholder="비밀번호를 입력하세요" value="{{ password }}" oninput="{{ onPasswordChange }}" style="border:none;outline:none;background:transparent;font:inherit;font-size:15px;color:{{ c.text }};width:100%">
+        </div>
+      </div>
+
+      <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:12px;color:#E5484D">{{ error }}</span>
+      </sc-if>
+
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-top:2px">
+          <input type="checkbox" checked="{{ saveId }}" onChange="{{ onToggleSaveId }}" style="width:15px;height:15px;accent-color:#7BCB93;cursor:pointer">
+          <span style="font-size:12.5px;color:{{ c.textSub }}">아이디 저장</span>
+        </label><div style="display:flex;justify-content:flex-end">
+        <a href="#" style="font-size: 12.5px; font-weight: 600; color: #1F7A44; text-decoration: none">비밀번호를 잊으셨나요?</a>
+      </div>
+
+      <button type="submit" class="pd-login-btn" style="border:none;padding:13px 20px;border-radius:11px;background:#7BCB93;color:#163B25;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;width:100%;box-shadow:0 1px 2px rgba(23,59,37,.15);transition:background-color .18s ease,transform .18s ease,box-shadow .18s ease">
+        로그인
+      </button>
+    </form>
+
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="flex:1;height:1px;background:{{ c.border }}"></div>
+      <span style="font-size:12px;color:{{ c.textSub }}">또는</span>
+      <div style="flex:1;height:1px;background:{{ c.border }}"></div>
+    </div>
+
+    <div id="google-login-btn-slot" style="width:100%;display:flex;justify-content:center;min-height:44px"></div>
+
+    <sc-if value="{{ googleError }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;color:#D9534F;text-align:center">{{ googleError }}</div>
+    </sc-if>
+
+    <sc-if value="{{ googleUser }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:#EAF9EF">
+        <div style="width:28px;height:28px;border-radius:50%;background:#7BCB93;color:#12321F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">여</div>
+        <span style="font-size:13px;color:#12321F">{{ googleUser }}(으)로 로그인되었습니다</span>
+      </div>
+    </sc-if>
+
+    <p style="margin:0;text-align:center;font-size:13px;color:{{ c.textSub }}">
+      아직 계정이 없으신가요? <a href="./Signup Screen.dc.html" style="color:#1F7A44;font-weight:700;text-decoration:none">회원가입</a>
+    </p>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;section&quot;:&quot;기본값&quot;}}">
+const LIGHT = {
+  bg: '#FFFFFF', text: '#171719', textSub: 'rgba(23,23,25,.6)', border: '#E1E2E4',
+  cardBg: '#F7F7F8',
+};
+const DARK = {
+  bg: '#0F0F10', text: '#F7F7F8', textSub: 'rgba(247,247,248,.62)', border: '#292A2D',
+  cardBg: '#17181A',
+};
+
+class Component extends DCLogic {
+  state = (() => {
+    let savedId = '';
+    try { savedId = (typeof localStorage !== 'undefined' && localStorage.getItem('pd-saved-id')) || ''; } catch (e) {}
+    return { theme: (typeof localStorage !== 'undefined' && localStorage.getItem('pd-theme')) || this.props.defaultTheme || 'light', email: savedId, password: '', error: '', googleLoading: false, googleUser: '', googleError: '', saveId: !!savedId };
+  })();
+
+  GOOGLE_CLIENT_ID = '356356472447-08t0m833394b59rschmd23oog33359gi.apps.googleusercontent.com';
+
+  toggleTheme = () => this.setState(s => {
+    const next = s.theme === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem('pd-theme', next); } catch (e) {}
+    return { theme: next };
+  });
+
+  componentDidMount() {
+    this.ensureGoogleButtonRendered();
+  }
+
+  ensureGoogleButtonRendered = () => {
+    const slot = document.getElementById('google-login-btn-slot');
+    if (!slot) return;
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+      console.error('Google Identity Services가 아직 로드되지 않았습니다 (accounts.google.com/gsi/client 확인 필요)');
+      setTimeout(this.ensureGoogleButtonRendered, 300);
+      return;
+    }
+    if (slot.dataset.rendered === '1') return; // 중복 렌더링 방지
+    try {
+      window.google.accounts.id.initialize({
+        client_id: this.GOOGLE_CLIENT_ID,
+        callback: this.onGoogleAuthSuccess,
+      });
+      window.google.accounts.id.renderButton(slot, { type: 'standard', theme: 'outline', size: 'large', width: 320 });
+      slot.dataset.rendered = '1';
+    } catch (err) {
+      console.error('Google 로그인 버튼 렌더링에 실패했습니다:', err);
+      this.setState({ googleError: 'Google 로그인을 시작할 수 없어요. 잠시 후 다시 시도해주세요.' });
+    }
+  };
+
+  // response.credential은 서명된 ID 토큰(JWT) — 서버 검증 없이 로그인 성공 신호로만 사용.
+  onGoogleAuthSuccess = (response) => {
+    if (!response || !response.credential) {
+      console.error('Google 로그인 콜백에 credential이 없습니다.');
+      this.setState({ googleError: 'Google 로그인에 실패했어요. 다시 시도해주세요.' });
+      return;
+    }
+    try { if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('pnder_google_logged_in', '1'); } catch (e) {}
+    this.setState({ googleUser: 'google', googleError: '' });
+    setTimeout(() => { window.location.href = './Route Planner App.dc.html'; }, 500);
+  };
+
+  stopPropagation = (e) => e.stopPropagation();
+
+  onEmailChange = (e) => {
+    this.setState({ email: e.target.value, error: '' });
+    try { if (this.state.saveId) localStorage.setItem('pd-saved-id', e.target.value); } catch (err) {}
+  };
+  onToggleSaveId = (e) => {
+    const checked = e.target.checked;
+    this.setState({ saveId: checked });
+    try {
+      if (checked) localStorage.setItem('pd-saved-id', this.state.email || '');
+      else localStorage.removeItem('pd-saved-id');
+    } catch (err) {}
+  };
+  onPasswordChange = (e) => this.setState({ password: e.target.value, error: '' });
+
+  handleSubmit = (e) => {
+    e.preventDefault();
+    const { email, password } = this.state;
+    if (!email || !password) {
+      this.setState({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
+      return;
+    }
+    // MOCK: 실제 연동 시 서버 로그인 API로 교체. 지금은 회원가입 시 localStorage에 저장된 계정으로 검증.
+    let users = [];
+    try {
+      const raw = localStorage.getItem('pnder-users');
+      users = raw ? JSON.parse(raw) : [];
+    } catch (e2) {}
+    const account = users.find(u => u.email === email);
+    if (!account) {
+      this.setState({ error: '가입된 회원이 아닙니다.' });
+      return;
+    }
+    if (account.password !== password) {
+      this.setState({ error: '아이디/비밀번호가 틀렸습니다.' });
+      return;
+    }
+    this.setState({ error: '' });
+    window.location.href = './Route Planner App.dc.html';
+  };
+
+  renderVals() {
+    const c = this.state.theme === 'dark' ? DARK : LIGHT;
+    return {
+      c,
+      isDark: this.state.theme === 'dark',
+      isLight: this.state.theme !== 'dark',
+      toggleTheme: this.toggleTheme,
+      email: this.state.email,
+      password: this.state.password,
+      error: this.state.error,
+      emailBorderColor: this.state.error ? '#E5484D' : c.border,
+      onEmailChange: this.onEmailChange,
+      saveId: this.state.saveId, onToggleSaveId: this.onToggleSaveId,
+      onPasswordChange: this.onPasswordChange,
+      handleSubmit: this.handleSubmit,
+      googleError: this.state.googleError,
+      stopPropagation: this.stopPropagation,
+      googleUser: this.state.googleUser,
+    };
+  }
+}
+
+</script>
+</body>
+</html>
