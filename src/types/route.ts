@@ -4,7 +4,7 @@ export type TransportMode = 'car' | 'walk' | 'transit' | 'bike';
 export type RouteCriteria = 'time' | 'distance';
 export type Priority = 'high' | 'normal' | 'low';
 export type WeatherState = 'sunny' | 'cloudy' | 'rain' | 'snow';
-export type BusinessHours = 'open' | 'closed';
+export type BusinessHours = 'open' | 'closed' | 'unknown';
 
 /** 경로에 담기는 방문지 한 곳. */
 export interface Place {
@@ -21,8 +21,13 @@ export interface Place {
   hours: BusinessHours;
   hoursLabel: string;
   /** 지오코딩 결과 (Kakao 좌표계: x=경도, y=위도) */
-  x?: number;
-  y?: number;
+  x?: number | null;
+  y?: number | null;
+  /** 여러 날 일정일 때 며칠차에 속하는지 (0-indexed) */
+  day?: number;
+  roadAddress?: string;
+  jibunAddress?: string;
+  placeId?: string;
 }
 
 /** 대중교통 경로의 세부 구간. Kakao 응답에 없는 값은 null 로 둔다. */
