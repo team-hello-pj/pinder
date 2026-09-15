@@ -52,7 +52,10 @@ export default function HomePage() {
         <h1 className={styles.title}>
           최적의 동선,
           <br />
-          <span className={styles.brand}>p:nder</span>와 함께
+          <span className={styles.brand}>
+            p<span className={styles.brandColon}>:</span>nder
+          </span>
+          {'와 함께'}
         </h1>
         <p className={styles.lead}>
           목적지를 입력하면 최적화된 일정과 이동 동선을 자동으로 생성해드립니다.

@@ -37,7 +37,15 @@
 
 .brand {
   color: #63bd7e;
-  font-size: 1.14em;
+  font-size: 50px;
+  padding: 1px 3px;
+}
+
+.brandColon {
+  color: var(--pd-brand);
+  font-size: 1.4em;
+  position: relative;
+  top: -0.05em;
 }
 
 .lead {
