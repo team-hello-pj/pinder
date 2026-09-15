@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 
+import { SessionProvider } from '@/components/providers/SessionProvider';
 import { THEME_INIT_SCRIPT, ThemeProvider } from '@/components/providers/ThemeProvider';
 import '@/styles/globals.css';
 
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

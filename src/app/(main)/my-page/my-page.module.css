@@ -5,18 +5,6 @@
   box-sizing: border-box;
 }
 
-.backRow {
-  text-align: right;
-  margin-bottom: 16px;
-}
-
-.backLink {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--pd-text-sub);
-  text-decoration: none;
-}
-
 .heading {
   margin-bottom: 24px;
 }
@@ -152,21 +140,31 @@
   font-weight: 600;
 }
 
-.rowValueDanger {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--pd-danger);
-}
-
 .chevron {
   color: var(--pd-text-sub);
   font-size: 16px;
 }
 
-.chevronDanger {
+.logoutCard,
+.withdrawCard {
+  width: 100%;
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logoutCard {
+  color: var(--pd-text-sub);
+  margin-bottom: 14px;
+}
+
+.withdrawCard {
   color: var(--pd-danger);
-  font-size: 16px;
-  opacity: 0.6;
 }
 
 /* 모달 내부 공용 */
@@ -221,6 +219,13 @@
   font-size: 12.5px;
   font-weight: 600;
   color: var(--pd-danger);
+  margin: 0;
+}
+
+.modalDesc {
+  font-size: 13px;
+  color: var(--pd-text);
+  line-height: 1.6;
   margin: 0;
 }
 

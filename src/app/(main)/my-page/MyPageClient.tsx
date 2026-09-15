@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { deleteAccount } from '@/lib/account';
-import { checkNickname, updateNickname } from '@/lib/nickname';
+import { checkNickname, updateNickname, type NicknameCheckResult } from '@/lib/nickname';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
 
 import {
@@ -20,10 +20,8 @@ import styles from './my-page.module.css';
 
 type WithdrawStep = 'confirm' | 'blocked' | 'finalWarning' | 'finalLoading' | 'loading' | 'success';
 
-interface NicknameCheckState {
+interface NicknameCheckState extends NicknameCheckResult {
   forValue: string;
-  available: boolean;
-  message: string;
 }
 
 // 실제 인증 연결 전까지의 목업 사용자. TODO(인증 담당): 로그인 세션의 실제 사용자로 교체.
@@ -33,7 +31,9 @@ const MOCK_EMAIL = 'yusoo@example.com';
 /** legacy/My Page.dc.html 을 그대로 이식. 헤더는 (main) 레이아웃의 공용 SiteHeader 가 담당한다. */
 export function MyPageClient() {
   const router = useRouter();
+  const { logout } = useSession();
   const [nickname, setNickname] = useState('유수');
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const [editNicknameOpen, setEditNicknameOpen] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState('');
@@ -72,7 +72,7 @@ export function MyPageClient() {
     setNicknameChecking(true);
     const result = await checkNickname(draft, MOCK_USER_ID, nickname);
     setNicknameChecking(false);
-    setNicknameCheck({ forValue: draft, available: result.available, message: result.message });
+    setNicknameCheck({ forValue: draft, ...result });
   };
   const canSaveNickname =
     nicknameCheck !== null &&
@@ -83,7 +83,12 @@ export function MyPageClient() {
     const draft = nicknameDraft.trim();
     const result = await updateNickname(MOCK_USER_ID, nickname, draft);
     if (!result.ok) {
-      setNicknameCheck({ forValue: draft, available: false, message: result.message });
+      setNicknameCheck({
+        forValue: draft,
+        available: false,
+        reason: 'taken',
+        message: result.message,
+      });
       return;
     }
     setNickname(result.nickname);
@@ -95,6 +100,13 @@ export function MyPageClient() {
   // ---- 알림 설정 ----
   const toggleNotification = (key: string) =>
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // ---- 로그아웃 ----
+  // 로그아웃은 로그인 상태만 정리한다 — '아이디 저장'(pd-saved-id)은 로그인 페이지 기능이라 건드리지 않는다.
+  const onConfirmLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   // ---- 회원 탈퇴 ----
   const openWithdraw = () => {
@@ -121,6 +133,7 @@ export function MyPageClient() {
       setWithdrawError(true);
       return;
     }
+    logout();
     setWithdrawStep('success');
   };
 
@@ -140,6 +153,7 @@ export function MyPageClient() {
       setWithdrawError(true);
       return;
     }
+    logout();
     setWithdrawStep('success');
     setTimeout(() => {
       router.push('/login');
@@ -148,12 +162,6 @@ export function MyPageClient() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.backRow}>
-        <Link href="/" className={styles.backLink}>
-          ← 홈으로
-        </Link>
-      </div>
-
       <div className={styles.heading}>
         <h1 className={styles.title}>마이페이지</h1>
         <p className={styles.subtitle}>내 계정과 서비스 설정을 관리해요</p>
@@ -212,12 +220,12 @@ export function MyPageClient() {
       </div>
 
       <p className={styles.sectionLabel}>계정 관리</p>
-      <div className={styles.settingsGroup}>
-        <button type="button" className={styles.settingsRow} onClick={openWithdraw}>
-          <span className={styles.rowValueDanger}>회원 탈퇴</span>
-          <span className={styles.chevronDanger}>›</span>
-        </button>
-      </div>
+      <button type="button" className={styles.logoutCard} onClick={() => setLogoutOpen(true)}>
+        로그아웃
+      </button>
+      <button type="button" className={styles.withdrawCard} onClick={openWithdraw}>
+        회원 탈퇴
+      </button>
 
       {/* 닉네임 수정 */}
       <Modal open={editNicknameOpen} title="닉네임 수정" onClose={closeEditNickname}>
@@ -231,12 +239,16 @@ export function MyPageClient() {
               className={styles.nicknameInput}
             />
             <button type="button" className={styles.checkBtn} onClick={onCheckNickname}>
-              {nicknameChecking ? '확인 중...' : '중복 확인'}
+              {nicknameChecking
+                ? '확인 중...'
+                : nicknameCheck?.forValue === nicknameDraft.trim() && nicknameCheck.reason === 'ok'
+                  ? '사용 가능'
+                  : '중복 확인'}
             </button>
           </div>
           {nicknameCheck && nicknameCheck.forValue === nicknameDraft.trim() ? (
-            <p className={nicknameCheck.available ? styles.checkMsgOk : styles.checkMsgError}>
-              {nicknameCheck.available ? '' : '✕ '}
+            <p className={nicknameCheck.reason === 'ok' ? styles.checkMsgOk : styles.checkMsgError}>
+              {nicknameCheck.reason === 'same_as_current' ? <b>✕ </b> : null}
               {nicknameCheck.message}
             </p>
           ) : null}
@@ -301,6 +313,19 @@ export function MyPageClient() {
         <div className={styles.modalActionsEnd}>
           <Button size="sm" onClick={() => setTermsOpen(false)}>
             확인
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 로그아웃 */}
+      <Modal open={logoutOpen} title="로그아웃" onClose={() => setLogoutOpen(false)}>
+        <p className={styles.modalDesc}>로그아웃하시겠어요?</p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => setLogoutOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={onConfirmLogout}>
+            로그아웃
           </Button>
         </div>
       </Modal>

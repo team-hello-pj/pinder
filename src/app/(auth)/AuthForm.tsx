@@ -1,7 +1,11 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { ROUTES } from '@/constants';
+import { loginUser, registerUser } from '@/lib/auth';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Button } from '@/components/ui';
 
 import styles from './AuthForm.module.css';
@@ -18,11 +22,13 @@ const COPY = {
 /**
  * 로그인 / 회원가입 공용 폼.
  *
- * TODO(인증 담당): 현재는 폼 검증까지만 동작하고 실제 인증은 붙어 있지 않다.
- * 레거시는 localStorage(`pnder-users`, `pd-session`)로 흉내만 냈으므로,
- * 백엔드 또는 NextAuth 를 붙일 때 handleSubmit 안쪽만 교체하면 된다.
+ * 실제 백엔드는 없고 localStorage 기반 목업 인증(lib/auth.ts)으로 동작한다 —
+ * 회원가입하면 계정이 저장되고, 그 계정으로 로그인하면 세션이 시작돼 홈으로 이동한다.
+ * TODO(인증 담당): 실제 백엔드/NextAuth 연동 시 lib/auth.ts 의 두 함수만 API 호출로 교체.
  */
 export function AuthForm({ mode }: AuthFormProps) {
+  const router = useRouter();
+  const { login } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -44,9 +50,20 @@ export function AuthForm({ mode }: AuthFormProps) {
       setError('닉네임은 2자 이상 입력해주세요.');
       return;
     }
+
+    const result =
+      mode === 'signup'
+        ? registerUser(email, nickname.trim(), password)
+        : loginUser(email, password);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
     setError(null);
-    // TODO(인증 담당): 여기서 인증 API 를 호출한다.
-    setError('인증 연동은 아직 구현되지 않았습니다. docs/TEAM.md 의 담당자를 확인하세요.');
+    login();
+    router.push(ROUTES.home);
   };
 
   return (

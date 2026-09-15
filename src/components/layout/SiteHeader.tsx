@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { MAIN_NAV, ROUTES } from '@/constants';
+import { useSession } from '@/components/providers/SessionProvider';
 
 import { Logo } from './Logo';
 import { MobileMenu } from './MobileMenu';
@@ -17,6 +18,7 @@ import styles from './SiteHeader.module.css';
  */
 export function SiteHeader() {
   const pathname = usePathname();
+  const { isLoggedIn } = useSession();
 
   return (
     <header className={styles.header}>
@@ -44,8 +46,8 @@ export function SiteHeader() {
           <div className={styles.desktopOnly}>
             <NotificationBell />
           </div>
-          <Link href={ROUTES.login} className={styles.loginBtn}>
-            로그인
+          <Link href={isLoggedIn ? ROUTES.myPage : ROUTES.login} className={styles.loginBtn}>
+            {isLoggedIn ? '마이페이지' : '로그인'}
           </Link>
           <MobileMenu />
         </div>
