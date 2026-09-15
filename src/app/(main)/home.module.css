@@ -1,0 +1,146 @@
+.page {
+  max-width: var(--pd-content-max);
+  margin: 0 auto;
+  padding: var(--pd-space-7) var(--pd-space-5) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--pd-space-4);
+}
+
+.badge {
+  background: var(--pd-chip-bg);
+  color: var(--pd-text-sub);
+  border-radius: var(--pd-radius-pill);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(32px, 6vw, 54px);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+.brand {
+  color: var(--pd-brand-accent);
+}
+
+.lead {
+  margin: 0;
+  font-size: 16px;
+  color: var(--pd-text-sub);
+  max-width: 560px;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--pd-space-3);
+  margin-top: var(--pd-space-2);
+}
+
+.primaryCta {
+  background: var(--pd-brand);
+  color: var(--pd-brand-ink);
+  border-radius: var(--pd-radius-sm);
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.primaryCta:hover {
+  background: var(--pd-brand-strong);
+  color: var(--pd-brand-ink);
+}
+
+.secondaryCta {
+  border: 1px solid var(--pd-border);
+  color: var(--pd-text);
+  border-radius: var(--pd-radius-sm);
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.secondaryCta:hover {
+  color: var(--pd-text);
+  background: var(--pd-row-hover);
+}
+
+.section,
+.closing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pd-space-5);
+}
+
+.closing {
+  align-items: center;
+  text-align: center;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--pd-space-4);
+}
+
+@media (max-width: 767px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stepCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pd-space-2);
+}
+
+.stepNo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--pd-brand);
+  color: var(--pd-brand-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cardBody {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pd-text-sub);
+}

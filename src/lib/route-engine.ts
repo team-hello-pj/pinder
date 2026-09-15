@@ -1,0 +1,128 @@
+import { OUTDOOR_CATEGORIES } from '@/constants';
+import type { Place, TransportMode } from '@/types';
+
+/**
+ * 규칙 기반 경로 재조정 엔진.
+ *
+ * 레거시 프로토타입(legacy/Route Planner App.dc.html)의 MOCK 로직을 그대로 옮겼다.
+ * 실제 서비스에서는 이 파일의 함수 본문만 지도/날씨/교통 API 기반 로직으로 교체하면 되고,
+ * 호출하는 화면 코드는 건드릴 필요가 없다. 입출력 형태를 바꾸지 말 것.
+ */
+
+export interface AdjustResult {
+  places: Place[];
+  segments: TransportMode[];
+}
+
+const priorityWeight = (p: Place): number =>
+  p.priority === 'high' ? 0 : p.priority === 'low' ? 2 : 1;
+
+const isBadWeather = (p: Place): boolean => p.weather === 'rain' || p.weather === 'snow';
+
+/** "상황 변경" 모달에서 고른 조건에 따라 방문 순서와 이동수단을 다시 계산한다. */
+export function applySituationAdjustment(
+  situation: string,
+  sub: string | null,
+  severityWeight: number,
+  places: Place[],
+  segments: TransportMode[],
+): AdjustResult {
+  let newPlaces = [...places];
+  let newSegments = [...segments];
+
+  const toTransitIf = (modes: TransportMode[]): TransportMode[] =>
+    newSegments.map((m) => (modes.includes(m) ? 'transit' : m));
+
+  if (situation === 'luggage') {
+    if (severityWeight >= 3) newSegments = newSegments.map(() => 'car');
+    else if (severityWeight === 2) newSegments = toTransitIf(['walk', 'bike']);
+    else newSegments = newSegments.map((m) => (m === 'walk' ? 'transit' : m));
+  } else if (situation === 'weather') {
+    if (sub === 'typhoon' && severityWeight >= 3) {
+      // 태풍 + 매우 불편: 실외 방문지를 뒤로 미루고 전 구간을 대중교통으로 바꾼다.
+      const indexed = newPlaces.map((p, i) => ({ p, i }));
+      indexed.sort((a, b) => {
+        const oa = OUTDOOR_CATEGORIES.includes(a.p.category) ? 1 : 0;
+        const ob = OUTDOOR_CATEGORIES.includes(b.p.category) ? 1 : 0;
+        if (oa !== ob) return oa - ob;
+        return a.i - b.i;
+      });
+      newPlaces = indexed.map((x) => x.p);
+      newSegments = new Array(Math.max(0, newPlaces.length - 1)).fill('transit');
+    } else if (severityWeight >= 2) {
+      newSegments = toTransitIf(['walk', 'bike']);
+    } else {
+      newSegments = toTransitIf(['bike']);
+    }
+  } else if (situation === 'delay') {
+    // 지연: 우선순위가 높은 곳을 앞으로 당기고, 심하면 체류 시간을 줄인다.
+    const indexed = newPlaces.map((p, i) => ({ p, i }));
+    indexed.sort((a, b) => {
+      const wa = priorityWeight(a.p);
+      const wb = priorityWeight(b.p);
+      if (wa !== wb) return wa - wb;
+      return a.i - b.i;
+    });
+    newPlaces = indexed.map((x) => x.p);
+    if (severityWeight >= 2) {
+      const factor = severityWeight === 3 ? 0.6 : 0.8;
+      newPlaces = newPlaces.map((p) => ({
+        ...p,
+        duration: Math.max(5, Math.round(p.duration * factor)),
+      }));
+    }
+    newSegments = new Array(Math.max(0, newPlaces.length - 1)).fill(segments[0] ?? 'car');
+  } else if (situation === 'traffic') {
+    if (severityWeight >= 2) newSegments = toTransitIf(['car']);
+  }
+
+  return { places: newPlaces, segments: newSegments };
+}
+
+/**
+ * 자동 재조정: 우선순위 → 악천후 실외 페널티 순으로 방문지를 정렬하고,
+ * 짐/날씨 조건에 맞지 않는 이동수단을 보정한다.
+ */
+export function computeAutoAdjustment(places: Place[], segments: TransportMode[]): AdjustResult {
+  if (places.length < 2) return { places, segments };
+
+  const outdoorPenalty = (p: Place): number =>
+    isBadWeather(p) && OUTDOOR_CATEGORIES.includes(p.category) ? 1 : 0;
+
+  const indexed = places.map((p, i) => ({ p, i }));
+  indexed.sort((a, b) => {
+    const wa = priorityWeight(a.p);
+    const wb = priorityWeight(b.p);
+    if (wa !== wb) return wa - wb;
+    const oa = outdoorPenalty(a.p);
+    const ob = outdoorPenalty(b.p);
+    if (oa !== ob) return oa - ob;
+    return a.i - b.i;
+  });
+
+  const newPlaces = indexed.map((x) => x.p);
+  const oldToNew = new Map(indexed.map((x, newI) => [x.i, newI]));
+  const newSegments: TransportMode[] = new Array(Math.max(0, newPlaces.length - 1)).fill('car');
+
+  // 순서가 바뀌어도 인접 관계가 유지된 구간은 원래 이동수단을 그대로 물려받는다.
+  for (let i = 0; i < segments.length; i++) {
+    const newFrom = oldToNew.get(i);
+    const newTo = oldToNew.get(i + 1);
+    if (newFrom != null && newTo != null && Math.abs(newFrom - newTo) === 1) {
+      newSegments[Math.min(newFrom, newTo)] = segments[i];
+    }
+  }
+
+  for (let i = 0; i < newSegments.length; i++) {
+    const from = newPlaces[i];
+    const to = newPlaces[i + 1];
+    const hasPack = Boolean(from.packItems || to.packItems);
+    const hasBadWeather = isBadWeather(from) || isBadWeather(to);
+    if (hasPack && newSegments[i] === 'walk') newSegments[i] = 'car';
+    else if (hasBadWeather && (newSegments[i] === 'walk' || newSegments[i] === 'bike')) {
+      newSegments[i] = 'transit';
+    }
+  }
+
+  return { places: newPlaces, segments: newSegments };
+}

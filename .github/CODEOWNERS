@@ -1,0 +1,19 @@
+# 파일 경로별 기본 리뷰어. GitHub 사용자명으로 바꿔서 쓸 것.
+# 담당 화면은 docs/TEAM.md 와 같은 내용을 유지한다.
+
+# 공통 기반 — 변경 시 팀 전체 리뷰
+/src/components/    @팀장
+/src/lib/           @팀장
+/src/styles/        @팀장
+/src/constants/     @팀장
+/src/types/         @팀장
+/.github/           @팀장
+/docs/              @팀장
+
+# 화면별 담당
+# /src/app/(main)/planner/    @담당자
+# /src/app/(main)/routes/     @담당자
+# /src/app/(main)/explore/    @담당자
+# /src/app/(main)/community/  @담당자
+# /src/app/(main)/my-page/    @담당자
+# /src/app/(auth)/            @담당자

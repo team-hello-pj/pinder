@@ -1,0 +1,20 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: var(--pd-space-7) var(--pd-space-4);
+}
+
+.inner {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pd-space-6);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

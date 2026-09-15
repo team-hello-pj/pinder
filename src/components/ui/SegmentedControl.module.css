@@ -1,0 +1,35 @@
+.group {
+  display: inline-flex;
+  gap: var(--pd-space-1);
+  padding: var(--pd-space-1);
+  background: var(--pd-chip-bg);
+  border-radius: var(--pd-radius-sm);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--pd-text-sub);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.item:hover {
+  color: var(--pd-text);
+}
+
+.active {
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  font-weight: 700;
+  box-shadow: var(--pd-shadow-sm);
+}

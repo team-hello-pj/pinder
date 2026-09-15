@@ -1,0 +1,54 @@
+.dialog {
+  border: 1px solid var(--pd-border);
+  border-radius: var(--pd-radius-lg);
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  padding: 0;
+  width: min(480px, calc(100vw - 32px));
+  box-shadow: var(--pd-shadow-lg);
+}
+
+.dialog::backdrop {
+  background: rgba(15, 15, 16, 0.45);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pd-space-3);
+  padding: var(--pd-space-4) var(--pd-space-5);
+  border-bottom: 1px solid var(--pd-border);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.close {
+  border: none;
+  background: transparent;
+  color: var(--pd-text-sub);
+  font-size: 15px;
+  cursor: pointer;
+  padding: var(--pd-space-1);
+  border-radius: var(--pd-radius-sm);
+}
+
+.close:hover {
+  background: var(--pd-row-hover);
+}
+
+.body {
+  padding: var(--pd-space-5);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pd-space-2);
+  padding: var(--pd-space-4) var(--pd-space-5);
+  border-top: 1px solid var(--pd-border);
+}

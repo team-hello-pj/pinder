@@ -1,0 +1,76 @@
+/*
+ * p:nder 디자인 토큰
+ * 레거시 프로토타입(legacy/*.dc.html)의 LIGHT / DARK 팔레트를 CSS 변수로 옮긴 것.
+ * 색상 값을 바꿀 때는 반드시 이 파일만 수정한다. 컴포넌트에 하드코딩 금지.
+ */
+
+:root {
+  /* Brand */
+  --pd-brand: #7bcb93;
+  --pd-brand-strong: #63b37e;
+  --pd-brand-ink: #12321f;
+  --pd-brand-accent: #26ab4e;
+  --pd-link: #1f7a44;
+  --pd-link-hover: #146030;
+
+  /* Surface / text (light) */
+  --pd-bg: #ffffff;
+  --pd-text: #171719;
+  --pd-text-sub: rgba(23, 23, 25, 0.6);
+  --pd-border: #e1e2e4;
+  --pd-header-bg: rgba(255, 255, 255, 0.82);
+  --pd-card-bg: #ffffff;
+  --pd-chip-bg: #f4f4f5;
+  --pd-row-hover: #f7f7f8;
+
+  /* Status */
+  --pd-danger: #e52222;
+  --pd-danger-bg: #feecec;
+  --pd-info: #0054d1;
+  --pd-info-bg: #eaf2fe;
+  --pd-warn: #d47800;
+  --pd-warn-bg: #fef4e6;
+
+  /* Radius */
+  --pd-radius-sm: 8px;
+  --pd-radius-md: 12px;
+  --pd-radius-lg: 16px;
+  --pd-radius-pill: 999px;
+
+  /* Spacing scale */
+  --pd-space-1: 4px;
+  --pd-space-2: 8px;
+  --pd-space-3: 12px;
+  --pd-space-4: 16px;
+  --pd-space-5: 24px;
+  --pd-space-6: 32px;
+  --pd-space-7: 48px;
+
+  /* Elevation */
+  --pd-shadow-sm: 0 1px 8px rgba(23, 23, 25, 0.04);
+  --pd-shadow-md: 0 4px 8px -2px rgba(23, 23, 25, 0.12);
+  --pd-shadow-lg: 0 12px 24px -6px rgba(23, 23, 25, 0.18);
+
+  /* Layout */
+  --pd-header-height: 64px;
+  --pd-content-max: 1200px;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --pd-bg: #0f0f10;
+  --pd-text: #f7f7f8;
+  --pd-text-sub: rgba(247, 247, 248, 0.62);
+  --pd-border: #292a2d;
+  --pd-header-bg: rgba(15, 15, 16, 0.72);
+  --pd-card-bg: #17181a;
+  --pd-chip-bg: rgba(255, 255, 255, 0.08);
+  --pd-row-hover: rgba(255, 255, 255, 0.06);
+
+  --pd-brand-ink: #f7f7f8;
+  --pd-link: #7bcb93;
+  --pd-link-hover: #95c898;
+
+  color-scheme: dark;
+}

@@ -1,0 +1,73 @@
+.base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pd-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--pd-radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+.base:hover {
+  opacity: 0.92;
+}
+
+.base:active {
+  transform: scale(0.98);
+}
+
+.base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sm {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+
+.md {
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+.lg {
+  padding: 13px 20px;
+  font-size: 15px;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.primary {
+  background: var(--pd-brand);
+  color: var(--pd-brand-ink);
+}
+
+.secondary {
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  border-color: var(--pd-border);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--pd-text-sub);
+}
+
+.ghost:hover {
+  background: var(--pd-row-hover);
+}
+
+.danger {
+  background: var(--pd-danger-bg);
+  color: var(--pd-danger);
+}

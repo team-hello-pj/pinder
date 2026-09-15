@@ -1,0 +1,25 @@
+.toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    filter 0.1s ease,
+    transform 0.06s ease;
+}
+
+.toggle:hover {
+  filter: brightness(1.05);
+  opacity: 0.85;
+}
+
+.toggle:active {
+  transform: scale(0.95);
+}

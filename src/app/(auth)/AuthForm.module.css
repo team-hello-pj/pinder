@@ -1,0 +1,48 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pd-space-4);
+}
+
+.title {
+  margin: 0 0 var(--pd-space-2);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+}
+
+.input {
+  border: 1px solid var(--pd-border);
+  border-radius: var(--pd-radius-sm);
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--pd-brand);
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pd-danger);
+  background: var(--pd-danger-bg);
+  border-radius: var(--pd-radius-sm);
+  padding: 10px 12px;
+}
