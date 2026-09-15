@@ -56,6 +56,10 @@ export interface SavedRoute {
   tripStart: string;
   tripEnd: string;
   updatedAt: string;
+  /** 함께 편집 중인 팀원 닉네임. legacy 의 `members` 를 그대로 옮김 (본인 제외). */
+  members?: string[];
+  /** 제목을 사용자가 직접 바꿨는지 — 자동 생성 제목과 구분할 때 쓴다. */
+  customName?: boolean;
 }
 
 export type MemberRole = 'creator' | 'editor' | 'viewer';
