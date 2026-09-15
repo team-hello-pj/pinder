@@ -58,4 +58,14 @@ export function removeRoute(id: string): SavedRoute[] {
   return routes;
 }
 
+/** 회원 탈퇴 시 세션 플래그를 지운다. */
+export function clearSession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEYS.session);
+  } catch {
+    // 저장소 접근이 막혀도 탈퇴 흐름 자체는 계속 진행돼야 한다.
+  }
+}
+
 export const storage = { read, write };
