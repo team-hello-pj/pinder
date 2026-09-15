@@ -36,7 +36,8 @@ a:hover{color:#146030}
 .rp-rail:active{transform:scale(0.95)}
 .rp-ai-fab{transition:transform .15s,box-shadow .15s}
 .rp-ai-fab:hover{transform:translateY(-2px);box-shadow:0px 6px 12px -3px rgba(23,23,25,.18)}
-.rp-ai-panel{position:fixed;right:20px;bottom:20px;top:auto;left:auto;width:340px;max-width:calc(100vw - 40px);height:min(560px,calc(100vh - 40px));background:#fff;border:1px solid #E1E2E4;border-radius:16px;box-shadow:0px 12px 24px -6px rgba(23,23,25,.18);z-index:45;display:flex;flex-direction:column;transform:translateY(16px) scale(.97);opacity:0;pointer-events:none;transition:transform .22s cubic-bezier(.4,0,.2,1),opacity .18s}
+.rp-ai-panel{position:fixed;right:20px;bottom:20px;top:auto;left:auto;width:340px;max-width:calc(100vw - 40px);height:min(560px,calc(100vh - 40px));background:#fff;border:1px solid #E1E2E4;border-radius:16px;box-shadow:0px 12px 24px -6px rgba(23,23,25,.18);z-index:45;display:flex;flex-direction:column;transform:translateY(16px) scale(.97);opacity:0;pointer-events:none;transition:transform .22s cubic-bezier(.4,0,.2,1),opacity .18s,left .3s ease}
+.rp-shell.rp-panel-collapsed .rp-ai-panel{left:72px;right:20px;width:auto}
 .rp-ai-panel-open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
 @media (max-width:640px){
   .rp-ai-panel{left:10px;right:10px;bottom:0;width:auto;max-width:none;height:70vh;border-radius:16px 16px 0 0;transform:translateY(100%);max-height:70vh}
@@ -548,6 +549,7 @@ a:hover{color:#146030}
       <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
         <div onClick="{{ openSituationModal }}" style="height:40px;padding:0 14px;border-radius:10px;background:{{ situationBtnBg }};display:flex;align-items:center;font-size:13px;font-weight:600;color:{{ situationBtnColor }};cursor:pointer;white-space:nowrap;border:1px solid {{ situationBtnBorder }}">변수 추가</div>
       </sc-if>
+      <div style="flex-basis:100%;height:0"></div>
       <div onClick="{{ toggleActivityLog }}" style="height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;font-size:13px;font-weight:600;color:{{ c.text }};cursor:pointer;white-space:nowrap;border:1px solid {{ actionBtnBorder }};background:{{ actionBtnBg }}">활동 로그</div>
       <div onClick="{{ saveOrRemoveAction }}" style="height:40px;padding:0 14px;border-radius:10px;border:1px solid {{ actionBtnBorder }};display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:{{ c.text }};cursor:pointer;white-space:nowrap;background:{{ actionBtnBg }}">
         <span>{{ saveLabelText }}</span>

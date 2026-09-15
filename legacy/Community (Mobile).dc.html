@@ -45,6 +45,7 @@ a:hover{color:#146030}
   body{overflow-x:hidden;overflow-y:scroll!important}
   .cm-nav-links{display:none!important}
   .cm-mobile-menu-wrap{display:block!important}
+  .cm-search-box{flex-basis:100%!important;width:100%!important}
   .cm-sort-row{flex-wrap:nowrap!important;flex-shrink:0!important;display:grid!important;grid-template-columns:auto 1fr auto!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important}
   .cm-sort-row>div{flex-shrink:0!important;white-space:nowrap!important;min-width:0!important}
   .cm-sort-row>div:first-child{grid-column:1}
@@ -126,7 +127,7 @@ a:hover{color:#146030}
         <div style="font-size:26px;font-weight:800;color:{{ c.text }};letter-spacing:-0.01em;margin-bottom:4px">커뮤니티</div>
         <div style="font-size:13.5px;color:{{ c.textSub }}">다녀온 여행지의 감상평을 공유하고<br>다양한 여행 꿀팁을 나누어보세요</div>
       </div>
-      <div style="position:relative;width:320px;flex-shrink:0">
+      <div class="cm-search-box" style="position:relative;width:320px;max-width:100%;flex-shrink:0;flex:1 1 260px">
         <input value="{{ searchQuery }}" onChange="{{ onSearchChange }}" placeholder="게시글 키워드로 검색 (여행지, 내용 등)" style="width:100%;box-sizing:border-box;border:1px solid {{ c.border }};border-radius:10px;padding:10px 36px 10px 42px;font-size:13px;font-family:inherit;color:{{ c.text }};outline:none;background:{{ c.cardBg }};height:40px">
         <img src="./uploads/pinder_ant.png" alt="" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 25px; height: 25px; object-fit: contain; opacity: .65; pointer-events: none; filter: {{ c.iconFilter }}">
         <img src="./search-icon.png" alt="검색" onClick="{{ onSearchSubmit }}" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; object-fit: contain; opacity: .55; cursor: pointer; filter: {{ c.iconFilter }}">
