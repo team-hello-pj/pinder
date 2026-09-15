@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ROUTES } from '@/constants';
 import { loginUser } from '@/lib/auth';
+import { renderGoogleLoginButton } from '@/lib/google-auth';
 import { STORAGE_KEYS, storage } from '@/lib/storage';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Logo } from '@/components/layout/Logo';
@@ -13,11 +14,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 import styles from './login.module.css';
 
-/**
- * legacy/Login Screen.dc.html 을 그대로 이식.
- * Google 로그인은 실제 OAuth 클라이언트 설정이 없어 버튼만 두고, 누르면 안내만 띄운다
- * (레거시도 서버 검증 없이 "로그인 성공 신호"로만 썼던 자리라, 우리도 동일하게 미구현으로 남긴다).
- */
+/** legacy/Login Screen.dc.html 을 그대로 이식. Google 로그인은 실제 Identity Services 로 동작한다. */
 export function LoginClient() {
   const router = useRouter();
   const { login } = useSession();
@@ -26,7 +23,9 @@ export function LoginClient() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [saveId, setSaveId] = useState(false);
-  const [googleNotice, setGoogleNotice] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+  const [googleUserLabel, setGoogleUserLabel] = useState('');
+  const googleSlotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // localStorage 는 클라이언트에만 있어 서버 렌더와 맞출 수 없으므로 마운트 후 한 번만 반영한다.
@@ -36,6 +35,21 @@ export function LoginClient() {
       setEmail(saved);
       setSaveId(true);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!googleSlotRef.current) return;
+    renderGoogleLoginButton(
+      googleSlotRef.current,
+      (profile) => {
+        setGoogleError('');
+        setGoogleUserLabel(profile.name ?? profile.email ?? '구글 계정');
+        login();
+        setTimeout(() => router.push(ROUTES.planner), 500);
+      },
+      (message) => setGoogleError(message),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 버튼은 마운트 시 한 번만 렌더링한다
   }, []);
 
   const onEmailChange = (value: string) => {
@@ -164,29 +178,13 @@ export function LoginClient() {
       </div>
 
       <div className={styles.googleSection}>
-        <button type="button" className={styles.googleBtn} onClick={() => setGoogleNotice(true)}>
-          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-            <path
-              fill="#FFC107"
-              d="M43.6 20.5H42V20.4H24v7.2h11.3c-1.6 4.7-6.1 8.1-11.3 8.1-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.1-5.1C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"
-            />
-            <path
-              fill="#FF3D00"
-              d="M6.3 14.7l6 4.4C13.9 15.3 18.6 12 24 12c3.1 0 5.9 1.2 8 3.1l5.1-5.1C34 6.1 29.3 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"
-            />
-            <path
-              fill="#4CAF50"
-              d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.4 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.2 4.8C9.5 39.6 16.2 44 24 44z"
-            />
-            <path
-              fill="#1976D2"
-              d="M43.6 20.5H42V20.4H24v7.2h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.2 5.2C40.8 35.7 44 30.4 44 24c0-1.2-.1-2.4-.4-3.5z"
-            />
-          </svg>
-          Google로 로그인
-        </button>
-        {googleNotice ? (
-          <p className={styles.googleNotice}>Google 로그인은 아직 준비 중이에요.</p>
+        <div ref={googleSlotRef} className={styles.googleSlot} />
+        {googleError ? <p className={styles.googleNoticeError}>{googleError}</p> : null}
+        {googleUserLabel ? (
+          <div className={styles.googleSuccess}>
+            <span className={styles.googleSuccessAvatar}>{googleUserLabel.slice(0, 1)}</span>
+            <span>{googleUserLabel}(으)로 로그인되었습니다</span>
+          </div>
         ) : null}
       </div>
 
