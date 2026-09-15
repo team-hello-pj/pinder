@@ -36,7 +36,7 @@
       <div style="display:flex;align-items:center;gap:10px">
       <div onClick="{{ toggleTheme }}" title="테마 전환" style="cursor:pointer;width:36px;height:36px;border-radius:10px;border:1px solid {{ c.border }};display:flex;align-items:center;justify-content:center;font-size:15px">
         <sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}">☀</sc-if>
-        <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}">☾</sc-if>
+        <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="./uploads/moon-icon.png" alt="" style="width:16px;height:16px;object-fit:contain"></sc-if>
       </div>
       </div>
     </div>
@@ -44,7 +44,7 @@
 
   <div class="mp-content" style="max-width:640px;margin:0 auto;padding:32px 20px 80px;box-sizing:border-box">
     <div style="text-align:right;margin-bottom:16px">
-      <a href="./main(home).dc.html" style="font-size:13px;font-weight:600;color:{{ c.textSub }};text-decoration:none">← 홈으로</a>
+      
     </div>
     <div style="margin-bottom:24px">
       <div style="font-size:24px;font-weight:800;letter-spacing:-0.01em">마이페이지</div>
@@ -94,12 +94,8 @@
     </div>
 
     <div style="font-size:12px;font-weight:700;color:{{ c.textSub }};letter-spacing:.04em;margin-bottom:8px;padding:0 4px">계정 관리</div>
-    <div style="border:1px solid {{ c.border }};border-radius:14px;background:{{ c.cardBg }};overflow:hidden">
-      <div class="mp-row" onClick="{{ onOpenWithdraw }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer">
-        <div style="font-size:14px;font-weight:600;color:{{ c.dangerText }}">회원 탈퇴</div>
-        <div style="color:{{ c.dangerText }};font-size:16px;opacity:.6">›</div>
-      </div>
-    </div>
+    <div onClick="{{ onOpenLogout }}" style="text-align:center;padding:12px 16px;border-radius:10px;background:{{ c.cardBg }};border:1px solid #E5E7EB;color:{{ c.textSub }};font-size:14px;font-weight:600;cursor:pointer">로그아웃</div>
+    <div onClick="{{ onOpenWithdraw }}" style="margin-top:14px;text-align:center;padding:12px 16px;border-radius:10px;background:{{ c.cardBg }};border:1px solid #E5E7EB;color:{{ c.dangerText }};font-size:14px;font-weight:600;cursor:pointer">회원 탈퇴</div>
   </div>
 
   <sc-if value="{{ editNicknameOpen }}" hint-placeholder-val="{{ false }}">
@@ -109,11 +105,12 @@
         <div style="font-size:11.5px;color:{{ c.textSub }}">닉네임</div>
         <div style="display:flex;gap:8px">
           <input value="{{ nicknameDraft }}" onChange="{{ onNicknameDraftChange }}" maxlength="12" style="flex:1;min-width:0;border:1px solid {{ c.border }};border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;color:{{ c.text }};background:{{ c.bg }};outline:none">
-          <div onClick="{{ onCheckNickname }}" style="flex-shrink:0;padding:0 14px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;background:{{ c.checkBg }};color:{{ c.checkColor }}">{{ checkButtonLabel }}</div>
+          <div onClick="{{ onCheckNickname }}" style="flex-shrink: 0; padding: 0 14px; border-radius: 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; background: {{ checkBg }}; color: {{ checkColor }}; border-width: 1px; border-style: solid; border-color: #D3D3D3">{{ checkButtonLabel }}</div>
         </div>
         <sc-if value="{{ nicknameCheckMessage }}" hint-placeholder-val="{{ false }}">
           <div style="font-size:12.5px;font-weight:600;color:{{ nicknameCheckColor }};display:flex;align-items:center;gap:5px">
             <sc-if value="{{ nicknameCheckIsSuccess }}" hint-placeholder-val="{{ false }}"><img src="./uploads/check-icon-brand.png" alt="" style="width:12px;height:12px;object-fit:contain"></sc-if>
+            <sc-if value="{{ nicknameCheckIsSameAsCurrent }}" hint-placeholder-val="{{ false }}"><span style="font-weight:800">✕</span></sc-if>
             {{ nicknameCheckMessage }}
           </div>
         </sc-if>
@@ -167,6 +164,19 @@
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;flex-shrink:0">
           <div onClick="{{ onCloseTerms }}" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#7BCB93;color:#12321F">확인</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ logoutOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(23,23,25,.4);z-index:49;display:flex;align-items:center;justify-content:center;padding:20px" onClick="{{ onCloseLogout }}">
+      <div class="mp-modal-card" style="width:320px;max-width:100%;background:{{ c.cardBg }};border-radius:16px;padding:22px;box-shadow:0 20px 50px -10px rgba(0,0,0,.3);box-sizing:border-box" onClick="{{ stopPropagation }}">
+        <div style="font-size:16px;font-weight:800;margin-bottom:8px">로그아웃</div>
+        <div style="font-size:13px;color:{{ c.text }};line-height:1.6;margin-bottom:18px">로그아웃하시겠어요?</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <div onClick="{{ onCloseLogout }}" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid {{ c.border }};color:{{ c.text }}">취소</div>
+          <div onClick="{{ onConfirmLogout }}" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#7BCB93;color:#12321F">로그아웃</div>
         </div>
       </div>
     </div>
@@ -265,6 +275,16 @@ class Component extends DCLogic {
   onOpenNotificationSettings = () => this.setState({ notificationSettingsOpen: true });
   onCloseNotificationSettings = () => this.setState({ notificationSettingsOpen: false });
   onToggleNotification = (key) => this.setState(s => ({ notifications: { ...s.notifications, [key]: !s.notifications[key] } }));
+  onOpenLogout = () => this.setState({ logoutOpen: true });
+  onCloseLogout = () => this.setState({ logoutOpen: false });
+  // 로그아웃은 로그인 상태/사용자 정보만 정리한다. '아이디 저장'(pd-saved-id)은 로그인 페이지 기능이므로 건드리지 않는다.
+  onConfirmLogout = () => {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem('pd-session');
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('pnder_google_logged_in');
+    } catch (e) {}
+    window.location.href = './Login Screen.dc.html';
+  };
   onOpenWithdraw = () => this.setState({ withdrawOpen: true, withdrawStep: 'confirm', withdrawError: false, withdrawAgreeChecked: false, blockedAgreeChecked: false });
   onCloseWithdraw = () => this.setState({ withdrawOpen: false });
   onToggleWithdrawAgree = () => this.setState(s => ({ withdrawAgreeChecked: !s.withdrawAgreeChecked }));
@@ -396,7 +416,7 @@ class Component extends DCLogic {
     }
     this.setState({ withdrawStep: 'success' });
   };
-  mockUser = () => ({ id: 'u1', nickname: this.state.nickname, email: 'yusoo@example.com' });
+  mockUser = () => ({ id: 'u1', nickname: this.state.nickname, email: 'yoosoo@example.com' });
 
   renderVals() {
     const isDark = this.state.theme === 'dark';
@@ -423,21 +443,44 @@ class Component extends DCLogic {
       editNicknameOpen: this.state.editNicknameOpen, onCloseEditNickname: this.onCloseEditNickname,
       nicknameDraft: this.state.nicknameDraft, onNicknameDraftChange: this.onNicknameDraftChange, onSaveNickname: this.onSaveNickname,
       onCheckNickname: this.onCheckNickname,
-      checkButtonLabel: this.state.nicknameChecking ? '확인 중...' : '중복 확인',
-      checkBg: isDark ? '#2E332D' : '#F2F6ED', checkColor: isDark ? '#8FE3A8' : '#1F7A44',
+      checkButtonLabel: (() => {
+        if (this.state.nicknameChecking) return '확인 중...';
+        const chk = this.state.nicknameCheck;
+        if (!chk || chk.forValue !== this.state.nicknameDraft.trim()) return '중복 확인';
+        if (chk.reason === 'ok') return '사용 가능';
+        return '중복 확인';
+      })(),
+      checkBg: (() => {
+        const chk = this.state.nicknameCheck;
+        const valid = chk && chk.forValue === this.state.nicknameDraft.trim();
+        if (valid && chk.reason === 'ok') return isDark ? '#1E3324' : '#EAF6EE';
+        if (valid && chk.reason === 'same_as_current') return isDark ? '#3A2323' : '#FDECEC';
+        return isDark ? '#2A2B2D' : '#F1F1F2';
+      })(),
+      checkColor: (() => {
+        const chk = this.state.nicknameCheck;
+        const valid = chk && chk.forValue === this.state.nicknameDraft.trim();
+        if (valid && chk.reason === 'ok') return isDark ? '#6FCB93' : '#1F8F4E';
+        if (valid && chk.reason === 'same_as_current') return '#D9534F';
+        return isDark ? '#B5B6B9' : '#5B5C60';
+      })(),
       nicknameCheckMessage: (() => {
         const chk = this.state.nicknameCheck;
         if (!chk || chk.forValue !== this.state.nicknameDraft.trim()) return '';
-        return (chk.available ? '' : '✕ ') + chk.message;
+        return chk.message;
       })(),
       nicknameCheckIsSuccess: (() => {
         const chk = this.state.nicknameCheck;
-        return !!(chk && chk.forValue === this.state.nicknameDraft.trim() && chk.available);
+        return !!(chk && chk.forValue === this.state.nicknameDraft.trim() && chk.reason === 'ok');
+      })(),
+      nicknameCheckIsSameAsCurrent: (() => {
+        const chk = this.state.nicknameCheck;
+        return !!(chk && chk.forValue === this.state.nicknameDraft.trim() && chk.reason === 'same_as_current');
       })(),
       nicknameCheckColor: (() => {
         const chk = this.state.nicknameCheck;
         if (!chk || chk.forValue !== this.state.nicknameDraft.trim()) return c.textSub;
-        return chk.available ? (isDark ? '#8FE3A8' : '#3F8F5B') : c.dangerText;
+        return chk.reason === 'ok' ? (isDark ? '#8FE3A8' : '#3F8F5B') : c.dangerText;
       })(),
       saveBtnBg: (() => {
         const chk = this.state.nicknameCheck;
@@ -449,6 +492,7 @@ class Component extends DCLogic {
         const canSave = chk && chk.forValue === this.state.nicknameDraft.trim() && chk.available;
         return canSave ? '#12321F' : c.textSub;
       })(),
+      logoutOpen: this.state.logoutOpen, onOpenLogout: this.onOpenLogout, onCloseLogout: this.onCloseLogout, onConfirmLogout: this.onConfirmLogout,
       withdrawOpen: this.state.withdrawOpen,
       onOpenWithdraw: this.onOpenWithdraw, onCloseWithdraw: this.onCloseWithdraw,
       onConfirmWithdraw: this.onConfirmWithdraw,
