@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CATEGORY_OPTIONS,
   CRITERIA_LABEL,
+  MODE_MAP,
   MODE_ORDER,
   SEVERITY_LEVELS,
   SITUATION_VARS,
@@ -25,6 +26,16 @@ import {
 import { fmtRange } from '@/lib/calendar';
 import { tripDayCount } from '@/lib/format';
 import { applySituationAdjustment, computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
+import {
+  buildRouteSignature,
+  computeDelayCost,
+  haversineKm,
+  solveWeightedOpenPathOrder,
+  sumPathCost,
+  type OptimalRouteResult,
+  type RouteOptimizationState,
+} from '@/lib/route-optimizer';
+import { fetchRouteWeights, type RouteVariableInput } from '@/lib/route-weights';
 import {
   createSchedule,
   deleteSchedule,
@@ -151,6 +162,15 @@ export function PlannerClient() {
   const [situationSeverity, setSituationSeverity] = useState<string | null>(null);
   const [situationFreeText, setSituationFreeText] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ---- 출발지 선택 / AI 가중치 기반 최적경로 계산 ----
+  const [originId, setOriginId] = useState<number | null>(null);
+  const [routeOptimization, setRouteOptimization] = useState<RouteOptimizationState | null>(null);
+  const [originSelectOpen, setOriginSelectOpen] = useState(false);
+  const [originChoiceId, setOriginChoiceId] = useState<number | null>(null);
+  const [originConfirmOpen, setOriginConfirmOpen] = useState(false);
+  const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
+  const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
 
   // ---- 협업 / 권한 ----
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
@@ -473,6 +493,9 @@ export function PlannerClient() {
       else if (addConfirmOpen) setAddConfirmOpen(false);
       else if (situationModalOpen) setSituationModalOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
+      else if (noVariableModalOpen) setNoVariableModalOpen(false);
+      else if (originConfirmOpen) setOriginConfirmOpen(false);
+      else if (originSelectOpen) setOriginSelectOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -484,6 +507,9 @@ export function PlannerClient() {
     addConfirmOpen,
     situationModalOpen,
     deleteConfirmOpen,
+    originSelectOpen,
+    originConfirmOpen,
+    noVariableModalOpen,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -785,13 +811,6 @@ export function PlannerClient() {
     for (let idx = 0; idx < segments.length; idx++) {
       for (const mode of MODE_ORDER) fetchSegmentRouteForModeWithCriteria(idx, mode, c);
     }
-  };
-
-  const recalcAndSearch = () => {
-    if (loading) return;
-    setLoading(true);
-    setTimeout(() => setLoading(false), 300);
-    searchAllRoutes();
   };
 
   // ---- 상황 변경 ----
@@ -1261,6 +1280,259 @@ export function PlannerClient() {
     const sName = encodeURIComponent(prev.name || '출발지');
     const eName = encodeURIComponent(p.name || '도착지');
     return `https://map.kakao.com/link/from/${sName},${prev.y},${prev.x}/to/${eName},${p.y},${p.x}`;
+  };
+
+  // ---- 변수(상황 변경 값 또는 자유 텍스트) → Gemini 에 보낼 형태 ----
+  const currentVariableInput = useCallback((): RouteVariableInput | null => {
+    const freeText = situationFreeText.trim();
+    if (freeText) {
+      return { id: 'freeText', label: '자유 설명', freeText };
+    }
+    if (!situationVar || !situationSeverity) return null;
+    if (situationVar === 'weather' && !situationSub) return null;
+    const varMeta = SITUATION_VARS.find((v) => v.id === situationVar);
+    const sevMeta = SEVERITY_LEVELS.find((s) => s.id === situationSeverity);
+    if (!varMeta || !sevMeta) return null;
+    const subMeta = situationVar === 'weather' ? WEATHER_SUBS.find((w) => w.id === situationSub) : null;
+    return {
+      id: varMeta.id,
+      label: varMeta.label,
+      sub: subMeta ? { id: subMeta.id, label: subMeta.label } : null,
+      severity: { id: sevMeta.id, label: sevMeta.label, weight: sevMeta.weight },
+    };
+  }, [situationFreeText, situationVar, situationSub, situationSeverity]);
+
+  const currentVariableKey = useCallback((): string => {
+    const v = currentVariableInput();
+    if (!v) return 'none';
+    if (v.freeText) return `free:${v.freeText}`;
+    return `${v.id}|${v.sub?.id ?? ''}|${v.severity?.id ?? ''}`;
+  }, [currentVariableInput]);
+
+  // ---- AI 가중치 기반 최적경로 계산 ----
+  const applyOptimizedOrder = useCallback((result: OptimalRouteResult, sourcePlaces: Place[]) => {
+    const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
+    const ordered = result.placeIds
+      .map((id) => byId.get(id))
+      .filter((p): p is Place => Boolean(p));
+    const orderedIds = new Set(ordered.map((p) => p.id));
+    const rest = sourcePlaces.filter((p) => !orderedIds.has(p.id));
+    const next = [...ordered, ...rest];
+    setPlaces(next);
+    setSegments((segs) => resizeSegments(next, segs));
+  }, []);
+
+  const runOptimalRoute = useCallback(
+    async (origin: number) => {
+      const originPlace = places.find((p) => p.id === origin);
+      if (!originPlace) return;
+      if (originPlace.x == null || originPlace.y == null) {
+        showToast('출발지의 좌표 정보가 없어 경로를 계산할 수 없어요');
+        return;
+      }
+
+      const variableKey = currentVariableKey();
+      const signature = buildRouteSignature(origin, places, variableKey);
+      const reusable =
+        routeOptimization && routeOptimization.signature === signature ? routeOptimization : null;
+
+      setLoading(true);
+      try {
+        let stateToApply: RouteOptimizationState;
+
+        if (reusable) {
+          stateToApply = reusable;
+          logActivity('저장된 최적 경로 결과를 사용했습니다');
+        } else {
+          const others = places.filter((p) => p.id !== origin && p.x != null && p.y != null);
+          const nodes = [originPlace, ...others];
+
+          if (nodes.length < 2) {
+            const trivial: OptimalRouteResult = {
+              placeIds: nodes.map((p) => p.id),
+              totalDistanceKm: 0,
+              totalMinutes: 0,
+            };
+            const fallbackWeights = { metricWeight: 1, comfortWeight: 0 };
+            stateToApply = {
+              signature,
+              originId: origin,
+              weights: fallbackWeights,
+              distance: trivial,
+              time: trivial,
+            };
+          } else {
+            const fetchLeg = async (a: Place, b: Place, crit: RouteCriteria): Promise<RouteLeg> => {
+              const key = `car_${a.id}_${b.id}_${crit}`;
+              const existing = routeCache[key];
+              if (existing && !('failed' in existing)) return existing;
+              try {
+                const leg = await fetchRouteLeg('car', {
+                  originX: a.x as number,
+                  originY: a.y as number,
+                  destX: b.x as number,
+                  destY: b.y as number,
+                  priority: crit,
+                });
+                setRouteCache((prev) => ({ ...prev, [key]: leg }));
+                return leg;
+              } catch (err) {
+                console.error('optimal route leg fetch failed:', err);
+                const distanceKm = haversineKm(
+                  { x: a.x as number, y: a.y as number },
+                  { x: b.x as number, y: b.y as number },
+                );
+                const fallback: RouteLeg = {
+                  distanceKm,
+                  minutes: Math.round(distanceKm * MODE_MAP.car.minPerKm),
+                  transfers: null,
+                  pathPoints: [],
+                };
+                setRouteCache((prev) => ({ ...prev, [key]: fallback }));
+                return fallback;
+              }
+            };
+
+            const buildLegMatrix = async (crit: RouteCriteria) => {
+              const size = nodes.length;
+              const matrix: (RouteLeg | null)[][] = Array.from({ length: size }, () =>
+                new Array(size).fill(null),
+              );
+              const tasks: Promise<void>[] = [];
+              for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                  if (i === j) continue;
+                  tasks.push(
+                    fetchLeg(nodes[i], nodes[j], crit).then((leg) => {
+                      matrix[i][j] = leg;
+                    }),
+                  );
+                }
+              }
+              await Promise.all(tasks);
+              return matrix;
+            };
+
+            const toCost = (legMatrix: (RouteLeg | null)[][], field: 'distanceKm' | 'minutes') =>
+              legMatrix.map((row) => row.map((leg) => leg?.[field] ?? 0));
+
+            // 지도 API 실측 데이터(car 경로)와 Gemini 가중치를 동시에 가져온다 — 서로 독립적이라 병렬 호출.
+            const [weights, distLegs, timeLegs] = await Promise.all([
+              fetchRouteWeights(currentVariableInput(), criteria),
+              buildLegMatrix('distance'),
+              buildLegMatrix('time'),
+            ]);
+
+            const distCost = toCost(distLegs, 'distanceKm');
+            const timeCost = toCost(timeLegs, 'minutes');
+            const delayCost = nodes.map((p) => computeDelayCost(p));
+            const distOrderIdx = solveWeightedOpenPathOrder(
+              distCost,
+              delayCost,
+              weights.metricWeight,
+              weights.comfortWeight,
+            );
+            const timeOrderIdx = solveWeightedOpenPathOrder(
+              timeCost,
+              delayCost,
+              weights.metricWeight,
+              weights.comfortWeight,
+            );
+
+            const distanceResult: OptimalRouteResult = {
+              placeIds: distOrderIdx.map((i) => nodes[i].id),
+              totalDistanceKm: sumPathCost(distOrderIdx, distCost),
+              totalMinutes: sumPathCost(distOrderIdx, toCost(distLegs, 'minutes')),
+            };
+            const timeResult: OptimalRouteResult = {
+              placeIds: timeOrderIdx.map((i) => nodes[i].id),
+              totalMinutes: sumPathCost(timeOrderIdx, timeCost),
+              totalDistanceKm: sumPathCost(timeOrderIdx, toCost(timeLegs, 'distanceKm')),
+            };
+
+            stateToApply = {
+              signature,
+              originId: origin,
+              weights,
+              distance: distanceResult,
+              time: timeResult,
+            };
+          }
+          setRouteOptimization(stateToApply);
+          logActivity('AI가 변수를 반영해 최적 경로를 계산했습니다');
+        }
+
+        applyOptimizedOrder(
+          criteria === 'distance' ? stateToApply.distance : stateToApply.time,
+          places,
+        );
+        await searchAllRoutes();
+        showToast(reusable ? '이전 계산 결과를 사용했어요' : '최적 경로 계산이 완료됐어요');
+      } catch (err) {
+        console.error('runOptimalRoute failed:', err);
+        showToast('최적 경로 계산 중 오류가 발생했어요');
+      } finally {
+        setLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- routeCache/searchAllRoutes 는 최신 값을 함수 내부에서 직접 읽는다
+    [
+      places,
+      routeOptimization,
+      criteria,
+      applyOptimizedOrder,
+      showToast,
+      logActivity,
+      currentVariableKey,
+      currentVariableInput,
+    ],
+  );
+
+  const proceedAfterOrigin = (origin: number) => {
+    if (!currentVariableInput()) {
+      setPendingRouteOrigin(origin);
+      setNoVariableModalOpen(true);
+      return;
+    }
+    void runOptimalRoute(origin);
+  };
+
+  const handleRouteCalcClick = () => {
+    if (loading || places.length === 0) return;
+    if (hasDayTabs && selectedDay === null) return;
+    if (places.length === 1) {
+      setOriginId(places[0].id);
+      proceedAfterOrigin(places[0].id);
+      return;
+    }
+    const defaultChoice =
+      originId != null && places.some((p) => p.id === originId) ? originId : places[0].id;
+    setOriginChoiceId(defaultChoice);
+    setOriginSelectOpen(true);
+  };
+
+  const confirmOriginChoice = () => {
+    if (originChoiceId == null) return;
+    setOriginSelectOpen(false);
+    setOriginConfirmOpen(true);
+  };
+
+  const finalizeOrigin = (addToDestinationList: boolean) => {
+    if (originChoiceId == null) return;
+    const chosenId = originChoiceId;
+    setOriginConfirmOpen(false);
+    if (addToDestinationList) {
+      setPlaces((prev) => {
+        if (prev.some((p) => p.id === chosenId)) return prev;
+        const chosen = places.find((p) => p.id === chosenId);
+        if (!chosen) return prev;
+        const next = [...prev, chosen];
+        setSegments((segs) => resizeSegments(next, segs));
+        return next;
+      });
+    }
+    setOriginId(chosenId);
+    proceedAfterOrigin(chosenId);
   };
 
   return (
@@ -1879,7 +2151,7 @@ export function PlannerClient() {
                 {canEdit ? (
                   <Button
                     size="md"
-                    onClick={recalcAndSearch}
+                    onClick={handleRouteCalcClick}
                     disabled={loading || (hasDayTabs && selectedDay === null)}
                     title={
                       hasDayTabs && selectedDay === null
@@ -2271,6 +2543,84 @@ export function PlannerClient() {
             }
           >
             {situationFreeText.trim() ? 'AI로 동선 재구성' : '동선 재계산'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 출발지 선택 */}
+      <Modal
+        open={originSelectOpen}
+        title="출발지를 선택해주세요"
+        onClose={() => setOriginSelectOpen(false)}
+      >
+        <div className={styles.situationList}>
+          {places.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={
+                originChoiceId === p.id
+                  ? `${styles.situationOption} ${styles.situationOptionActive}`
+                  : styles.situationOption
+              }
+              onClick={() => setOriginChoiceId(p.id)}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button variant="secondary" size="sm" onClick={() => setOriginSelectOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={confirmOriginChoice} disabled={originChoiceId == null}>
+            선택
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 출발지 확정 확인 */}
+      <Modal open={originConfirmOpen} title="출발지 확인" onClose={() => setOriginConfirmOpen(false)}>
+        <p className={styles.modalDesc}>
+          출발지를 <strong>{places.find((p) => p.id === originChoiceId)?.name ?? ''}</strong>
+          (으)로 설정하시겠습니까?
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => finalizeOrigin(true)}>
+            출발지를 방문지 목록에 추가
+          </Button>
+          <Button size="sm" onClick={() => finalizeOrigin(false)}>
+            예
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 변수 없음 확인 */}
+      <Modal
+        open={noVariableModalOpen}
+        title="변수 추가가 안됐어요"
+        onClose={() => setNoVariableModalOpen(false)}
+      >
+        <p className={styles.modalDesc}>변수를 추가하시겠습니까?</p>
+        <div className={styles.modalActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNoVariableModalOpen(false);
+              openSituationModal();
+            }}
+          >
+            변수 추가하기
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNoVariableModalOpen(false);
+              if (pendingRouteOrigin != null) void runOptimalRoute(pendingRouteOrigin);
+            }}
+          >
+            그냥 진행하기
           </Button>
         </div>
       </Modal>
