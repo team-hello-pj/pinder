@@ -73,53 +73,66 @@ export function PlaceCard({
         {expanded ? (
           <div className={styles.placeExpanded}>
             <div className={styles.expandedRow}>
-              <button
-                type="button"
-                className={styles.categoryBtn}
-                onClick={() => handlers.onOpenCategory(place.id)}
-              >
-                {place.category}
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className={styles.categoryBtn}
+                  onClick={() => handlers.onOpenCategory(place.id)}
+                >
+                  {place.category}
+                </button>
+              ) : (
+                <span className={styles.categoryBtn}>{place.category}</span>
+              )}
             </div>
-            <div className={styles.memoRow}>
-              <input
-                value={place.packItems}
-                onChange={(e) => handlers.onPackItemsChange(place.id, e.target.value)}
-                placeholder="메모 (예: 우산, 신분증)"
-                className={styles.memoInput}
-              />
-              <button
-                type="button"
-                className={styles.memoSaveBtn}
-                onClick={() => handlers.onSaveMemo(place.id)}
-              >
-                {memoSaved ? (
-                  <>
-                    저장됨{' '}
-                    {/* eslint-disable-next-line @next/next/no-img-element -- 11px 정적 아이콘 */}
-                    <img src="/icons/check.png" alt="" className={styles.memoSavedCheck} />
-                  </>
-                ) : (
-                  '저장'
-                )}
-              </button>
-            </div>
+            {canEdit || place.packItems ? (
+              <div className={styles.memoRow}>
+                <input
+                  value={place.packItems}
+                  onChange={(e) => handlers.onPackItemsChange(place.id, e.target.value)}
+                  placeholder="메모 (예: 우산, 신분증)"
+                  className={styles.memoInput}
+                  readOnly={!canEdit}
+                />
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className={styles.memoSaveBtn}
+                    onClick={() => handlers.onSaveMemo(place.id)}
+                  >
+                    {memoSaved ? (
+                      <>
+                        저장됨{' '}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 11px 정적 아이콘 */}
+                        <img src="/icons/check.png" alt="" className={styles.memoSavedCheck} />
+                      </>
+                    ) : (
+                      '저장'
+                    )}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className={styles.durationRow}>
-              <button
-                type="button"
-                className={styles.durationBtn}
-                onClick={() => handlers.onDurationChange(place.id, -5)}
-              >
-                −
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className={styles.durationBtn}
+                  onClick={() => handlers.onDurationChange(place.id, -5)}
+                >
+                  −
+                </button>
+              ) : null}
               <span className={styles.durationLabel}>체류 {place.duration}분</span>
-              <button
-                type="button"
-                className={styles.durationBtn}
-                onClick={() => handlers.onDurationChange(place.id, 5)}
-              >
-                +
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className={styles.durationBtn}
+                  onClick={() => handlers.onDurationChange(place.id, 5)}
+                >
+                  +
+                </button>
+              ) : null}
               {canEdit ? (
                 <button
                   type="button"
@@ -147,28 +160,30 @@ export function PlaceCard({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        className={styles.placeDeleteBtn}
-        onClick={() => handlers.onDeleteClick(place.id)}
-        aria-label="방문지 삭제"
-      >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#878A93"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {canEdit ? (
+        <button
+          type="button"
+          className={styles.placeDeleteBtn}
+          onClick={() => handlers.onDeleteClick(place.id)}
+          aria-label="방문지 삭제"
         >
-          <path d="M4 7h16" />
-          <path d="M10 11v6M14 11v6" />
-          <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
-          <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
-        </svg>
-      </button>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#878A93"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 7h16" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+            <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+          </svg>
+        </button>
+      ) : null}
       <button
         type="button"
         className={styles.placeExpandBtn}

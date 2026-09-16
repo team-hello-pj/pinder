@@ -30,6 +30,7 @@ import {
   deleteSchedule,
   getInviteLink,
   getSchedule,
+  getScheduleByViewToken,
   joinSchedule,
   requestEditPermission as apiRequestEditPermission,
   resolveEditRequest,
@@ -348,6 +349,7 @@ export function PlannerClient() {
       setEditRequests(
         detail.editRequests.map((r) => ({ id: r.id, nickname: r.nickname, time: r.createdAt })),
       );
+      setMyEditRequestPending(detail.myEditRequestPending);
     },
     [],
   );
@@ -364,6 +366,24 @@ export function PlannerClient() {
 
     if (inviteToken && isInviteRole) {
       if (!isLoggedIn) {
+        if (inviteRole === 'viewer') {
+          // 보기 전용 링크는 로그인 없이 바로 볼 수 있다. 참여 등록은 하지 않는다 — 저장하려면 그때 로그인.
+          getScheduleByViewToken(inviteToken).then((schedule) => {
+            if (!schedule) {
+              showToast('초대 링크가 유효하지 않아요.');
+              return;
+            }
+            setPlaces(schedule.places);
+            setSegments(schedule.segments);
+            setCriteriaState(schedule.criteria);
+            setTripStart(schedule.tripStart || '');
+            setTripEnd(schedule.tripEnd || '');
+            setScheduleId(schedule.id);
+            setRole('viewer');
+          });
+          return;
+        }
+        // 편집 가능 링크는 로그인부터 해야 한다 — 로그인 후 이어서 참여를 시도한다.
         sessionStorage.setItem(
           PENDING_INVITE_KEY,
           JSON.stringify({ token: inviteToken, role: inviteRole }),
@@ -371,9 +391,13 @@ export function PlannerClient() {
         router.push('/login');
         return;
       }
-      joinSchedule(inviteToken, inviteRole).then((scheduleIdResult) => {
-        if (scheduleIdResult) router.replace(`/planner?loadRoute=${scheduleIdResult}`);
-        else showToast('초대 링크가 유효하지 않아요.');
+      joinSchedule(inviteToken, inviteRole).then((result) => {
+        if (!result) {
+          showToast('초대 링크가 유효하지 않아요.');
+          return;
+        }
+        router.replace(`/planner?loadRoute=${result.scheduleId}`);
+        if (result.pending) showToast('편집 권한 요청을 보냈어요. 제작자 승인을 기다려주세요.');
       });
       return;
     }
@@ -384,8 +408,10 @@ export function PlannerClient() {
         sessionStorage.removeItem(PENDING_INVITE_KEY);
         try {
           const pending = JSON.parse(pendingRaw) as { token: string; role: 'editor' | 'viewer' };
-          joinSchedule(pending.token, pending.role).then((scheduleIdResult) => {
-            if (scheduleIdResult) router.replace(`/planner?loadRoute=${scheduleIdResult}`);
+          joinSchedule(pending.token, pending.role).then((result) => {
+            if (!result) return;
+            router.replace(`/planner?loadRoute=${result.scheduleId}`);
+            if (result.pending) showToast('편집 권한 요청을 보냈어요. 제작자 승인을 기다려주세요.');
           });
           return;
         } catch {
@@ -1003,6 +1029,10 @@ export function PlannerClient() {
     }
   }, [inviteOpen, scheduleId, viewerInviteLink, editorInviteLink]);
   const requestEditPermission = async () => {
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
     if (!scheduleId) return;
     const ok = await apiRequestEditPermission(scheduleId);
     if (ok) {
@@ -1811,7 +1841,7 @@ export function PlannerClient() {
                   활동 로그
                 </button>
                 <button type="button" className={styles.actionBtn} onClick={saveOrRemoveAction}>
-                  {isViewerRole ? '내 일정에서 제거' : saveLabel}
+                  {isViewerRole && isLoggedIn ? '내 일정에서 제거' : saveLabel}
                 </button>
                 {role === 'viewer' && !myEditRequestPending ? (
                   <button

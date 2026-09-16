@@ -18,6 +18,7 @@ export interface ScheduleDetail {
   role: ScheduleRole;
   members: { nickname: string; role: 'editor' | 'viewer' }[];
   editRequests: { id: string; nickname: string; createdAt: string }[];
+  myEditRequestPending: boolean;
 }
 
 export interface ScheduleInput {
@@ -56,6 +57,14 @@ export async function getSchedule(id: string): Promise<ScheduleDetail | null> {
   return json<ScheduleDetail>(res);
 }
 
+/** 보기전용 초대 링크로 로그인 없이 일정을 조회한다. */
+export async function getScheduleByViewToken(token: string): Promise<SavedRoute | null> {
+  const res = await fetch(`/api/schedules/invite/${token}`);
+  if (!res.ok) return null;
+  const data = await json<{ schedule: SavedRoute }>(res);
+  return data?.schedule ?? null;
+}
+
 export async function updateSchedule(
   id: string,
   patch: Partial<ScheduleInput>,
@@ -85,17 +94,24 @@ export async function getInviteLink(id: string, role: 'editor' | 'viewer'): Prom
   return `${window.location.origin}/planner?invite=${data.token}&role=${data.role}`;
 }
 
+export interface JoinScheduleResult {
+  scheduleId: string;
+  /** 편집 가능 링크로 들어왔지만 아직 제작자 승인 전이면 true. */
+  pending: boolean;
+}
+
 export async function joinSchedule(
   token: string,
   role: 'editor' | 'viewer',
-): Promise<string | null> {
+): Promise<JoinScheduleResult | null> {
   const res = await fetch('/api/schedules/join', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, role }),
   });
-  const data = await json<{ scheduleId: string }>(res);
-  return data?.scheduleId ?? null;
+  const data = await json<{ scheduleId: string; pending?: boolean }>(res);
+  if (!data?.scheduleId) return null;
+  return { scheduleId: data.scheduleId, pending: Boolean(data.pending) };
 }
 
 export async function requestEditPermission(scheduleId: string): Promise<boolean> {
