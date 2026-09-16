@@ -30,11 +30,7 @@ export async function POST(request: Request) {
   let account = byGoogleId;
 
   if (!account) {
-    const [byEmail] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, profile.email))
-      .limit(1);
+    const [byEmail] = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
 
     if (byEmail) {
       [account] = await db

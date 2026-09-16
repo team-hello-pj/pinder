@@ -39,8 +39,13 @@ export async function evaluateNickname(
     return { available: false, reason: 'taken', message: '이미 사용 중인 닉네임이에요.' };
   }
 
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.nickname, n)).limit(1);
-  if (existing) return { available: false, reason: 'taken', message: '이미 사용 중인 닉네임이에요.' };
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.nickname, n))
+    .limit(1);
+  if (existing)
+    return { available: false, reason: 'taken', message: '이미 사용 중인 닉네임이에요.' };
 
   const [protectedEntry] = await db
     .select({ id: nicknameHistory.id })

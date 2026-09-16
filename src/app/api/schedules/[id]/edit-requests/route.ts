@@ -21,7 +21,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   await db
     .insert(scheduleEditRequests)
     .values({ scheduleId: id, userId: session.id })
-    .onConflictDoNothing({ target: [scheduleEditRequests.scheduleId, scheduleEditRequests.userId] });
+    .onConflictDoNothing({
+      target: [scheduleEditRequests.scheduleId, scheduleEditRequests.userId],
+    });
 
   return NextResponse.json({ ok: true });
 }

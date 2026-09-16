@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { avatarColorFor } from '@/lib/avatar';
 import { fmtDateLabel, fmtRange } from '@/lib/calendar';
-import { deleteSchedule, listSchedules, updateSchedule, type ScheduleSummary } from '@/lib/schedules';
+import {
+  deleteSchedule,
+  listSchedules,
+  updateSchedule,
+  type ScheduleSummary,
+} from '@/lib/schedules';
 import { Button, DateRangeCalendar, Modal } from '@/components/ui';
 
 import styles from './my-routes.module.css';

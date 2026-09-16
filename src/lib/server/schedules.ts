@@ -51,16 +51,11 @@ export async function listSchedulesForUser(
   function buildMembers(scheduleId: string): string[] {
     const owner = ownerNicknameById.get(scheduleId);
     const collabs = collabNicknamesById.get(scheduleId) ?? [];
-    const all = [owner, ...collabs].filter(
-      (n): n is string => Boolean(n) && n !== selfNickname,
-    );
+    const all = [owner, ...collabs].filter((n): n is string => Boolean(n) && n !== selfNickname);
     return Array.from(new Set(all));
   }
 
-  function toSummary(
-    row: (typeof owned)[number],
-    role: ScheduleRole,
-  ): ScheduleSummary {
+  function toSummary(row: (typeof owned)[number], role: ScheduleRole): ScheduleSummary {
     return {
       id: row.id,
       title: row.title,
