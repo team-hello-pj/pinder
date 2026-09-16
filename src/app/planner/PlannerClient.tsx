@@ -12,6 +12,7 @@ import {
   SITUATION_VARS,
   WEATHER_SUBS,
 } from '@/constants';
+import { consumeAiRouteHandoff } from '@/lib/ai-route-handoff';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
@@ -91,6 +92,9 @@ export function PlannerClient() {
   );
   const [tripEnd, setTripEnd] = useState(isNewRoute ? new Date().toISOString().slice(0, 10) : '');
   const [newTripDateModalOpen, setNewTripDateModalOpen] = useState(false);
+  const [dateEditModalOpen, setDateEditModalOpen] = useState(false);
+  const [draftTripStart, setDraftTripStart] = useState('');
+  const [draftTripEnd, setDraftTripEnd] = useState('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   // ---- 레이아웃 ----
@@ -403,6 +407,15 @@ export function PlannerClient() {
     }
     if (isNewRoute && !hasTripDateParam) setNewTripDateModalOpen(true);
 
+    if (searchParams.get('mode') === 'ai') {
+      const handoff = consumeAiRouteHandoff();
+      if (handoff) {
+        setPlaces(handoff.places);
+        setSegments(handoff.segments);
+        setNextId(handoff.places.length + 1);
+      }
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 로그인 상태가 확정될 때 한 번만 실행
   }, [sessionLoading, isLoggedIn]);
 
@@ -531,6 +544,32 @@ export function PlannerClient() {
     setDeleteTargetId('ORIGINAL_ROUTE');
     setDeleteTargetLabel('이 원본 일정');
     setDeleteConfirmOpen(true);
+  };
+
+  // ---- 일정 날짜 변경 ----
+  const openDateEditModal = () => {
+    setDraftTripStart(tripStart);
+    setDraftTripEnd(tripEnd || tripStart);
+    setDateEditModalOpen(true);
+  };
+  const confirmDateEdit = async () => {
+    if (!scheduleId) {
+      setDateEditModalOpen(false);
+      return;
+    }
+    const updated = await updateSchedule(scheduleId, {
+      tripStart: draftTripStart,
+      tripEnd: draftTripEnd,
+    });
+    setDateEditModalOpen(false);
+    if (!updated) {
+      showToast('날짜를 변경하지 못했어요. 다시 시도해주세요.');
+      return;
+    }
+    setTripStart(updated.tripStart || draftTripStart);
+    setTripEnd(updated.tripEnd || draftTripEnd);
+    logActivity(`일정 날짜를 ${updated.tripStart} ~ ${updated.tripEnd}(으)로 변경했습니다`);
+    showToast('일정 날짜가 변경되었어요');
   };
   const confirmDelete = async () => {
     if (deleteTargetId === 'ORIGINAL_ROUTE' && !deleteAgreeChecked) return;
@@ -1747,6 +1786,18 @@ export function PlannerClient() {
                 </div>
               </div>
               <div className={styles.summaryActions}>
+                {canEdit && scheduleId ? (
+                  <button
+                    type="button"
+                    className={styles.dateEditIconBtn}
+                    onClick={openDateEditModal}
+                    title="날짜 변경"
+                    aria-label="일정 날짜 변경"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- 정적 16px 아이콘, next/image 최적화 불필요 */}
+                    <img src="/icons/calendar-days.png" alt="" className={styles.dateEditIcon} />
+                  </button>
+                ) : null}
                 {canDeleteOriginal ? (
                   <button
                     type="button"
@@ -1883,6 +1934,46 @@ export function PlannerClient() {
         <div className={styles.modalActionsEnd}>
           <Button size="sm" onClick={() => setNewTripDateModalOpen(false)}>
             시작하기
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 일정 날짜 변경 모달 */}
+      <Modal
+        open={dateEditModalOpen}
+        title="일정 날짜 변경"
+        onClose={() => setDateEditModalOpen(false)}
+      >
+        <p className={styles.modalDesc}>변경할 여행 날짜를 선택해주세요</p>
+        <div className={styles.dateFieldGroup}>
+          <label className={styles.dateField}>
+            <span>시작 날짜</span>
+            <input
+              type="date"
+              value={draftTripStart}
+              onChange={(e) => {
+                setDraftTripStart(e.target.value);
+                if (draftTripEnd < e.target.value) setDraftTripEnd(e.target.value);
+              }}
+              autoFocus
+            />
+          </label>
+          <label className={styles.dateField}>
+            <span>종료 날짜</span>
+            <input
+              type="date"
+              value={draftTripEnd}
+              min={draftTripStart}
+              onChange={(e) => setDraftTripEnd(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => setDateEditModalOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={confirmDateEdit}>
+            확인
           </Button>
         </div>
       </Modal>
