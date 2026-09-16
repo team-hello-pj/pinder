@@ -44,6 +44,30 @@ async function sendMail(
   }
 }
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pinder-one.vercel.app';
+
+/** 이메일 클라이언트 호환을 위해 전부 인라인 스타일로만 쓴 공용 레이아웃. 가운데 배너 버튼이 사이트로 연결된다. */
+function emailLayout(opts: { heading: string; bodyHtml: string; ctaLabel: string }): string {
+  return `
+<div style="background:#f5f6f5;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e1e2e4;">
+    <div style="background:#7bcb93;padding:28px 24px;text-align:center;">
+      <span style="font-size:22px;font-weight:800;color:#12321f;letter-spacing:-0.02em;">p<span style="color:#26ab4e;">:</span>nder</span>
+    </div>
+    <div style="padding:32px 28px;">
+      <h1 style="margin:0 0 16px;font-size:18px;color:#171719;">${opts.heading}</h1>
+      <div style="font-size:14px;line-height:1.7;color:rgba(23,23,25,.75);">${opts.bodyHtml}</div>
+      <div style="text-align:center;margin-top:32px;">
+        <a href="${SITE_URL}" style="display:inline-block;background:#7bcb93;color:#12321f;font-weight:700;font-size:14px;text-decoration:none;padding:12px 28px;border-radius:999px;">${opts.ctaLabel}</a>
+      </div>
+    </div>
+    <div style="padding:16px 24px;text-align:center;font-size:11.5px;color:rgba(23,23,25,.4);border-top:1px solid #e1e2e4;">
+      © 2026 p:nder made by team_hello
+    </div>
+  </div>
+</div>`.trim();
+}
+
 export async function sendVerificationEmail(email: string, code: string): Promise<void> {
   await sendMail(
     email,
@@ -55,19 +79,27 @@ export async function sendVerificationEmail(email: string, code: string): Promis
 }
 
 export async function sendAccountDeletedEmail(email: string, name: string): Promise<void> {
-  await sendMail(
-    email,
-    '[p:nder] 회원 탈퇴가 완료되었습니다',
-    `<p>${name}님, p:nder 회원 탈퇴가 완료되었습니다. 그동안 감사했습니다. 또 다시 찾아주세요.</p>`,
-    'account-deleted',
-  );
+  const html = emailLayout({
+    heading: `${name}님, 그동안 감사했습니다`,
+    bodyHtml: `
+      <p>p:nder 회원 탈퇴가 정상적으로 완료되었습니다.</p>
+      <p>함께한 여행 계획과 기록은 모두 안전하게 삭제되었어요.<br/>
+      다음에 또 새로운 여행을 계획하게 되시면, 그때 다시 만나요!</p>
+    `,
+    ctaLabel: '다시 둘러보기',
+  });
+  await sendMail(email, '[p:nder] 회원 탈퇴가 완료되었습니다', html, 'account-deleted');
 }
 
 export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
-  await sendMail(
-    email,
-    '[p:nder] 회원가입을 축하합니다 🎉',
-    `<p>${name}님, p:nder 회원가입이 완료되었습니다. 축하합니다! 지금 바로 나만의 여행 경로를 만들어보세요.</p>`,
-    'welcome-email',
-  );
+  const html = emailLayout({
+    heading: `${name}님, p:nder에 오신 것을 환영합니다 🎉`,
+    bodyHtml: `
+      <p>회원가입이 완료되었어요. 이제 목적지만 입력하면 최적의 여행 동선을 자동으로 만들어드려요.</p>
+      <p>다른 여행자들의 후기가 궁금하다면 커뮤니티도 한번 둘러보세요.<br/>
+      나만의 첫 여행 경로, 지금 바로 시작해보세요!</p>
+    `,
+    ctaLabel: '여행 경로 만들러 가기',
+  });
+  await sendMail(email, '[p:nder] 회원가입을 환영합니다 🎉', html, 'welcome-email');
 }

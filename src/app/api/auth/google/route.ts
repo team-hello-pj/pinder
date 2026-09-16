@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
+import { sendWelcomeEmail } from '@/lib/server/email';
 import { verifyGoogleCredential } from '@/lib/server/google';
 import { createSessionCookie } from '@/lib/server/session';
 
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
     .limit(1);
 
   let account = byGoogleId;
+  let isNewAccount = false;
 
   if (!account) {
     const [byEmail] = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
           emailVerifiedAt: new Date(),
         })
         .returning();
+      isNewAccount = true;
     }
   }
 
@@ -59,5 +62,6 @@ export async function POST(request: Request) {
     name: account.name,
   };
   await createSessionCookie(user);
+  if (isNewAccount) await sendWelcomeEmail(user.email, user.name);
   return NextResponse.json({ ok: true, user });
 }
