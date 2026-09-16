@@ -117,8 +117,6 @@ export function PlannerClient() {
   const [addConfirmOpen, setAddConfirmOpen] = useState(false);
   const [pendingName, setPendingName] = useState('');
   const [pendingAddress, setPendingAddress] = useState('');
-  const [pendingDay, setPendingDay] = useState(0);
-  const [geocoding, setGeocoding] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<DeleteTarget>(null);
@@ -139,7 +137,6 @@ export function PlannerClient() {
   const [mapSearchResults, setMapSearchResults] = useState<KakaoPlaceDoc[]>([]);
   const [mapSearchLoading, setMapSearchLoading] = useState(false);
   const [mapSearchError, setMapSearchError] = useState<string | null>(null);
-  const [selectedMapDoc, setSelectedMapDoc] = useState<KakaoPlaceDoc | null>(null);
 
   // ---- 상황 변경 ----
   const [situationModalOpen, setSituationModalOpen] = useState(false);
@@ -445,14 +442,16 @@ export function PlannerClient() {
     }
   };
 
-  const addSelectedPlace = (doc: KakaoPlaceDoc) => {
+  /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
+  const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string) => {
     const day = newAddressDay || 0;
+    const name = nameOverride?.trim() || doc.place_name;
     setPlaces((prev) => {
       const next: Place[] = [
         ...prev,
         {
           id: nextId,
-          name: doc.place_name,
+          name,
           category: doc.category_group_name || '미분류',
           address: doc.road_address_name || doc.address_name,
           roadAddress: doc.road_address_name,
@@ -477,65 +476,27 @@ export function PlannerClient() {
     setNewAddress('');
     setPendingSelectedDoc(null);
     setRouteCache({});
-    logActivity(`${doc.place_name}을 추가했습니다`);
+    logActivity(`${name}을 추가했습니다`);
     showToast('방문지가 일정에 추가됐어요');
   };
 
-  const addPlace = () => {
-    const addr = newAddress.trim();
-    if (!addr) return;
-    if (pendingSelectedDoc && pendingSelectedDoc.place_name === addr) {
-      addSelectedPlace(pendingSelectedDoc);
-      return;
-    }
-    setPendingName(addr);
-    setPendingAddress(addr);
-    setPendingDay(newAddressDay || 0);
+  /** 검색 결과 항목을 클릭하면 바로 "방문지를 추가할까요?" 팝업을 정해진 상태로 띄운다. */
+  const openAddConfirmForDoc = (doc: KakaoPlaceDoc) => {
+    selectMapResult(doc);
+    setPendingSelectedDoc(doc);
+    setPendingName(doc.place_name);
+    setPendingAddress(doc.road_address_name || doc.address_name);
     setAddConfirmOpen(true);
   };
 
-  const confirmAddPlace = async () => {
-    const addr = pendingAddress.trim();
-    const name = pendingName.trim() || addr;
-    if (!addr) return;
-    setGeocoding(true);
-    const geo = await geocodePlace(addr);
-    setPlaces((prev) => {
-      const next: Place[] = [
-        ...prev,
-        {
-          id: nextId,
-          name,
-          category: '미분류',
-          address: addr,
-          priority: 'normal',
-          duration: 15,
-          hours: 'unknown',
-          hoursLabel: '영업시간 확인 필요',
-          visitTime: '',
-          packItems: '',
-          weather: 'sunny',
-          day: pendingDay,
-          x: geo?.x ?? null,
-          y: geo?.y ?? null,
-        },
-      ];
-      setSegments((segs) => resizeSegments(next, segs));
-      return next;
-    });
-    setNextId((n) => n + 1);
-    setNewAddress('');
+  const confirmAddPlace = () => {
+    if (!pendingSelectedDoc) return;
+    const name = pendingName.trim();
+    if (!name) return;
+    addSelectedPlace(pendingSelectedDoc, name);
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
-    setGeocoding(false);
-    setRouteCache({});
-    logActivity(`${name}을 추가했습니다`);
-    showToast(
-      geo
-        ? '방문지가 일정에 추가됐어요'
-        : '방문지가 추가됐어요 (좌표를 찾지 못해 지도에는 표시되지 않아요)',
-    );
   };
 
   const deletePlace = (id: number) => {
@@ -854,7 +815,6 @@ export function PlannerClient() {
     setMapSearchQuery(newAddress);
     setMapSearchResults([]);
     setMapSearchError(null);
-    setSelectedMapDoc(null);
   };
   const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
@@ -862,7 +822,6 @@ export function PlannerClient() {
     setMapSearchQuery('');
     setMapSearchResults([]);
     setMapSearchError(null);
-    setSelectedMapDoc(null);
   };
   const runMapSearch = async () => {
     const query = mapSearchQuery.trim();
@@ -870,7 +829,6 @@ export function PlannerClient() {
     setMapSearchLoading(true);
     setMapSearchError(null);
     setMapSearchResults([]);
-    setSelectedMapDoc(null);
     clearSearchMarker();
     try {
       const data = await searchKeyword(query);
@@ -885,7 +843,6 @@ export function PlannerClient() {
     }
   };
   const selectMapResult = (doc: KakaoPlaceDoc) => {
-    setSelectedMapDoc(doc);
     const kakao = window.kakao;
     if (kakaoMapRef.current && kakao) {
       const pos = new kakao.maps.LatLng(Number(doc.y), Number(doc.x));
@@ -894,16 +851,6 @@ export function PlannerClient() {
       clearSearchMarker();
       searchMarkerRef.current = new kakao.maps.Marker({ position: pos, map: kakaoMapRef.current });
     }
-  };
-  const confirmMapSelection = () => {
-    if (!selectedMapDoc) return;
-    clearSearchMarker();
-    setNewAddress(selectedMapDoc.place_name);
-    setPendingSelectedDoc(selectedMapDoc);
-    setSearchMode(false);
-    setSelectedMapDoc(null);
-    setMapSearchResults([]);
-    setMapSearchError(null);
   };
 
   // ---- 레이아웃 토글 ----
@@ -1510,20 +1457,29 @@ export function PlannerClient() {
                       value={newAddress}
                       onChange={(e) => {
                         setNewAddress(e.target.value);
+                        setMapSearchQuery(e.target.value);
                         setPendingSelectedDoc(null);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          addPlace();
+                          openSearchMode();
+                          runMapSearch();
                         }
                       }}
                       onFocus={openSearchMode}
                       placeholder="주소를 검색하여 추가하기"
                       className={styles.addInput}
                     />
-                    <button type="button" className={styles.addBtn} onClick={addPlace}>
-                      추가
+                    <button
+                      type="button"
+                      className={styles.addBtn}
+                      onClick={() => {
+                        openSearchMode();
+                        runMapSearch();
+                      }}
+                    >
+                      검색
                     </button>
                   </>
                 ) : null}
@@ -1655,7 +1611,7 @@ export function PlannerClient() {
                               key={doc.id}
                               type="button"
                               className={styles.searchResultItem}
-                              onClick={() => selectMapResult(doc)}
+                              onClick={() => openAddConfirmForDoc(doc)}
                             >
                               <span className={styles.searchResultName}>{doc.place_name}</span>
                               <span className={styles.searchResultAddress}>
@@ -1667,23 +1623,6 @@ export function PlannerClient() {
                       ) : null}
                     </>
                   )}
-                </div>
-              ) : null}
-
-              {searchMode && selectedMapDoc ? (
-                <div className={styles.selectedDocCard}>
-                  <p className={styles.selectedDocLabel}>선택한 장소</p>
-                  <p className={styles.selectedDocName}>{selectedMapDoc.place_name}</p>
-                  <p className={styles.selectedDocAddress}>
-                    {selectedMapDoc.road_address_name || selectedMapDoc.address_name}
-                  </p>
-                  <button
-                    type="button"
-                    className={styles.selectedDocBtn}
-                    onClick={confirmMapSelection}
-                  >
-                    이 장소 선택
-                  </button>
                 </div>
               ) : null}
 
@@ -2091,7 +2030,7 @@ export function PlannerClient() {
         onClose={() => setAddConfirmOpen(false)}
       >
         <div className={styles.field}>
-          <span className={styles.fieldLabel}>이름</span>
+          <span className={styles.fieldLabel}>장소명</span>
           <input
             value={pendingName}
             onChange={(e) => setPendingName(e.target.value)}
@@ -2099,19 +2038,15 @@ export function PlannerClient() {
           />
         </div>
         <div className={styles.field}>
-          <span className={styles.fieldLabel}>주소</span>
-          <input
-            value={pendingAddress}
-            onChange={(e) => setPendingAddress(e.target.value)}
-            className={styles.fieldInput}
-          />
+          <span className={styles.fieldLabel}>도로명주소</span>
+          <p className={styles.fieldStatic}>{pendingAddress}</p>
         </div>
         <div className={styles.modalActions}>
           <Button variant="secondary" size="sm" onClick={() => setAddConfirmOpen(false)}>
             취소
           </Button>
-          <Button size="sm" onClick={confirmAddPlace} disabled={geocoding}>
-            {geocoding ? '추가 중...' : '추가'}
+          <Button size="sm" onClick={confirmAddPlace} disabled={!pendingName.trim()}>
+            추가
           </Button>
         </div>
       </Modal>
