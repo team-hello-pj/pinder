@@ -1316,7 +1316,8 @@ export function PlannerClient() {
     const varMeta = SITUATION_VARS.find((v) => v.id === situationVar);
     const sevMeta = SEVERITY_LEVELS.find((s) => s.id === situationSeverity);
     if (!varMeta || !sevMeta) return null;
-    const subMeta = situationVar === 'weather' ? WEATHER_SUBS.find((w) => w.id === situationSub) : null;
+    const subMeta =
+      situationVar === 'weather' ? WEATHER_SUBS.find((w) => w.id === situationSub) : null;
     return {
       id: varMeta.id,
       label: varMeta.label,
@@ -1335,9 +1336,7 @@ export function PlannerClient() {
   // ---- AI 가중치 기반 최적경로 계산 ----
   const applyOptimizedOrder = useCallback((result: OptimalRouteResult, sourcePlaces: Place[]) => {
     const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
-    const ordered = result.placeIds
-      .map((id) => byId.get(id))
-      .filter((p): p is Place => Boolean(p));
+    const ordered = result.placeIds.map((id) => byId.get(id)).filter((p): p is Place => Boolean(p));
     const orderedIds = new Set(ordered.map((p) => p.id));
     const rest = sourcePlaces.filter((p) => !orderedIds.has(p.id));
     const next = [...ordered, ...rest];
@@ -2610,7 +2609,11 @@ export function PlannerClient() {
       </Modal>
 
       {/* 출발지 확정 확인 */}
-      <Modal open={originConfirmOpen} title="출발지 확인" onClose={() => setOriginConfirmOpen(false)}>
+      <Modal
+        open={originConfirmOpen}
+        title="출발지 확인"
+        onClose={() => setOriginConfirmOpen(false)}
+      >
         <p className={styles.modalDesc}>
           출발지를 <strong>{places.find((p) => p.id === originChoiceId)?.name ?? ''}</strong>
           (으)로 설정하시겠습니까?

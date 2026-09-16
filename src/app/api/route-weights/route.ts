@@ -47,7 +47,11 @@ const RESPONSE_SCHEMA = {
   required: ['metricWeight', 'comfortWeight'],
 };
 
-const FALLBACK = { metricWeight: 1, comfortWeight: 0, reasoning: '기본값(변수 없음 또는 AI 응답 실패)' };
+const FALLBACK = {
+  metricWeight: 1,
+  comfortWeight: 0,
+  reasoning: '기본값(변수 없음 또는 AI 응답 실패)',
+};
 
 function clampWeights(metric: unknown, comfort: unknown) {
   const m = Number(metric);
@@ -61,7 +65,8 @@ function clampWeights(metric: unknown, comfort: unknown) {
 
 function describeVariable(variable: VariableInput | null, criteria?: string): string {
   const lines: string[] = [];
-  if (criteria) lines.push(`현재 경로 계산 기준: ${criteria === 'distance' ? '최단 거리' : '최단 시간'}`);
+  if (criteria)
+    lines.push(`현재 경로 계산 기준: ${criteria === 'distance' ? '최단 거리' : '최단 시간'}`);
   if (!variable) {
     lines.push('사용자가 변수를 선택하지 않고 "그냥 진행"을 선택함 (기본 기준으로 진행)');
     return lines.join('\n');
@@ -72,7 +77,8 @@ function describeVariable(variable: VariableInput | null, criteria?: string): st
   }
   lines.push(`변수 종류: ${variable.label} (id: ${variable.id})`);
   if (variable.sub) lines.push(`세부 종류: ${variable.sub.label} (id: ${variable.sub.id})`);
-  if (variable.severity) lines.push(`불편도: ${variable.severity.label} (내부 가중치 ${variable.severity.weight})`);
+  if (variable.severity)
+    lines.push(`불편도: ${variable.severity.label} (내부 가중치 ${variable.severity.weight})`);
   return lines.join('\n');
 }
 

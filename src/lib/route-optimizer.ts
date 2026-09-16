@@ -91,7 +91,8 @@ export function solveWeightedOpenPathOrder(
       if (i !== j) offDiagonal.push(baseCost[i][j]);
     }
   }
-  const avgEdgeCost = offDiagonal.length > 0 ? offDiagonal.reduce((a, b) => a + b, 0) / offDiagonal.length : 1;
+  const avgEdgeCost =
+    offDiagonal.length > 0 ? offDiagonal.reduce((a, b) => a + b, 0) / offDiagonal.length : 1;
   const positionUnit = comfortWeight * avgEdgeCost;
 
   const totalCost = (path: number[]): number => {
@@ -126,7 +127,11 @@ export function solveWeightedOpenPathOrder(
     improved = false;
     for (let i = 1; i < n - 1; i++) {
       for (let k = i + 1; k < n; k++) {
-        const candidate = [...path.slice(0, i), ...path.slice(i, k + 1).reverse(), ...path.slice(k + 1)];
+        const candidate = [
+          ...path.slice(0, i),
+          ...path.slice(i, k + 1).reverse(),
+          ...path.slice(k + 1),
+        ];
         if (totalCost(candidate) < totalCost(path) - 1e-9) {
           path = candidate;
           improved = true;
