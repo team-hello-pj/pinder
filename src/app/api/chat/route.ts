@@ -57,29 +57,48 @@ export async function POST(request: Request) {
       : [];
 
     const contents = [
-      {
-        role: 'user',
-        parts: [{ text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : '') }],
-      },
-      { role: 'model', parts: [{ text: '알겠어요, 현재 경로를 참고해서 도와드릴게요.' }] },
-      ...historyParts,
-      { role: 'user', parts: [{ text: userMessage }] },
-    ];
+  ...historyParts,
+  { role: 'user', parts: [{ text: userMessage }] },
+];
 
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 400 },
-      }),
-    });
+    const geminiRes = await fetch(GEMINI_URL, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-goog-api-key': apiKey,
+  },
+  body: JSON.stringify({
+    system_instruction: {
+      parts: [
+        {
+          text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+        },
+      ],
+    },
+    contents,
+    generationConfig: {
+      maxOutputTokens: 400,
+    },
+  }),
+});
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini API error:', geminiRes.status, errText);
-      return NextResponse.json({ error: 'Gemini API request failed' }, { status: 502 });
-    }
+if (!geminiRes.ok) {
+  const errText = await geminiRes.text();
+
+  console.error('================ GEMINI ERROR ================');
+  console.error('Status:', geminiRes.status);
+  console.error('Body:', errText);
+  console.error('================================================');
+
+  return NextResponse.json(
+    {
+      error: 'Gemini API request failed',
+      status: geminiRes.status,
+      detail: errText,
+    },
+    { status: 502 },
+  );
+}
 
     const data = await geminiRes.json();
     const reply =
