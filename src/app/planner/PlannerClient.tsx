@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CATEGORY_OPTIONS,
   CRITERIA_LABEL,
+  MODE_MAP,
   MODE_ORDER,
   SEVERITY_LEVELS,
   SITUATION_VARS,
@@ -1122,6 +1123,15 @@ export function PlannerClient() {
               distanceKm: ts.distanceKm ?? 0,
               nodeLabel: ts.type === 'WALKING' ? ts.toName || ts.fromName : ts.vehicleName,
             }));
+          } else if (mode !== 'transit' && cached.roadSteps?.length) {
+            // 자동차/도보/자전거: 실제 도로명·안내문구를 구간별로 보여준다.
+            steps = cached.roadSteps.map((rs) => ({
+              mode,
+              arrowLabel: MODE_MAP[mode].label,
+              minutes: rs.minutes,
+              distanceKm: rs.distanceKm,
+              nodeLabel: rs.name,
+            }));
           } else {
             steps = [
               {
@@ -1435,7 +1445,6 @@ export function PlannerClient() {
                         expanded={Boolean(expandedPlaces[item.place.id])}
                         memoSaved={Boolean(savedMemoIds[item.place.id])}
                         canEdit={canEdit}
-                        directionsUrl={kakaoDirectionsUrl(item.index, item.place)}
                         handlers={{
                           onDragStart,
                           onDragOver,
@@ -1466,6 +1475,7 @@ export function PlannerClient() {
                       steps={seg.steps}
                       expanded={seg.expanded}
                       canEdit={canEdit}
+                      directionsUrl={kakaoDirectionsUrl(item.index + 1, places[item.index + 1])}
                       onCycle={() => cycleSegmentMode(item.index)}
                       onToggleExpand={() => toggleSegmentExpand(item.index)}
                     />

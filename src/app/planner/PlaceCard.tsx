@@ -28,7 +28,6 @@ export interface PlaceCardProps {
   expanded: boolean;
   memoSaved: boolean;
   canEdit: boolean;
-  directionsUrl: string | null;
   handlers: PlaceCardHandlers;
 }
 
@@ -41,7 +40,6 @@ export function PlaceCard({
   expanded,
   memoSaved,
   canEdit,
-  directionsUrl,
   handlers,
 }: PlaceCardProps) {
   const pr = PRIORITY_MAP[place.priority];
@@ -87,20 +85,6 @@ export function PlaceCard({
         {expanded ? (
           <div className={styles.placeExpanded}>
             <div className={styles.expandedRow}>
-              {directionsUrl ? (
-                <a
-                  href={directionsUrl}
-                  target="_blank"
-                  rel="noopener"
-                  className={styles.kakaoDirectionsBtn}
-                >
-                  카카오맵에서 길찾기
-                </a>
-              ) : (
-                <span className={`${styles.kakaoDirectionsBtn} ${styles.kakaoDirectionsDisabled}`}>
-                  카카오맵에서 길찾기
-                </span>
-              )}
               <button
                 type="button"
                 className={styles.categoryBtn}

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { RouteLeg, TransitStep } from '@/types';
+import type { RoadStep, RouteLeg, TransitStep } from '@/types';
 
 /**
  * Kakao REST 호출 + 응답 정규화. 서버 전용 모듈이다.
@@ -40,16 +40,36 @@ function pickLandingUrl(data: any, route: any): string | null {
   return data?.landingUrl ?? data?.landingURL ?? route?.landingUrl ?? route?.landingURL ?? null;
 }
 
-/** Kakao Navi(자동차): routes[0].summary.{distance(m), duration(s)}, sections[].roads[].vertexes */
+/** 연속된 동일 도로명은 하나로 합쳐서, 너무 잘게 쪼개진 구간 목록이 되지 않게 한다. */
+function pushRoadStep(roadSteps: RoadStep[], name: string, distanceKm: number, minutes: number) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const last = roadSteps[roadSteps.length - 1];
+  if (last && last.name === trimmed) {
+    last.distanceKm += distanceKm;
+    last.minutes += minutes;
+    return;
+  }
+  roadSteps.push({ name: trimmed, distanceKm, minutes });
+}
+
+/** Kakao Navi(자동차): routes[0].summary.{distance(m), duration(s)}, sections[].roads[].{name,vertexes} */
 export function parseCarRoute(data: any): RouteLeg | null {
   const route = data?.routes?.[0];
   if (!route?.summary) return null;
 
   const pathPoints: { x: number; y: number }[] = [];
+  const roadSteps: RoadStep[] = [];
   (route.sections ?? []).forEach((sec: any) =>
     (sec.roads ?? []).forEach((road: any) => {
       const v: number[] = road.vertexes ?? [];
       for (let i = 0; i < v.length; i += 2) pathPoints.push({ x: v[i], y: v[i + 1] });
+      pushRoadStep(
+        roadSteps,
+        road.name ?? '',
+        (road.distance ?? 0) / 1000,
+        (road.duration ?? 0) / 60,
+      );
     }),
   );
 
@@ -58,20 +78,28 @@ export function parseCarRoute(data: any): RouteLeg | null {
     minutes: Math.round(route.summary.duration / 60),
     transfers: null,
     pathPoints,
+    roadSteps: roadSteps.map((s) => ({ ...s, minutes: Math.round(s.minutes) })),
     landingURL: pickLandingUrl(data, route),
   };
 }
 
-/** 도보/자전거: route.properties.{totalDistance(m), totalTime(s)}, legs[].steps[].path.points */
+/** 도보/자전거: route.properties.{totalDistance(m), totalTime(s)}, legs[].steps[].{properties.guidance,path.points} */
 export function parseLegBasedRoute(data: any): RouteLeg | null {
   const route = data?.routes?.[0] ?? data?.route ?? data;
   const props = route?.properties;
   if (!props) return null;
 
   const pathPoints: { x: number; y: number }[] = [];
+  const roadSteps: RoadStep[] = [];
   (route.legs ?? []).forEach((leg: any) =>
     (leg.steps ?? []).forEach((step: any) => {
       (step.path?.points ?? []).forEach((pt: number[]) => pathPoints.push({ x: pt[0], y: pt[1] }));
+      const sp = step.properties ?? {};
+      roadSteps.push({
+        name: String(sp.guidance ?? '').trim(),
+        distanceKm: (sp.distance ?? 0) / 1000,
+        minutes: Math.round((sp.time ?? 0) / 60),
+      });
     }),
   );
 
@@ -80,6 +108,7 @@ export function parseLegBasedRoute(data: any): RouteLeg | null {
     minutes: Math.round(props.totalTime / 60),
     transfers: null,
     pathPoints,
+    roadSteps: roadSteps.filter((s) => s.name),
     landingURL: pickLandingUrl(data, route),
   };
 }

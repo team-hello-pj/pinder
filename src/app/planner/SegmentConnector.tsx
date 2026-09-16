@@ -25,6 +25,8 @@ export interface SegmentConnectorProps {
   steps: SegmentStep[];
   expanded: boolean;
   canEdit: boolean;
+  /** 카카오맵 길찾기 바로가기 URL. 좌표가 없으면 null (버튼 비활성) */
+  directionsUrl: string | null;
   onCycle: () => void;
   onToggleExpand: () => void;
 }
@@ -39,6 +41,7 @@ export function SegmentConnector({
   steps,
   expanded,
   canEdit,
+  directionsUrl,
   onCycle,
   onToggleExpand,
 }: SegmentConnectorProps) {
@@ -97,6 +100,29 @@ export function SegmentConnector({
               </svg>
             </button>
           ) : null}
+          {directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener"
+              className={styles.segmentKakaoBtn}
+              aria-label="카카오맵에서 길찾기"
+              title="카카오맵에서 길찾기"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#191919">
+                <path d="M12 2C7 2 3 5.3 3 9.4c0 2.7 1.8 5 4.4 6.4-.2.7-.7 2.5-.8 2.9 0 0-.1.4.2.5.2.1.5 0 .6-.1.4-.2 2.9-2 3.6-2.4.6.1 1.3.2 2 .2 5 0 9-3.3 9-7.4S17 2 12 2Z" />
+              </svg>
+            </a>
+          ) : (
+            <span
+              className={`${styles.segmentKakaoBtn} ${styles.segmentKakaoBtnDisabled}`}
+              aria-hidden
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#191919">
+                <path d="M12 2C7 2 3 5.3 3 9.4c0 2.7 1.8 5 4.4 6.4-.2.7-.7 2.5-.8 2.9 0 0-.1.4.2.5.2.1.5 0 .6-.1.4-.2 2.9-2 3.6-2.4.6.1 1.3.2 2 .2 5 0 9-3.3 9-7.4S17 2 12 2Z" />
+              </svg>
+            </span>
+          )}
         </div>
 
         {expanded && steps.length > 1 ? (
