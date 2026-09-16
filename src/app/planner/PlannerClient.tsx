@@ -17,6 +17,7 @@ import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/cha
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
   fetchRouteLeg,
+  KakaoApiError,
   loadKakaoMapsSdk,
   searchKeyword,
   type KakaoPlaceDoc,
@@ -722,9 +723,11 @@ export function PlannerClient() {
         setRouteCache((prev) => ({ ...prev, [key]: data }));
       } catch (err) {
         console.error(`fetchSegmentRoute(${mode}) failed:`, err);
+        const errorMsg =
+          err instanceof KakaoApiError ? err.message : '경로 정보를 불러오지 못했습니다';
         setRouteCache((prev) => ({
           ...prev,
-          [key]: { failed: true, errorMsg: '경로 정보를 불러오지 못했습니다' },
+          [key]: { failed: true, errorMsg },
         }));
       }
     },
@@ -1134,6 +1137,7 @@ export function PlannerClient() {
         const hasRealCoords = Boolean(fromP?.x && fromP?.y && toP?.x && toP?.y);
         let steps: SegmentStep[];
         let status: 'ok' | 'unsearched' | 'failed' = 'ok';
+        let errorMsg: string | undefined;
 
         if (cached && !('failed' in cached)) {
           if (mode === 'transit' && cached.transitSteps?.length) {
@@ -1157,6 +1161,7 @@ export function PlannerClient() {
           }
         } else if (cached && 'failed' in cached) {
           status = 'failed';
+          errorMsg = cached.errorMsg;
           steps = [{ mode, arrowLabel: mode, minutes: 0, distanceKm: 0, nodeLabel: null }];
         } else if (hasRealCoords) {
           status = 'unsearched';
@@ -1181,6 +1186,7 @@ export function PlannerClient() {
           totalDistanceKm,
           transfers: cached && !('failed' in cached) ? cached.transfers : null,
           status,
+          errorMsg,
           steps,
           expanded,
         };
@@ -1468,6 +1474,7 @@ export function PlannerClient() {
                       totalDistanceKm={seg.totalDistanceKm}
                       transfers={seg.transfers}
                       status={seg.status}
+                      errorMsg={seg.errorMsg}
                       steps={seg.steps}
                       expanded={seg.expanded}
                       canEdit={canEdit}

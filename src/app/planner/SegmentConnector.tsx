@@ -22,6 +22,8 @@ export interface SegmentConnectorProps {
   transfers: number | null;
   /** null 이면 아직 실제 경로를 조회하지 않은 상태, 'failed' 면 조회 실패 */
   status: 'ok' | 'unsearched' | 'failed';
+  /** status가 'failed'일 때 실제 원인(Kakao 응답 오류 메시지 등) */
+  errorMsg?: string;
   steps: SegmentStep[];
   expanded: boolean;
   canEdit: boolean;
@@ -38,6 +40,7 @@ export function SegmentConnector({
   totalDistanceKm,
   transfers,
   status,
+  errorMsg,
   steps,
   expanded,
   canEdit,
@@ -48,7 +51,7 @@ export function SegmentConnector({
   const info = MODE_MAP[mode];
   const durationLabel =
     status === 'failed'
-      ? '경로 정보를 불러오지 못했어요'
+      ? (errorMsg ?? '경로 정보를 불러오지 못했어요')
       : status === 'unsearched'
         ? '경로 검색 버튼을 눌러 실제 경로를 조회해주세요'
         : formatDuration(totalMinutes);
@@ -75,6 +78,27 @@ export function SegmentConnector({
               {distanceLabel ? ` · ${distanceLabel}` : ''}
             </span>
           </button>
+          {directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener"
+              className={styles.segmentKakaoBtn}
+              aria-label="카카오맵에서 길찾기"
+              title="카카오맵에서 길찾기"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
+              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
+            </a>
+          ) : (
+            <span
+              className={`${styles.segmentKakaoBtn} ${styles.segmentKakaoBtnDisabled}`}
+              aria-hidden
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
+              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
+            </span>
+          )}
           {steps.length > 1 ? (
             <button
               type="button"
@@ -100,27 +124,6 @@ export function SegmentConnector({
               </svg>
             </button>
           ) : null}
-          {directionsUrl ? (
-            <a
-              href={directionsUrl}
-              target="_blank"
-              rel="noopener"
-              className={styles.segmentKakaoBtn}
-              aria-label="카카오맵에서 길찾기"
-              title="카카오맵에서 길찾기"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
-              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
-            </a>
-          ) : (
-            <span
-              className={`${styles.segmentKakaoBtn} ${styles.segmentKakaoBtnDisabled}`}
-              aria-hidden
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
-              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
-            </span>
-          )}
         </div>
 
         {expanded && steps.length > 1 ? (
