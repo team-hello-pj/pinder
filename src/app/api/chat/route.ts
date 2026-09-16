@@ -62,21 +62,17 @@ export async function POST(request: Request) {
 
     const contents = [...historyParts, { role: 'user', parts: [{ text: userMessage }] }];
 
-    const geminiRes = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [
-            {
-              text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
-            },
-          ],
+    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    system_instruction: {
+      parts: [
+        {
+          text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
         },
-<<<<<<< HEAD
       ],
     },
     contents,
@@ -86,15 +82,7 @@ export async function POST(request: Request) {
     },
   }),
 });
-=======
-        contents,
-        generationConfig: {
-          maxOutputTokens: 400,
-        },
-      }),
-    });
->>>>>>> 8a4c671c54c4f74c6be25995e881ff7f9e51d756
-
+      
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
 
