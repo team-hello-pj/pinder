@@ -12,6 +12,7 @@ import {
   SITUATION_VARS,
   WEATHER_SUBS,
 } from '@/constants';
+import { consumeAiRouteHandoff } from '@/lib/ai-route-handoff';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
@@ -402,6 +403,15 @@ export function PlannerClient() {
       setTripEnd(qEnd || qStart || '');
     }
     if (isNewRoute && !hasTripDateParam) setNewTripDateModalOpen(true);
+
+    if (searchParams.get('mode') === 'ai') {
+      const handoff = consumeAiRouteHandoff();
+      if (handoff) {
+        setPlaces(handoff.places);
+        setSegments(handoff.segments);
+        setNextId(handoff.places.length + 1);
+      }
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 로그인 상태가 확정될 때 한 번만 실행
   }, [sessionLoading, isLoggedIn]);

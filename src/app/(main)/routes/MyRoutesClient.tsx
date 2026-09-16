@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { avatarColorFor } from '@/lib/avatar';
+import { saveAiRouteHandoff } from '@/lib/ai-route-handoff';
 import { fmtDateLabel, fmtRange } from '@/lib/calendar';
 import {
   deleteSchedule,
@@ -13,7 +14,9 @@ import {
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, DateRangeCalendar, Modal } from '@/components/ui';
+import type { Place, TransportMode } from '@/types';
 
+import { AiGenerateWizard } from './AiGenerateWizard';
 import styles from './my-routes.module.css';
 
 const PAGE_SIZE = 5;
@@ -42,6 +45,7 @@ export function MyRoutesClient() {
 
   const [modeSelectOpen, setModeSelectOpen] = useState(false);
   const [newTripOpen, setNewTripOpen] = useState(false);
+  const [aiWizardOpen, setAiWizardOpen] = useState(false);
   const [createMode, setCreateMode] = useState<CreateMode>('manual');
   const [newTripStart, setNewTripStart] = useState(todayStr());
   const [newTripEnd, setNewTripEnd] = useState('');
@@ -110,6 +114,21 @@ export function MyRoutesClient() {
     setNewTripEnd(dateStr);
   };
   const newTripHref = `/planner?new=1&tripStart=${encodeURIComponent(newTripStart)}&tripEnd=${encodeURIComponent(newTripEnd || newTripStart)}&mode=${createMode}`;
+
+  const startNewTrip = () => {
+    if (createMode === 'ai') {
+      setNewTripOpen(false);
+      setAiWizardOpen(true);
+      return;
+    }
+    router.push(newTripHref);
+  };
+
+  const handleAiConfirm = (places: Place[], segments: TransportMode[]) => {
+    saveAiRouteHandoff({ places, segments });
+    setAiWizardOpen(false);
+    router.push(newTripHref);
+  };
 
   // ---- 삭제 ----
   const openDeleteConfirm = (route: ScheduleSummary) => {
@@ -537,11 +556,19 @@ export function MyRoutesClient() {
           <Button variant="secondary" size="sm" onClick={() => setNewTripOpen(false)}>
             취소
           </Button>
-          <Button size="sm" onClick={() => router.push(newTripHref)}>
+          <Button size="sm" onClick={startNewTrip}>
             시작하기
           </Button>
         </div>
       </Modal>
+
+      <AiGenerateWizard
+        open={aiWizardOpen}
+        tripStart={newTripStart}
+        tripEnd={newTripEnd || newTripStart}
+        onClose={() => setAiWizardOpen(false)}
+        onConfirm={handleAiConfirm}
+      />
 
       {/* 삭제 확인 */}
       <Modal
