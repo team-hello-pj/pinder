@@ -810,12 +810,156 @@
   margin: 0 0 8px;
 }
 
-.commentModalBody {
+/* 댓글 상세 팝업: 좌측 사진 / 우측 댓글창 2단 구조 */
+.commentModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.commentModalCard {
+  background: var(--pd-card-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  width: min(1000px, 92vw);
+  height: min(680px, 88vh);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+}
+
+.commentModalPhoto {
+  flex: 1.2;
+  min-width: 0;
+  background: #000;
+  position: relative;
+}
+
+.commentModalRight {
+  flex: 1;
+  min-width: 280px;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--pd-card-bg);
+}
+
+.commentModalHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--pd-border);
+  flex-shrink: 0;
+}
+
+.commentModalHeadInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.commentModalCloseBtn {
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--pd-text-sub);
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+
+.commentModalCloseBtn:hover {
+  background: var(--pd-row-hover);
+}
+
+.commentModalScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 60vh;
-  overflow-y: auto;
+}
+
+.modalCaptionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.captionClamped,
+.captionFull {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pd-text);
+}
+
+.captionClamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.captionToggleBtn {
+  align-self: flex-start;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.commentModalLikeBar {
+  border-top: 1px solid var(--pd-border);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.commentModalInputRow {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px 14px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .commentModalOverlay {
+    padding: 0;
+  }
+
+  .commentModalCard {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .commentModalPhoto {
+    flex: none;
+    height: 40%;
+  }
+
+  .commentModalRight {
+    flex: 1;
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 1024px) {

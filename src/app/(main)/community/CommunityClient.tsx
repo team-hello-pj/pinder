@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   addComment,
@@ -37,6 +37,36 @@ const INLINE_COMMENT_THRESHOLD = 4;
 /** 답글까지 합친 총 댓글 수 (목록 카드/댓글 수 배지에 표시하는 값). */
 function totalCommentCount(post: PostView): number {
   return post.comments.reduce((sum, c) => sum + 1 + c.replies.length, 0);
+}
+
+/** 댓글 상세 팝업 상단의 작성자 글(제목). 3줄을 넘으면 "전체 보기/접기"로 잘라 보여준다. */
+function PostCaption({ author, caption }: { author: string; caption: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    setOverflowing(el.scrollHeight - el.clientHeight > 1);
+  }, [caption]);
+
+  return (
+    <div className={styles.modalCaptionBlock}>
+      <p ref={textRef} className={expanded ? styles.captionFull : styles.captionClamped}>
+        <b>{author}</b> <HighlightedCaption text={caption} />
+      </p>
+      {overflowing ? (
+        <button
+          type="button"
+          className={styles.captionToggleBtn}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? '접기' : '전체 보기'}
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
@@ -91,6 +121,15 @@ export function CommunityClient() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!commentModalId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCommentModalId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [commentModalId]);
 
   const runSearch = () => {
     setSearchQuery(searchInput.trim());
@@ -793,55 +832,116 @@ export function CommunityClient() {
         </div>
       </Modal>
 
-      {/* 댓글 상세 */}
-      <Modal
-        open={Boolean(commentModalPost)}
-        title={commentModalPost ? `${commentModalPost.author}님의 게시물` : '게시물'}
-        onClose={() => setCommentModalId(null)}
-      >
-        {commentModalPost ? (
-          <div className={styles.commentModalBody}>
-            <p className={styles.caption}>
-              <b>{commentModalPost.author}</b>{' '}
-              <HighlightedCaption text={commentModalPost.caption} />
-            </p>
-            {commentModalPost.comments.length === 0 ? (
-              <p className={styles.empty}>아직 댓글이 없어요</p>
-            ) : (
-              <CommentThread
-                comments={commentModalPost.comments}
-                openReplyBoxes={openReplyBoxes}
-                replyDrafts={replyDrafts}
-                onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
-                onToggleReplyLike={(commentId, replyId) => toggleReplyLike(commentId, replyId)}
-                onToggleReplyBox={toggleReplyBox}
-                onReplyInput={onReplyInput}
-                onReplySubmit={(commentId) => submitReply(commentModalPost.id, commentId)}
-                onDeleteComment={deleteComment}
-                onDeleteReply={deleteReply}
-              />
-            )}
-            <div className={styles.commentInputRow}>
-              <input
-                value={commentDrafts[commentModalPost.id] ?? ''}
-                onChange={(e) => onCommentInput(commentModalPost.id, e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submitComment(commentModalPost.id);
-                }}
-                placeholder="댓글 달기..."
-                className={styles.commentInput}
-              />
-              <button
-                type="button"
-                className={styles.postBtn}
-                onClick={() => submitComment(commentModalPost.id)}
-              >
-                게시
-              </button>
+      {/* 댓글 상세: 좌측 사진 / 우측 댓글창 2단 구조 */}
+      {commentModalPost ? (
+        <div className={styles.commentModalOverlay} onClick={() => setCommentModalId(null)}>
+          <div className={styles.commentModalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.commentModalPhoto}>
+              <PlaceholderImage label={`${commentModalPost.place} 사진`} />
+            </div>
+            <div className={styles.commentModalRight}>
+              <div className={styles.commentModalHead}>
+                <span
+                  className={styles.postAvatar}
+                  style={{
+                    background: avatarColorFor(commentModalPost.author),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontWeight: 700,
+                  }}
+                >
+                  {commentModalPost.author.slice(0, 1)}
+                </span>
+                <div className={styles.commentModalHeadInfo}>
+                  <div className={styles.postAuthor}>{commentModalPost.author}</div>
+                  <div className={styles.postMeta}>
+                    {commentModalPost.place} · {formatRelativeTime(commentModalPost.timestamp)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={styles.commentModalCloseBtn}
+                  onClick={() => setCommentModalId(null)}
+                  aria-label="닫기"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className={styles.commentModalScroll}>
+                <PostCaption author={commentModalPost.author} caption={commentModalPost.caption} />
+                {commentModalPost.comments.length === 0 ? (
+                  <p className={styles.empty}>아직 댓글이 없어요</p>
+                ) : (
+                  <CommentThread
+                    comments={commentModalPost.comments}
+                    openReplyBoxes={openReplyBoxes}
+                    replyDrafts={replyDrafts}
+                    onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
+                    onToggleReplyLike={(commentId, replyId) => toggleReplyLike(commentId, replyId)}
+                    onToggleReplyBox={toggleReplyBox}
+                    onReplyInput={onReplyInput}
+                    onReplySubmit={(commentId) => submitReply(commentModalPost.id, commentId)}
+                    onDeleteComment={deleteComment}
+                    onDeleteReply={deleteReply}
+                  />
+                )}
+              </div>
+
+              <div className={styles.commentModalLikeBar}>
+                <button
+                  type="button"
+                  className={styles.likeBtn}
+                  style={{ color: commentModalPost.liked ? '#e5342e' : 'var(--pd-text-sub)' }}
+                  onClick={() => toggleLike(commentModalPost.id)}
+                >
+                  {commentModalPost.liked ? (
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill={commentModalPost.liked ? '#e5342e' : 'var(--pd-text-sub)'}
+                    >
+                      <path d="M12 21s-6.7-4.35-9.3-8.1C1.1 10.6 1.6 7.4 4.2 5.7c2.2-1.4 5-.8 6.6 1.1l1.2 1.4 1.2-1.4c1.6-1.9 4.4-2.5 6.6-1.1 2.6 1.7 3.1 4.9 1.5 7.2C18.7 16.65 12 21 12 21Z" />
+                    </svg>
+                  ) : (
+                    <span
+                      className={styles.iconMask}
+                      style={{
+                        maskImage: 'url(/icons/heart.png)',
+                        WebkitMaskImage: 'url(/icons/heart.png)',
+                        background: 'var(--pd-text-sub)',
+                      }}
+                    />
+                  )}
+                  <span>{commentModalPost.likeCount}</span>
+                </button>
+              </div>
+
+              <div className={styles.commentModalInputRow}>
+                <input
+                  value={commentDrafts[commentModalPost.id] ?? ''}
+                  onChange={(e) => onCommentInput(commentModalPost.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') submitComment(commentModalPost.id);
+                  }}
+                  placeholder="댓글 달기..."
+                  className={styles.commentInput}
+                />
+                <button
+                  type="button"
+                  className={styles.postBtn}
+                  onClick={() => submitComment(commentModalPost.id)}
+                >
+                  게시
+                </button>
+              </div>
             </div>
           </div>
-        ) : null}
-      </Modal>
+        </div>
+      ) : null}
 
       {/* 삭제 확인 */}
       <Modal
