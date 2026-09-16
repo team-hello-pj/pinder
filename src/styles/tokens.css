@@ -78,7 +78,8 @@
   --pd-chip-bg: rgba(255, 255, 255, 0.08);
   --pd-row-hover: rgba(255, 255, 255, 0.06);
 
-  --pd-brand-ink: #f7f7f8;
+  /* --pd-brand-ink 은 항상 밝은 --pd-brand 배경 위에 올라가는 글씨색이라 다크모드에서도 뒤집지 않는다 */
+  --pd-brand-ink: #12321f;
   --pd-link: #7bcb93;
   --pd-link-hover: #95c898;
 

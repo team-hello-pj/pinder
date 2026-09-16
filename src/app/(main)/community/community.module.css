@@ -59,6 +59,10 @@
   pointer-events: none;
 }
 
+:global([data-theme='dark']) .searchAntIcon {
+  filter: invert(1);
+}
+
 .searchSubmitBtn {
   position: absolute;
   right: 12px;
@@ -80,6 +84,10 @@
   height: 14px;
   object-fit: contain;
   opacity: 0.55;
+}
+
+:global([data-theme='dark']) .searchSubmitBtn img {
+  filter: invert(1);
 }
 
 .row {
@@ -119,6 +127,11 @@
 
 .regionItem:hover {
   background: var(--pd-row-hover);
+}
+
+/* .regionCol 배경(--pd-legend-bg)은 다크모드에서도 밝은 색을 유지하므로 글씨는 항상 어두운 색으로 고정한다 */
+:global([data-theme='dark']) .regionItem {
+  color: #171719;
 }
 
 .regionActive {
@@ -621,6 +634,11 @@
   width: 17px;
   height: 17px;
   object-fit: contain;
+}
+
+:global([data-theme='dark']) .sideCardHeadIcon,
+:global([data-theme='dark']) .sideCardHeadIconSm {
+  filter: invert(1);
 }
 
 .sideCardHeadIconSm {
