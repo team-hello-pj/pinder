@@ -75,6 +75,7 @@ export async function POST(request: Request) {
             },
           ],
         },
+
         contents,
         generationConfig: {
           temperature: 0.7,
