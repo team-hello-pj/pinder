@@ -160,6 +160,7 @@ export function PlannerClient() {
   const [myRoutesOpen, setMyRoutesOpen] = useState(false);
   const [savedRoutes, setSavedRoutes] = useState<ScheduleSummary[]>([]);
   const [saveLabel, setSaveLabel] = useState('저장');
+  const lastTitleRef = useRef('');
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
 
@@ -309,6 +310,7 @@ export function PlannerClient() {
 
   const applyScheduleDetail = useCallback(
     (detail: NonNullable<Awaited<ReturnType<typeof getSchedule>>>) => {
+      lastTitleRef.current = detail.schedule.title;
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
       setCriteriaState(detail.schedule.criteria);
@@ -885,8 +887,11 @@ export function PlannerClient() {
 
   // ---- 저장 / 내 일정 ----
   const saveCurrentRoute = async () => {
-    if (places.length === 0) return;
-    const title = `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`;
+    if (places.length === 0 && !scheduleId) return;
+    const title =
+      places.length > 0
+        ? `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`
+        : lastTitleRef.current || '방문지 없음';
     const input = {
       title,
       places,
@@ -904,6 +909,7 @@ export function PlannerClient() {
       return;
     }
     if (!scheduleId) setScheduleId(saved.id);
+    lastTitleRef.current = saved.title;
     setSaveLabel('저장됨');
     logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
     setTimeout(() => setSaveLabel('저장'), 1500);
