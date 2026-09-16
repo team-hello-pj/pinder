@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CATEGORY_OPTIONS,
   CRITERIA_LABEL,
-  MODE_MAP,
   MODE_ORDER,
   SEVERITY_LEVELS,
   SITUATION_VARS,
@@ -132,7 +131,7 @@ export function PlannerClient() {
   const mapRef = useRef<HTMLDivElement>(null);
   const kakaoMapRef = useRef<KakaoMapInstance | null>(null);
   const kakaoMarkersRef = useRef<KakaoOverlayLike[]>([]);
-  const kakaoPolylineRef = useRef<KakaoOverlayLike | null>(null);
+  const kakaoPolylinesRef = useRef<KakaoOverlayLike[]>([]);
   const searchMarkerRef = useRef<KakaoOverlayLike | null>(null);
   const [kakaoReady, setKakaoReady] = useState(false);
   const [kakaoLoadFailed, setKakaoLoadFailed] = useState(false);
@@ -292,30 +291,33 @@ export function PlannerClient() {
   }, [kakaoReady, syncKakaoMarkers]);
 
   const syncKakaoPolyline = useCallback(() => {
-    if (kakaoPolylineRef.current) {
-      kakaoPolylineRef.current.setMap(null);
-      kakaoPolylineRef.current = null;
-    }
+    kakaoPolylinesRef.current.forEach((line) => line.setMap(null));
+    kakaoPolylinesRef.current = [];
     const kakao = window.kakao;
     const map = kakaoMapRef.current;
     if (!map || !kakao) return;
-    const allPoints: { x: number; y: number }[] = [];
+    // 구간 하나가 실패해도 나머지 구간은 그대로 그린다 (전체를 한 선으로 합치지 않고
+    // 실제 데이터가 있는 구간마다 따로따로 그려서 부분 실패에도 지도에 경로가 표시되게 한다).
     for (let idx = 0; idx < segments.length; idx++) {
       const cache = routeCache[segmentCacheKey(idx)];
-      if (!cache || 'failed' in cache || !cache.pathPoints?.length) return;
-      cache.pathPoints.forEach((pt) => allPoints.push(pt));
+      if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
+      const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
+      if (path.length < 2) continue;
+      const line = new kakao.maps.Polyline({
+        map,
+        path,
+        strokeWeight: 4,
+        strokeColor: '#2C8F4A',
+        strokeOpacity: 0.85,
+        strokeStyle: 'solid',
+      });
+      kakaoPolylinesRef.current.push(line);
     }
-    if (allPoints.length < 2) return;
-    const path = allPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
-    kakaoPolylineRef.current = new kakao.maps.Polyline({
-      map,
-      path,
-      strokeWeight: 4,
-      strokeColor: '#2C8F4A',
-      strokeOpacity: 0.85,
-      strokeStyle: 'solid',
-    });
   }, [segments, routeCache, segmentCacheKey]);
+
+  useEffect(() => {
+    if (kakaoReady) syncKakaoPolyline();
+  }, [kakaoReady, syncKakaoPolyline]);
 
   const relayoutMapSoon = useCallback(() => {
     const map = kakaoMapRef.current;
@@ -1121,15 +1123,6 @@ export function PlannerClient() {
               minutes: ts.minutes ?? 0,
               distanceKm: ts.distanceKm ?? 0,
               nodeLabel: ts.type === 'WALKING' ? ts.toName || ts.fromName : ts.vehicleName,
-            }));
-          } else if (mode !== 'transit' && cached.roadSteps?.length) {
-            // 자동차/도보/자전거: 실제 도로명·안내문구를 구간별로 보여준다.
-            steps = cached.roadSteps.map((rs) => ({
-              mode,
-              arrowLabel: MODE_MAP[mode].label,
-              minutes: rs.minutes,
-              distanceKm: rs.distanceKm,
-              nodeLabel: rs.name,
             }));
           } else {
             steps = [

@@ -41,13 +41,6 @@ export interface TransitStep {
   stopCount: number | null;
 }
 
-/** 자동차/도보/자전거 경로의 구간별 도로명·안내문구 (Kakao 응답의 road/guidance 를 그대로 옮긴다). */
-export interface RoadStep {
-  name: string;
-  distanceKm: number;
-  minutes: number;
-}
-
 /** /api/kakao 의 car/walk/transit/bike 가 공통으로 돌려주는 정규화된 결과. */
 export interface RouteLeg {
   distanceKm: number;
@@ -55,7 +48,6 @@ export interface RouteLeg {
   transfers: number | null;
   pathPoints: { x: number; y: number }[];
   transitSteps?: TransitStep[];
-  roadSteps?: RoadStep[];
   landingURL?: string | null;
 }
 

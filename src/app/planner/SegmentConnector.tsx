@@ -109,18 +109,16 @@ export function SegmentConnector({
               aria-label="카카오맵에서 길찾기"
               title="카카오맵에서 길찾기"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#191919">
-                <path d="M12 2C7 2 3 5.3 3 9.4c0 2.7 1.8 5 4.4 6.4-.2.7-.7 2.5-.8 2.9 0 0-.1.4.2.5.2.1.5 0 .6-.1.4-.2 2.9-2 3.6-2.4.6.1 1.3.2 2 .2 5 0 9-3.3 9-7.4S17 2 12 2Z" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
+              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
             </a>
           ) : (
             <span
               className={`${styles.segmentKakaoBtn} ${styles.segmentKakaoBtnDisabled}`}
               aria-hidden
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#191919">
-                <path d="M12 2C7 2 3 5.3 3 9.4c0 2.7 1.8 5 4.4 6.4-.2.7-.7 2.5-.8 2.9 0 0-.1.4.2.5.2.1.5 0 .6-.1.4-.2 2.9-2 3.6-2.4.6.1 1.3.2 2 .2 5 0 9-3.3 9-7.4S17 2 12 2Z" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘 */}
+              <img src="/icons/map-pin.png" alt="" className={styles.segmentKakaoBtnIcon} />
             </span>
           )}
         </div>
