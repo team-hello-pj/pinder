@@ -231,15 +231,30 @@ export function PlannerClient() {
     [nickname],
   );
 
-  const segmentCacheKey = useCallback(
-    (idx: number, mode?: TransportMode) => {
+  const segmentCacheKeyFor = useCallback(
+    (idx: number, mode: TransportMode, crit: RouteCriteria) => {
       const a = places[idx];
       const b = places[idx + 1];
-      const m = mode ?? segments[idx];
       if (!a || !b) return `_${idx}`;
-      return `${m}_${a.id}_${b.id}_${criteria}`;
+      return `${mode}_${a.id}_${b.id}_${crit}`;
     },
-    [places, segments, criteria],
+    [places],
+  );
+
+  /**
+   * 일차별로 최단시간/최단거리 기준을 다르게 계산해뒀을 수 있으므로, 현재 선택된 기준으로
+   * 계산한 값이 없으면 다른 기준으로 이미 계산해둔 값이라도 그대로 보여준다
+   * (전체보기에서 각 일차마다 계산했던 결과가 그대로 남아있어야 하기 때문).
+   */
+  const getSegmentRouteCache = useCallback(
+    (idx: number, mode?: TransportMode): CacheEntry | undefined => {
+      const m = mode ?? segments[idx];
+      const primary = routeCache[segmentCacheKeyFor(idx, m, criteria)];
+      if (primary) return primary;
+      const otherCriteria: RouteCriteria = criteria === 'time' ? 'distance' : 'time';
+      return routeCache[segmentCacheKeyFor(idx, m, otherCriteria)];
+    },
+    [routeCache, segments, criteria, segmentCacheKeyFor],
   );
 
   // ---- Kakao 지도 ----
@@ -301,7 +316,7 @@ export function PlannerClient() {
     // 구간 하나가 실패해도 나머지 구간은 그대로 그린다 (전체를 한 선으로 합치지 않고
     // 실제 데이터가 있는 구간마다 따로따로 그려서 부분 실패에도 지도에 경로가 표시되게 한다).
     for (let idx = 0; idx < segments.length; idx++) {
-      const cache = routeCache[segmentCacheKey(idx)];
+      const cache = getSegmentRouteCache(idx);
       if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
       const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
       if (path.length < 2) continue;
@@ -315,7 +330,7 @@ export function PlannerClient() {
       });
       kakaoPolylinesRef.current.push(line);
     }
-  }, [segments, routeCache, segmentCacheKey]);
+  }, [segments, getSegmentRouteCache]);
 
   useEffect(() => {
     if (kakaoReady) syncKakaoPolyline();
@@ -1050,7 +1065,7 @@ export function PlannerClient() {
       durationMin: p.duration,
     })),
     segments: segments.map((mode, i) => {
-      const cache = routeCache[segmentCacheKey(i)];
+      const cache = getSegmentRouteCache(i);
       const ok = cache && !('failed' in cache);
       return {
         from: places[i]?.name,
@@ -1144,7 +1159,7 @@ export function PlannerClient() {
       segments.map((mode, idx) => {
         const fromP = places[idx];
         const toP = places[idx + 1];
-        const cached = routeCache[segmentCacheKey(idx)];
+        const cached = getSegmentRouteCache(idx, mode);
         const hasRealCoords = Boolean(fromP?.x && fromP?.y && toP?.x && toP?.y);
         let steps: SegmentStep[];
         let status: 'ok' | 'unsearched' | 'failed' = 'ok';
@@ -1202,7 +1217,7 @@ export function PlannerClient() {
           expanded,
         };
       }),
-    [segments, places, routeCache, segmentCacheKey, expandedSegments],
+    [segments, places, getSegmentRouteCache, expandedSegments],
   );
 
   const timeline = useMemo(() => {
@@ -1241,7 +1256,7 @@ export function PlannerClient() {
   const kakaoDirectionsUrl = (idx: number, p: Place): string | null => {
     const prev = places[idx - 1];
     if (!prev || prev.x == null || prev.y == null || p.x == null || p.y == null) return null;
-    const cached = routeCache[segmentCacheKey(idx - 1, segments[idx - 1])];
+    const cached = getSegmentRouteCache(idx - 1, segments[idx - 1]);
     if (cached && !('failed' in cached) && cached.landingURL) return cached.landingURL;
     const sName = encodeURIComponent(prev.name || '출발지');
     const eName = encodeURIComponent(p.name || '도착지');
