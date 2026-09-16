@@ -3,7 +3,7 @@
 .shell {
   display: grid;
   grid-template-columns: 392px 1fr;
-  min-height: calc(100vh - var(--pd-header-height));
+  height: 100vh;
   transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -522,8 +522,10 @@
 }
 
 .memoDot {
-  font-size: 12px;
-  opacity: 0.6;
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  opacity: 0.45;
 }
 
 .priorityChip {
@@ -616,6 +618,13 @@
   border-radius: 6px;
   padding: 5px 9px;
   white-space: nowrap;
+}
+
+.memoSavedCheck {
+  width: 11px;
+  height: 11px;
+  object-fit: contain;
+  vertical-align: -1px;
 }
 
 .durationRow {

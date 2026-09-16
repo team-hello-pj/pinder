@@ -81,12 +81,26 @@ export function SegmentConnector({
           {steps.length > 1 ? (
             <button
               type="button"
-              className={styles.segmentToggle}
+              className={`${styles.segmentToggle} ${styles[`segmentChip-${mode}`]}`}
               onClick={onToggleExpand}
-              style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
               aria-label={expanded ? '세부 경로 접기' : '세부 경로 펼치기'}
             >
-              ⌄
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: expanded ? 'rotate(180deg)' : 'none',
+                  transition: 'transform .15s',
+                }}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
           ) : null}
         </div>

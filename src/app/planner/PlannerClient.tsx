@@ -36,9 +36,10 @@ import {
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import type { Place, RouteCriteria, RouteLeg, TransportMode } from '@/types';
 
-import { INITIAL_PLACES, type EditRequest, type Member } from './data';
+import type { EditRequest, Member } from './data';
 import { PlaceCard } from './PlaceCard';
 import { SegmentConnector, type SegmentStep } from './SegmentConnector';
 import styles from './planner.module.css';
@@ -61,11 +62,11 @@ export function PlannerClient() {
   const hasTripDateParam = Boolean(searchParams.get('tripStart'));
 
   // ---- 핵심 데이터 ----
-  const [places, setPlaces] = useState<Place[]>(isNewRoute ? [] : INITIAL_PLACES);
-  const [nextId, setNextId] = useState(isNewRoute ? 1 : INITIAL_PLACES.length + 1);
-  const [segments, setSegments] = useState<TransportMode[]>(
-    isNewRoute ? [] : ['car', 'walk', 'transit'],
-  );
+  // 쿼리스트링 없이 그냥 /planner 로 들어와도(북마크, 뒤로가기 등) 항상 빈 목록에서 시작한다 —
+  // 데모 방문지(INITIAL_PLACES)는 legacy 프로토타입 전용이었고 실사용자에게 보이면 안 된다.
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [nextId, setNextId] = useState(1);
+  const [segments, setSegments] = useState<TransportMode[]>([]);
   const [criteria, setCriteriaState] = useState<RouteCriteria>('time');
   const [routeCache, setRouteCache] = useState<Record<string, CacheEntry>>({});
   const [routeSearching, setRouteSearching] = useState(false);
@@ -1159,6 +1160,7 @@ export function PlannerClient() {
                   p<span className={styles.panelLogoColon}>:</span>nder
                 </Link>
                 <div className={styles.panelHeaderActions}>
+                  <ThemeToggle />
                   {canManageInvite ? (
                     <button
                       type="button"

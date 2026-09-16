@@ -65,9 +65,13 @@ export function PlaceCard({
         <div className={styles.placeNameRow}>
           <span className={styles.placeName}>{place.name}</span>
           {place.packItems ? (
-            <span className={styles.memoDot} title="메모 있음" aria-hidden>
-              📝
-            </span>
+            // eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘
+            <img
+              src="/icons/notepad-text.png"
+              alt=""
+              title="메모 있음"
+              className={styles.memoDot}
+            />
           ) : null}
           <button
             type="button"
@@ -117,7 +121,15 @@ export function PlaceCard({
                 className={styles.memoSaveBtn}
                 onClick={() => handlers.onSaveMemo(place.id)}
               >
-                {memoSaved ? '저장됨 ✓' : '저장'}
+                {memoSaved ? (
+                  <>
+                    저장됨{' '}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- 11px 정적 아이콘 */}
+                    <img src="/icons/check.png" alt="" className={styles.memoSavedCheck} />
+                  </>
+                ) : (
+                  '저장'
+                )}
               </button>
             </div>
             <div className={styles.durationRow}>
@@ -143,7 +155,19 @@ export function PlaceCard({
                   onClick={() => handlers.onOpenEdit(place.id)}
                   aria-label="방문지 수정"
                 >
-                  ✎
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#878A93"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
                 </button>
               ) : null}
             </div>
@@ -157,16 +181,41 @@ export function PlaceCard({
         onClick={() => handlers.onDeleteClick(place.id)}
         aria-label="방문지 삭제"
       >
-        🗑
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#878A93"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 7h16" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+          <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+        </svg>
       </button>
       <button
         type="button"
         className={styles.placeExpandBtn}
         onClick={() => handlers.onToggleExpand(place.id)}
         aria-label={expanded ? '접기' : '펼치기'}
-        style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
       >
-        ⌄
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#AEB0B6"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
     </div>
   );
