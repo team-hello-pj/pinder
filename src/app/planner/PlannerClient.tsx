@@ -159,10 +159,10 @@ export function PlannerClient() {
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [myEditRequestPending, setMyEditRequestPending] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [permission, setPermission] = useState<'edit' | 'view'>('edit');
-  const [permissionMenuOpen, setPermissionMenuOpen] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
-  const [copyLabel, setCopyLabel] = useState('복사');
+  const [viewerInviteLink, setViewerInviteLink] = useState('');
+  const [editorInviteLink, setEditorInviteLink] = useState('');
+  const [viewerCopyLabel, setViewerCopyLabel] = useState('복사');
+  const [editorCopyLabel, setEditorCopyLabel] = useState('복사');
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
   const [requestConfirmOpen, setRequestConfirmOpen] = useState(false);
   const [requestConfirmId, setRequestConfirmId] = useState<string | null>(null);
@@ -977,18 +977,38 @@ export function PlannerClient() {
     setRequestConfirmId(null);
     setRequestConfirmKind(null);
   };
-  const copyInvite = async () => {
+  const copyInviteLink = async (role: 'viewer' | 'editor', existingLink: string) => {
     if (!scheduleId) return;
-    const link = await getInviteLink(scheduleId, permission === 'edit' ? 'editor' : 'viewer');
+    const setLink = role === 'editor' ? setEditorInviteLink : setViewerInviteLink;
+    const setLabel = role === 'editor' ? setEditorCopyLabel : setViewerCopyLabel;
+    let link = existingLink;
     if (!link) {
-      showToast('초대 링크를 만들지 못했어요.');
-      return;
+      const fetched = await getInviteLink(scheduleId, role);
+      if (!fetched) {
+        showToast('초대 링크를 만들지 못했어요.');
+        return;
+      }
+      link = fetched;
+      setLink(link);
     }
-    setInviteLink(link);
     navigator.clipboard?.writeText(link).catch(() => {});
-    setCopyLabel('복사됨');
-    setTimeout(() => setCopyLabel('복사'), 1200);
+    setLabel('복사됨');
+    setTimeout(() => setLabel('복사'), 1200);
   };
+
+  useEffect(() => {
+    if (!inviteOpen || !scheduleId) return;
+    if (!viewerInviteLink) {
+      getInviteLink(scheduleId, 'viewer').then((link) => {
+        if (link) setViewerInviteLink(link);
+      });
+    }
+    if (!editorInviteLink) {
+      getInviteLink(scheduleId, 'editor').then((link) => {
+        if (link) setEditorInviteLink(link);
+      });
+    }
+  }, [inviteOpen, scheduleId, viewerInviteLink, editorInviteLink]);
   const requestEditPermission = async () => {
     if (!scheduleId) return;
     const ok = await apiRequestEditPermission(scheduleId);
@@ -1272,51 +1292,35 @@ export function PlannerClient() {
               {inviteOpen ? (
                 <div className={styles.inviteBox}>
                   <p className={styles.inviteDesc}>
-                    링크가 있는 사람은{' '}
-                    {permission === 'edit' ? '함께 수정할 수 있어요' : '보기만 할 수 있어요'}
+                    편집 가능 링크는 함께 수정, 보기 전용 링크는 보기만 할 수 있어요
                   </p>
+
+                  <p className={styles.inviteRoleLabel}>편집 가능</p>
                   <div className={styles.inviteLinkRow}>
                     <span className={styles.inviteLink}>
-                      {inviteLink || '복사 버튼을 눌러 링크를 만드세요'}
+                      {editorInviteLink || '링크를 만드는 중...'}
                     </span>
-                    <button type="button" className={styles.inviteCopyBtn} onClick={copyInvite}>
-                      {copyLabel}
-                    </button>
-                  </div>
-                  <div className={styles.permissionMenuWrap}>
                     <button
                       type="button"
-                      className={styles.permissionMenuBtn}
-                      onClick={() => setPermissionMenuOpen((v) => !v)}
+                      className={styles.inviteCopyBtn}
+                      onClick={() => copyInviteLink('editor', editorInviteLink)}
                     >
-                      {permission === 'edit' ? '편집 가능' : '보기 전용'} ⌄
+                      {editorCopyLabel}
                     </button>
-                    {permissionMenuOpen ? (
-                      <div className={styles.permissionMenu}>
-                        <button
-                          type="button"
-                          className={styles.permissionMenuItem}
-                          onClick={() => {
-                            setPermission('edit');
-                            setInviteLink('');
-                            setPermissionMenuOpen(false);
-                          }}
-                        >
-                          편집 가능
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.permissionMenuItem}
-                          onClick={() => {
-                            setPermission('view');
-                            setInviteLink('');
-                            setPermissionMenuOpen(false);
-                          }}
-                        >
-                          보기 전용
-                        </button>
-                      </div>
-                    ) : null}
+                  </div>
+
+                  <p className={styles.inviteRoleLabel}>보기 전용</p>
+                  <div className={styles.inviteLinkRow}>
+                    <span className={styles.inviteLink}>
+                      {viewerInviteLink || '링크를 만드는 중...'}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.inviteCopyBtn}
+                      onClick={() => copyInviteLink('viewer', viewerInviteLink)}
+                    >
+                      {viewerCopyLabel}
+                    </button>
                   </div>
                 </div>
               ) : null}
