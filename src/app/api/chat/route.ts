@@ -20,6 +20,8 @@ const SYSTEM_PREAMBLE = [
   '답변은 최대 1000토큰 이내로 작성하고, 반드시 문장을 완결해서 끝내.',
   '답변이 길어질 경우 중요도가 낮은 설명은 생략하고 핵심 내용을 우선해서 간결하게 답변해.',
   '일반적인 질문에는 3~6문장 정도로 답변하고, 필요한 경우 짧은 목록을 사용해.',
+  'reply 필드는 채팅 말풍선에 그대로 표시되니 마크다운 문법(**굵게**, # 제목, - 글머리표, 표, 백틱 코드블록 등)을 절대 쓰지 말고 순수 텍스트로만 작성해.',
+  '강조하고 싶으면 문장으로 자연스럽게 풀어서 쓰고, 목록이 필요하면 "1. ", "2. " 또는 "· " 같은 기호와 줄바꿈으로 구분해.',
   '반드시 지정된 JSON 형식으로만 응답해.',
   'reply 필드에는 사용자에게 보여줄 답변 본문을 작성해.',
   'suggestions 필드에는 사용자가 이어서 물어보면 좋을 짧은 후속 질문을 2~3개, 한국어로, 각 15자 내외로 작성해.',
@@ -68,11 +70,23 @@ interface ParsedChatReply {
   recommendedPlaces: RecommendedPlace[];
 }
 
+/** 채팅 말풍선은 마크다운을 렌더링하지 않으므로, 모델이 지시를 어기고 문법을 섞어 보내도 기호만 걷어낸다. */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^[-*]\s+/gm, '· ')
+    .replace(/`([^`]*)`/g, '$1')
+    .trim();
+}
+
 function parseChatReply(rawText: string): ParsedChatReply {
   try {
     const parsed = JSON.parse(rawText);
+    const reply = typeof parsed.reply === 'string' && parsed.reply ? parsed.reply : rawText;
     return {
-      reply: typeof parsed.reply === 'string' && parsed.reply ? parsed.reply : rawText,
+      reply: stripMarkdown(reply),
       suggestions: Array.isArray(parsed.suggestions)
         ? parsed.suggestions.filter((s: unknown): s is string => typeof s === 'string')
         : [],
@@ -84,7 +98,7 @@ function parseChatReply(rawText: string): ParsedChatReply {
         : [],
     };
   } catch {
-    return { reply: rawText, suggestions: [], recommendedPlaces: [] };
+    return { reply: stripMarkdown(rawText), suggestions: [], recommendedPlaces: [] };
   }
 }
 

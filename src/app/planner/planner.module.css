@@ -1285,6 +1285,8 @@
   line-height: 1.5;
   background: #f4f4f5;
   color: #171719;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .aiBubbleUser {
