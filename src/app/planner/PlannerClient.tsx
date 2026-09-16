@@ -155,7 +155,6 @@ export function PlannerClient() {
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [role, setRole] = useState<ScheduleRole>('creator');
-  const [loginRequiredModalOpen, setLoginRequiredModalOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [myEditRequestPending, setMyEditRequestPending] = useState(false);
@@ -942,7 +941,7 @@ export function PlannerClient() {
 
   const saveOrRemoveAction = async () => {
     if (!isLoggedIn) {
-      setLoginRequiredModalOpen(true);
+      router.push('/login');
       return;
     }
     if (role === 'viewer') {
@@ -2059,21 +2058,6 @@ export function PlannerClient() {
             {requestConfirmKind === 'approve' ? '수락' : '거절'}
           </Button>
         </div>
-      </Modal>
-
-      {/* 로그인 필요 안내 */}
-      <Modal
-        open={loginRequiredModalOpen}
-        title="로그인이 필요해요"
-        onClose={() => setLoginRequiredModalOpen(false)}
-      >
-        <p className={styles.modalDesc}>내 일정에 저장하려면 로그인이 필요해요</p>
-        <Button fullWidth onClick={() => router.push('/login')}>
-          로그인
-        </Button>
-        <p className={styles.modalFootnote}>
-          계정이 없나요? <Link href="/signup">회원가입</Link>
-        </p>
       </Modal>
 
       {/* 방문지 수정 */}
