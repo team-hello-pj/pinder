@@ -19,6 +19,7 @@ import {
   searchKeyword,
   type KakaoPlaceDoc,
 } from '@/lib/kakao/client';
+import { fmtRange } from '@/lib/calendar';
 import { tripDayCount } from '@/lib/format';
 import { applySituationAdjustment, computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
 import {
@@ -27,12 +28,10 @@ import {
   getInviteLink,
   getSchedule,
   joinSchedule,
-  listSchedules,
   requestEditPermission as apiRequestEditPermission,
   resolveEditRequest,
   updateSchedule,
   type ScheduleRole,
-  type ScheduleSummary,
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
@@ -157,8 +156,6 @@ export function PlannerClient() {
   const [nickname, setNickname] = useState('나');
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLog, setActivityLog] = useState<{ id: string; text: string; time: string }[]>([]);
-  const [myRoutesOpen, setMyRoutesOpen] = useState(false);
-  const [savedRoutes, setSavedRoutes] = useState<ScheduleSummary[]>([]);
   const [saveLabel, setSaveLabel] = useState('저장');
   const lastTitleRef = useRef('');
   const [toastMsg, setToastMsg] = useState('');
@@ -370,10 +367,6 @@ export function PlannerClient() {
       }
     }
 
-    if (searchParams.get('openMyRoutes') === '1') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMyRoutesOpen(true);
-    }
     const loadId = searchParams.get('loadRoute');
     if (loadId) {
       getSchedule(loadId).then((detail) => {
@@ -384,12 +377,11 @@ export function PlannerClient() {
     const qStart = searchParams.get('tripStart');
     const qEnd = searchParams.get('tripEnd');
     if (qStart || qEnd) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTripStart(qStart || '');
       setTripEnd(qEnd || qStart || '');
     }
     if (isNewRoute && !hasTripDateParam) setNewTripDateModalOpen(true);
-
-    if (isLoggedIn) listSchedules().then(setSavedRoutes);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 로그인 상태가 확정될 때 한 번만 실행
   }, [sessionLoading, isLoggedIn]);
@@ -888,10 +880,9 @@ export function PlannerClient() {
   // ---- 저장 / 내 일정 ----
   const saveCurrentRoute = async () => {
     if (places.length === 0 && !scheduleId) return;
-    const title =
-      places.length > 0
-        ? `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`
-        : lastTitleRef.current || '방문지 없음';
+    // 처음 저장할 때는 제목을 설정한 여행 기간으로 만든다. 이미 저장된 일정을 업데이트할 때는
+    // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
+    const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
     const input = {
       title,
       places,
@@ -913,18 +904,6 @@ export function PlannerClient() {
     setSaveLabel('저장됨');
     logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
     setTimeout(() => setSaveLabel('저장'), 1500);
-    listSchedules().then(setSavedRoutes);
-  };
-  const loadSavedRoute = async (id: string) => {
-    const detail = await getSchedule(id);
-    if (!detail) return;
-    applyScheduleDetail(detail);
-    setMyRoutesOpen(false);
-    logActivity(`"${detail.schedule.title}" 일정을 불러왔습니다`);
-  };
-  const deleteSavedRoute = async (id: string) => {
-    const ok = await deleteSchedule(id);
-    if (ok) setSavedRoutes((prev) => prev.filter((r) => r.id !== id));
   };
 
   const saveOrRemoveAction = async () => {
@@ -1765,13 +1744,6 @@ export function PlannerClient() {
                     경로 계산
                   </Button>
                 ) : null}
-                <button
-                  type="button"
-                  className={styles.myRoutesBtn}
-                  onClick={() => setMyRoutesOpen(true)}
-                >
-                  내 일정
-                </button>
               </div>
             </div>
           </>
@@ -1788,61 +1760,6 @@ export function PlannerClient() {
       {/* 토스트 */}
       <div className={styles.toast} style={{ opacity: toastVisible ? 1 : 0 }}>
         ✓ {toastMsg}
-      </div>
-
-      {/* 내 일정 드로어 */}
-      {myRoutesOpen ? (
-        <div className={styles.drawerOverlay} onClick={() => setMyRoutesOpen(false)} />
-      ) : null}
-      <div
-        className={styles.myRoutesDrawer}
-        style={{ transform: myRoutesOpen ? 'translateX(0)' : 'translateX(100%)' }}
-      >
-        <div className={styles.drawerHead}>
-          <span>내 일정</span>
-          <button
-            type="button"
-            className={styles.drawerCloseBtn}
-            onClick={() => setMyRoutesOpen(false)}
-          >
-            ✕
-          </button>
-        </div>
-        <div className={styles.drawerBody}>
-          {savedRoutes.length > 0 ? (
-            savedRoutes.map((route) => (
-              <div
-                key={route.id}
-                className={styles.savedRouteCard}
-                onClick={() => loadSavedRoute(route.id)}
-              >
-                <div className={styles.savedRouteInfo}>
-                  <p className={styles.savedRouteName}>{route.title}</p>
-                  <p className={styles.savedRouteMeta}>
-                    {new Date(route.updatedAt).toLocaleDateString('ko-KR')} · {route.places.length}
-                    곳
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={styles.savedRouteDeleteBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSavedRoute(route.id);
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className={styles.drawerEmpty}>
-              저장된 일정이 없어요
-              <br />
-              플래너에서 &quot;저장&quot;을 눌러보세요
-            </p>
-          )}
-        </div>
       </div>
 
       {/* 활동 로그 드로어 */}
