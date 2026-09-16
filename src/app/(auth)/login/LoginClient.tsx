@@ -41,10 +41,10 @@ export function LoginClient() {
     if (!googleSlotRef.current) return;
     renderGoogleLoginButton(
       googleSlotRef.current,
-      (profile) => {
+      (user) => {
         setGoogleError('');
-        setGoogleUserLabel(profile.name ?? profile.email ?? '구글 계정');
-        login();
+        setGoogleUserLabel(user.nickname ?? user.name ?? user.email);
+        login(user);
         setTimeout(() => router.push(ROUTES.planner), 500);
       },
       (message) => setGoogleError(message),
@@ -63,19 +63,19 @@ export function LoginClient() {
     else storage.write(STORAGE_KEYS.savedId, '');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setError('이메일과 비밀번호를 모두 입력해주세요.');
       return;
     }
-    const result = loginUser(email, password);
+    const result = await loginUser(email, password);
     if (!result.ok) {
       setError(result.message);
       return;
     }
     setError('');
-    login();
+    login(result.user);
     router.push(ROUTES.planner);
   };
 

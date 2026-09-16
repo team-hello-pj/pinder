@@ -1,21 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { deleteAccount } from '@/lib/account';
+import { deleteAccount, type CreatorScheduleSummary } from '@/lib/account';
 import { checkNickname, updateNickname, type NicknameCheckResult } from '@/lib/nickname';
+import { getNotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
 
-import {
-  DEFAULT_NOTIFICATION_PREFS,
-  MOCK_MY_SCHEDULES,
-  NOTIFICATION_DEFS,
-  TERMS_SECTIONS,
-  type MockSchedule,
-  type NotificationPrefs,
-} from './data';
+import { DEFAULT_NOTIFICATION_PREFS, NOTIFICATION_DEFS, TERMS_SECTIONS } from './data';
 import styles from './my-page.module.css';
 
 type WithdrawStep = 'confirm' | 'blocked' | 'finalWarning' | 'finalLoading' | 'loading' | 'success';
@@ -24,15 +18,12 @@ interface NicknameCheckState extends NicknameCheckResult {
   forValue: string;
 }
 
-// 실제 인증 연결 전까지의 목업 사용자. TODO(인증 담당): 로그인 세션의 실제 사용자로 교체.
-const MOCK_USER_ID = 'u1';
-const MOCK_EMAIL = 'yusoo@example.com';
-
 /** legacy/My Page.dc.html 을 그대로 이식. 헤더는 (main) 레이아웃의 공용 SiteHeader 가 담당한다. */
 export function MyPageClient() {
   const router = useRouter();
-  const { logout } = useSession();
-  const [nickname, setNickname] = useState('유수');
+  const { user, logout, updateUser } = useSession();
+  const nickname = user?.nickname || user?.name || '';
+  const email = user?.email ?? '';
   const [logoutOpen, setLogoutOpen] = useState(false);
 
   const [editNicknameOpen, setEditNicknameOpen] = useState(false);
@@ -42,7 +33,7 @@ export function MyPageClient() {
   const [nicknameSavedToast, setNicknameSavedToast] = useState(false);
 
   const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATION_PREFS);
 
   const [termsOpen, setTermsOpen] = useState(false);
 
@@ -52,9 +43,17 @@ export function MyPageClient() {
   const [withdrawAgreeChecked, setWithdrawAgreeChecked] = useState(false);
   const [blockedAgreeChecked, setBlockedAgreeChecked] = useState(false);
   const [finalWarningAgreeChecked, setFinalWarningAgreeChecked] = useState(false);
-  const [creatorSchedules, setCreatorSchedules] = useState<MockSchedule[]>([]);
+  const [creatorSchedules, setCreatorSchedules] = useState<CreatorScheduleSummary[]>([]);
 
-  const email = MOCK_EMAIL;
+  useEffect(() => {
+    let cancelled = false;
+    getNotificationPrefs().then((prefs) => {
+      if (!cancelled && prefs) setNotifications(prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ---- 닉네임 수정 ----
   const openEditNickname = () => {
@@ -70,7 +69,7 @@ export function MyPageClient() {
   const onCheckNickname = async () => {
     const draft = nicknameDraft.trim();
     setNicknameChecking(true);
-    const result = await checkNickname(draft, MOCK_USER_ID, nickname);
+    const result = await checkNickname(draft);
     setNicknameChecking(false);
     setNicknameCheck({ forValue: draft, ...result });
   };
@@ -81,7 +80,7 @@ export function MyPageClient() {
   const onSaveNickname = async () => {
     if (!canSaveNickname) return;
     const draft = nicknameDraft.trim();
-    const result = await updateNickname(MOCK_USER_ID, nickname, draft);
+    const result = await updateNickname(draft);
     if (!result.ok) {
       setNicknameCheck({
         forValue: draft,
@@ -91,20 +90,25 @@ export function MyPageClient() {
       });
       return;
     }
-    setNickname(result.nickname);
+    updateUser({ nickname: result.nickname });
     setEditNicknameOpen(false);
     setNicknameSavedToast(true);
     setTimeout(() => setNicknameSavedToast(false), 2200);
   };
 
   // ---- 알림 설정 ----
-  const toggleNotification = (key: string) =>
-    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleNotification = (key: string) => {
+    setNotifications((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      updateNotificationPrefs(next);
+      return next;
+    });
+  };
 
   // ---- 로그아웃 ----
   // 로그아웃은 로그인 상태만 정리한다 — '아이디 저장'(pd-saved-id)은 로그인 페이지 기능이라 건드리지 않는다.
-  const onConfirmLogout = () => {
-    logout();
+  const onConfirmLogout = async () => {
+    await logout();
     router.push('/login');
   };
 
@@ -122,7 +126,7 @@ export function MyPageClient() {
     if (!withdrawAgreeChecked) return;
     setWithdrawStep('loading');
     setWithdrawError(false);
-    const result = await deleteAccount(MOCK_MY_SCHEDULES);
+    const result = await deleteAccount();
     if (!result.ok && result.reason === 'has_creator_schedules') {
       setCreatorSchedules(result.creatorSchedules);
       setWithdrawStep('blocked');
@@ -133,7 +137,7 @@ export function MyPageClient() {
       setWithdrawError(true);
       return;
     }
-    logout();
+    await logout();
     setWithdrawStep('success');
   };
 
@@ -147,13 +151,13 @@ export function MyPageClient() {
     if (!finalWarningAgreeChecked) return;
     setWithdrawStep('finalLoading');
     setWithdrawError(false);
-    const result = await deleteAccount(MOCK_MY_SCHEDULES, { skipCreatorCheck: true });
+    const result = await deleteAccount({ force: true });
     if (!result.ok) {
       setWithdrawStep('finalWarning');
       setWithdrawError(true);
       return;
     }
-    logout();
+    await logout();
     setWithdrawStep('success');
     setTimeout(() => {
       router.push('/login');

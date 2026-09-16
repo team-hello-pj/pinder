@@ -1,14 +1,10 @@
 'use client';
 
+import type { AuthUser } from '@/lib/auth';
+
 /**
  * Google Identity Services(GSI) 로더 + 로그인 콜백 처리.
- * legacy/Login Screen.dc.html 이 하던 것과 같은 수준으로 동작한다 — 서버 검증 없이
- * ID 토큰(JWT)이 왔다는 사실 자체를 "로그인 성공 신호"로만 쓴다.
- *
- * TODO(인증 담당): 실제 서비스에서는 이 credential(JWT)을 서버로 보내
- * google-auth-library 등으로 서명을 검증한 뒤 세션을 발급해야 한다.
- * 지금은 이 앱 전체가 아직 목업 인증(lib/auth.ts, SessionProvider) 단계라
- * 같은 신뢰 수준으로 맞춰뒀다.
+ * ID 토큰(JWT)은 `/api/auth/google` 로 보내 서버에서 서명을 검증한 뒤 세션을 발급받는다.
  */
 
 let sdkPromise: Promise<void> | null = null;
@@ -43,29 +39,13 @@ async function fetchClientId(): Promise<string> {
   return data.clientId as string;
 }
 
-export interface GoogleProfile {
-  email: string | null;
-  name: string | null;
-}
-
-/** JWT의 payload 부분만 디코드한다 (서명 검증 없음 — 위 TODO 참고). */
-function decodeCredential(credential: string): GoogleProfile {
-  try {
-    const payload = credential.split('.')[1];
-    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return { email: json.email ?? null, name: json.name ?? null };
-  } catch {
-    return { email: null, name: null };
-  }
-}
-
 /**
  * Google 로그인 버튼을 지정한 컨테이너에 렌더링한다.
- * onSuccess 는 credential(JWT)을 디코드한 프로필과 함께 호출된다.
+ * onSuccess 는 서버가 검증하고 세션을 발급한 뒤 돌려준 실제 계정 정보와 함께 호출된다.
  */
 export async function renderGoogleLoginButton(
   container: HTMLElement,
-  onSuccess: (profile: GoogleProfile) => void,
+  onSuccess: (user: AuthUser) => void,
   onError: (message: string) => void,
 ): Promise<void> {
   if (!sdkPromise) sdkPromise = loadGsiScript();
@@ -76,12 +56,26 @@ export async function renderGoogleLoginButton(
 
     window.google.accounts.id.initialize({
       client_id: clientId,
-      callback: (response) => {
+      callback: async (response) => {
         if (!response.credential) {
           onError('Google 로그인에 실패했어요. 다시 시도해주세요.');
           return;
         }
-        onSuccess(decodeCredential(response.credential));
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential }),
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.user) {
+            onError(data?.error ?? '구글 로그인을 확인하지 못했어요.');
+            return;
+          }
+          onSuccess(data.user as AuthUser);
+        } catch {
+          onError('구글 로그인 중 오류가 발생했어요.');
+        }
       },
     });
     window.google.accounts.id.renderButton(container, {

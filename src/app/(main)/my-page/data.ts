@@ -76,14 +76,3 @@ export const NICKNAME_RULES = { min: 2, max: 12, pattern: /^[가-힣a-zA-Z0-9_]+
 
 /** MOCK: 다른 사용자가 이미 쓰는 닉네임. 실제 연동 시 서버 중복확인 API로 교체. */
 export const TAKEN_NICKNAMES = ['관리자', '다연', '옐'];
-
-export interface MockSchedule {
-  id: string;
-  title: string;
-  role: 'creator' | 'editor' | 'viewer';
-}
-
-/** MOCK: 실제로는 로그인한 사용자의 My Routes 데이터에서 가져온다. */
-export const MOCK_MY_SCHEDULES: MockSchedule[] = [
-  { id: 's1', title: '제주 3박4일', role: 'creator' },
-];

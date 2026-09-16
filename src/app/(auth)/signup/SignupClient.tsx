@@ -114,22 +114,24 @@ export function SignupClient() {
     [],
   );
 
-  const checkUsername = () => {
+  const checkUsername = async () => {
     if (!username || username.length < 4) {
       setUsernameStatus('invalid');
       return;
     }
     setUsernameStatus('checking');
-    setTimeout(() => setUsernameStatus(isUsernameTaken(username) ? 'taken' : 'available'), 500);
+    const taken = await isUsernameTaken(username);
+    setUsernameStatus(taken ? 'taken' : 'available');
   };
 
-  const checkNickname = () => {
+  const checkNickname = async () => {
     if (!nickname || nickname.length < 2) {
       setNicknameStatus('invalid');
       return;
     }
     setNicknameStatus('checking');
-    setTimeout(() => setNicknameStatus(isNicknameTaken(nickname) ? 'taken' : 'available'), 500);
+    const taken = await isNicknameTaken(nickname);
+    setNicknameStatus(taken ? 'taken' : 'available');
   };
 
   const onEmailChangeRequest = () => {
@@ -142,63 +144,69 @@ export function SignupClient() {
     setResendDisabled(false);
   };
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     if (!email || resendDisabled) return;
-    sendCode(email).then((res) => {
-      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
-      if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+    let res;
+    try {
+      res = await sendCode(email);
+    } catch (err) {
+      setEmailCodeMsg(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
+      setEmailCodeError(true);
       setCodeStepVisible(true);
-      setEmailCode('');
-      setEmailCodeMsg(
-        `인증번호가 발송되었습니다. 인증번호는 ${Math.floor(res.expiresInSec / 60)}분 동안 유효합니다.`,
-      );
-      setEmailCodeError(false);
-      setResendDisabled(true);
-      setResendSecLeft(res.cooldownSec);
+      return;
+    }
+    if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+    setCodeStepVisible(true);
+    setEmailCode('');
+    setEmailCodeMsg(
+      `인증번호가 발송되었습니다. 인증번호는 ${Math.floor(res.expiresInSec / 60)}분 동안 유효합니다.`,
+    );
+    setEmailCodeError(false);
+    setResendDisabled(true);
+    setResendSecLeft(res.cooldownSec);
 
-      resendTimerRef.current = setInterval(() => {
-        setResendSecLeft((left) => {
-          if (left <= 1) {
-            if (resendTimerRef.current) clearInterval(resendTimerRef.current);
-            setResendDisabled(false);
-            return 0;
-          }
-          return left - 1;
-        });
-      }, 1000);
+    resendTimerRef.current = setInterval(() => {
+      setResendSecLeft((left) => {
+        if (left <= 1) {
+          if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+          setResendDisabled(false);
+          return 0;
+        }
+        return left - 1;
+      });
+    }, 1000);
 
-      expireTimerRef.current = setTimeout(() => {
-        setEmailVerified((verified) => {
-          if (!verified) {
-            setEmailCodeMsg('인증번호가 만료되었습니다. 인증번호를 다시 받아주세요.');
-            setEmailCodeError(true);
-          }
-          return verified;
-        });
-      }, res.expiresInSec * 1000);
-    });
+    expireTimerRef.current = setTimeout(() => {
+      setEmailVerified((verified) => {
+        if (!verified) {
+          setEmailCodeMsg('인증번호가 만료되었습니다. 인증번호를 다시 받아주세요.');
+          setEmailCodeError(true);
+        }
+        return verified;
+      });
+    }, res.expiresInSec * 1000);
   };
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     if (!emailCode) return;
-    verifyCode(email, emailCode).then((res) => {
-      if (res.ok) {
-        if (resendTimerRef.current) clearInterval(resendTimerRef.current);
-        if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
-        setEmailVerified(true);
-        setCodeStepVisible(false);
-        setError('');
-        return;
-      }
-      const msg =
-        res.reason === 'expired'
-          ? '인증번호가 만료되었습니다. 인증번호를 다시 받아주세요.'
-          : res.reason === 'too_many_attempts'
-            ? '시도 횟수를 초과했습니다. 인증번호를 다시 받아주세요.'
-            : '인증번호가 올바르지 않습니다.';
-      setEmailCodeMsg(msg);
-      setEmailCodeError(true);
-    });
+    const res = await verifyCode(email, emailCode);
+    if (res.ok) {
+      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+      if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+      setEmailVerified(true);
+      setCodeStepVisible(false);
+      setError('');
+      return;
+    }
+    const msg =
+      res.reason === 'expired'
+        ? '인증번호가 만료되었습니다. 인증번호를 다시 받아주세요.'
+        : res.reason === 'too_many_attempts'
+          ? '시도 횟수를 초과했습니다. 인증번호를 다시 받아주세요.'
+          : '인증번호가 올바르지 않습니다.';
+    setEmailCodeMsg(msg);
+    setEmailCodeError(true);
   };
 
   const toggleTerm = (key: keyof typeof termsChecked) =>
@@ -220,7 +228,7 @@ export function SignupClient() {
     password !== passwordConfirm ||
     !nickname;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !username || !nickname || !email || !password || !passwordConfirm) {
       setError('모든 항목을 입력해주세요.');
@@ -247,13 +255,13 @@ export function SignupClient() {
       return;
     }
 
-    const result = registerUser({ email, password, username, nickname, name });
+    const result = await registerUser({ email, password, username, nickname, name });
     if (!result.ok) {
       setError(result.message);
       return;
     }
     setError('');
-    login();
+    login(result.user);
     router.push(ROUTES.planner);
   };
 

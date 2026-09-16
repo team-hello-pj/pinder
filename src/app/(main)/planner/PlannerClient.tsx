@@ -21,18 +21,24 @@ import {
 } from '@/lib/kakao/client';
 import { tripDayCount } from '@/lib/format';
 import { applySituationAdjustment, computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
-import { loadSavedRoutes, removeRoute, upsertRoute } from '@/lib/storage';
+import {
+  createSchedule,
+  deleteSchedule,
+  getInviteLink,
+  getSchedule,
+  joinSchedule,
+  listSchedules,
+  requestEditPermission as apiRequestEditPermission,
+  resolveEditRequest,
+  updateSchedule,
+  type ScheduleRole,
+  type ScheduleSummary,
+} from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
-import type { Place, RouteCriteria, RouteLeg, SavedRoute, TransportMode } from '@/types';
+import type { Place, RouteCriteria, RouteLeg, TransportMode } from '@/types';
 
-import {
-  DEV_ROLE_OPTIONS,
-  INITIAL_EDIT_REQUESTS,
-  INITIAL_MEMBERS,
-  INITIAL_PLACES,
-  type DevRole,
-} from './data';
+import { INITIAL_PLACES, type EditRequest, type Member } from './data';
 import { PlaceCard } from './PlaceCard';
 import { SegmentConnector, type SegmentStep } from './SegmentConnector';
 import styles from './planner.module.css';
@@ -126,16 +132,18 @@ export function PlannerClient() {
   const [situationSeverity, setSituationSeverity] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ---- 협업 / 권한 (목업) ----
-  const { isLoggedIn } = useSession();
-  const [devRole, setDevRole] = useState<DevRole>('creator');
+  // ---- 협업 / 권한 ----
+  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
+  const [scheduleId, setScheduleId] = useState<string | null>(null);
+  const [role, setRole] = useState<ScheduleRole>('creator');
   const [loginRequiredModalOpen, setLoginRequiredModalOpen] = useState(false);
-  const [editRequestStatus, setEditRequestStatus] = useState<'none' | 'pending'>('none');
-  const [members, setMembers] = useState(INITIAL_MEMBERS);
-  const [editRequests, setEditRequests] = useState(INITIAL_EDIT_REQUESTS);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
+  const [myEditRequestPending, setMyEditRequestPending] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [permission, setPermission] = useState<'edit' | 'view'>('edit');
   const [permissionMenuOpen, setPermissionMenuOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
   const [copyLabel, setCopyLabel] = useState('복사');
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
   const [requestConfirmOpen, setRequestConfirmOpen] = useState(false);
@@ -143,11 +151,11 @@ export function PlannerClient() {
   const [requestConfirmKind, setRequestConfirmKind] = useState<'approve' | 'reject' | null>(null);
 
   // ---- 저장 / 활동 로그 ----
-  const [nickname, setNickname] = useState('다연');
+  const [nickname, setNickname] = useState('나');
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLog, setActivityLog] = useState<{ id: string; text: string; time: string }[]>([]);
   const [myRoutesOpen, setMyRoutesOpen] = useState(false);
-  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [savedRoutes, setSavedRoutes] = useState<ScheduleSummary[]>([]);
   const [saveLabel, setSaveLabel] = useState('저장');
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -164,10 +172,17 @@ export function PlannerClient() {
     },
   ]);
 
-  const canEdit = devRole === 'creator' || devRole === 'editor';
-  const canManageInvite = devRole === 'creator';
-  const canDeleteOriginal = devRole === 'creator';
-  const isViewerRole = devRole === 'viewer' || devRole === 'savedViewer';
+  const canEdit = role === 'creator' || role === 'editor';
+  const canManageInvite = role === 'creator' && Boolean(scheduleId);
+  const canDeleteOriginal = role === 'creator' && Boolean(scheduleId);
+  const isViewerRole = role === 'viewer';
+
+  useEffect(() => {
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNickname(user.nickname || user.name);
+    }
+  }, [user]);
 
   // ---- 유틸 ----
   const showToast = useCallback((msg: string) => {
@@ -289,25 +304,72 @@ export function PlannerClient() {
     });
   }, []);
 
-  // ---- 초기 로드 (query params, localStorage) ----
-  // 로그인 여부는 SessionProvider(useSession)가 앱 전역에서 이미 pd-session 을 읽어 관리한다.
-  useEffect(() => {
-    const loaded = loadSavedRoutes();
-    // localStorage 는 클라이언트에만 있어 서버 렌더와 맞출 수 없으므로 마운트 후 한 번만 반영한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSavedRoutes(loaded);
+  const applyScheduleDetail = useCallback(
+    (detail: NonNullable<Awaited<ReturnType<typeof getSchedule>>>) => {
+      setPlaces(detail.schedule.places);
+      setSegments(detail.schedule.segments);
+      setCriteriaState(detail.schedule.criteria);
+      setTripStart(detail.schedule.tripStart || '');
+      setTripEnd(detail.schedule.tripEnd || '');
+      setScheduleId(detail.schedule.id);
+      setRole(detail.role);
+      setMembers(detail.members.map((m, i) => ({ id: `${i}`, nickname: m.nickname, role: m.role })));
+      setEditRequests(
+        detail.editRequests.map((r) => ({ id: r.id, nickname: r.nickname, time: r.createdAt })),
+      );
+    },
+    [],
+  );
 
-    if (searchParams.get('openMyRoutes') === '1') setMyRoutesOpen(true);
+  // ---- 초대 링크로 들어온 경우: 로그인 상태면 바로 참여, 아니면 로그인 후 이어서 참여 ----
+  const PENDING_INVITE_KEY = 'pd-pending-invite';
+
+  useEffect(() => {
+    if (sessionLoading) return;
+
+    const inviteToken = searchParams.get('invite');
+    const inviteRole = searchParams.get('role');
+    const isInviteRole = inviteRole === 'editor' || inviteRole === 'viewer';
+
+    if (inviteToken && isInviteRole) {
+      if (!isLoggedIn) {
+        sessionStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ token: inviteToken, role: inviteRole }));
+        router.push('/login');
+        return;
+      }
+      joinSchedule(inviteToken, inviteRole).then((scheduleIdResult) => {
+        if (scheduleIdResult) router.replace(`/planner?loadRoute=${scheduleIdResult}`);
+        else showToast('초대 링크가 유효하지 않아요.');
+      });
+      return;
+    }
+
+    if (isLoggedIn) {
+      const pendingRaw = sessionStorage.getItem(PENDING_INVITE_KEY);
+      if (pendingRaw) {
+        sessionStorage.removeItem(PENDING_INVITE_KEY);
+        try {
+          const pending = JSON.parse(pendingRaw) as { token: string; role: 'editor' | 'viewer' };
+          joinSchedule(pending.token, pending.role).then((scheduleIdResult) => {
+            if (scheduleIdResult) router.replace(`/planner?loadRoute=${scheduleIdResult}`);
+          });
+          return;
+        } catch {
+          // 손상된 값이면 무시하고 아래 일반 로드 흐름으로 진행한다.
+        }
+      }
+    }
+
+    if (searchParams.get('openMyRoutes') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMyRoutesOpen(true);
+    }
     const loadId = searchParams.get('loadRoute');
     if (loadId) {
-      const route = loaded.find((r) => r.id === loadId);
-      if (route) {
-        setPlaces(route.places);
-        setSegments(route.segments);
-        setCriteriaState(route.criteria);
-        setTripStart(route.tripStart || '');
-        setTripEnd(route.tripEnd || '');
-      }
+      getSchedule(loadId).then((detail) => {
+        if (detail) applyScheduleDetail(detail);
+        else showToast('일정을 불러오지 못했어요.');
+      });
     }
     const qStart = searchParams.get('tripStart');
     const qEnd = searchParams.get('tripEnd');
@@ -317,8 +379,10 @@ export function PlannerClient() {
     }
     if (isNewRoute && !hasTripDateParam) setNewTripDateModalOpen(true);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만 실행
-  }, []);
+    if (isLoggedIn) listSchedules().then(setSavedRoutes);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 로그인 상태가 확정될 때 한 번만 실행
+  }, [sessionLoading, isLoggedIn]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -508,7 +572,7 @@ export function PlannerClient() {
     setDeleteTargetLabel('이 원본 일정');
     setDeleteConfirmOpen(true);
   };
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteTargetId === 'ORIGINAL_ROUTE' && !deleteAgreeChecked) return;
     if (deleteTargetId === 'ALL') {
       const count = places.length;
@@ -516,7 +580,18 @@ export function PlannerClient() {
       setSegments([]);
       logActivity(`방문지 ${count}곳을 모두 삭제했습니다 (초기화)`);
     } else if (deleteTargetId === 'ORIGINAL_ROUTE') {
+      if (scheduleId) {
+        const ok = await deleteSchedule(scheduleId);
+        if (!ok) {
+          showToast('삭제하지 못했어요. 다시 시도해주세요.');
+          closeDeleteConfirm();
+          return;
+        }
+      }
       showToast('원본 일정을 삭제했어요');
+      closeDeleteConfirm();
+      router.push('/routes');
+      return;
     } else if (deleteTargetId != null) {
       deletePlace(deleteTargetId);
     }
@@ -799,54 +874,55 @@ export function PlannerClient() {
   };
 
   // ---- 저장 / 내 일정 ----
-  const saveCurrentRoute = () => {
+  const saveCurrentRoute = async () => {
     if (places.length === 0) return;
-    const entry: SavedRoute = {
-      id: `${Date.now()}`,
-      title: `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`,
-      customName: false,
-      members: [nickname, '유수'],
-      updatedAt: new Date().toISOString(),
-      tripStart: tripStart || '',
-      tripEnd: tripEnd || '',
-      places,
-      segments,
-      criteria,
-    };
-    const next = upsertRoute(entry);
-    setSavedRoutes(next);
-    setSaveLabel('저장됨');
-    logActivity(`현재 일정을 "${entry.title}"으로 저장했습니다`);
-    setTimeout(() => setSaveLabel('저장'), 1500);
-  };
-  const loadSavedRoute = (id: string) => {
-    const route = savedRoutes.find((r) => r.id === id);
-    if (!route) return;
-    setPlaces(route.places);
-    setSegments(route.segments);
-    setCriteriaState(route.criteria);
-    setTripStart(route.tripStart || '');
-    setTripEnd(route.tripEnd || '');
-    setMyRoutesOpen(false);
-    logActivity(`"${route.title}" 일정을 불러왔습니다`);
-  };
-  const deleteSavedRoute = (id: string) => setSavedRoutes(removeRoute(id));
+    const title = `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`;
+    const input = { title, places, segments, criteria, tripStart: tripStart || '', tripEnd: tripEnd || '' };
 
-  const saveOrRemoveAction = () => {
-    if (devRole === 'savedViewer') {
-      showToast('내 일정에서 제거했어요');
+    const saved = scheduleId
+      ? await updateSchedule(scheduleId, input)
+      : await createSchedule(input);
+    if (!saved) {
+      showToast('저장하지 못했어요. 다시 시도해주세요.');
       return;
     }
+    if (!scheduleId) setScheduleId(saved.id);
+    setSaveLabel('저장됨');
+    logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
+    setTimeout(() => setSaveLabel('저장'), 1500);
+    listSchedules().then(setSavedRoutes);
+  };
+  const loadSavedRoute = async (id: string) => {
+    const detail = await getSchedule(id);
+    if (!detail) return;
+    applyScheduleDetail(detail);
+    setMyRoutesOpen(false);
+    logActivity(`"${detail.schedule.title}" 일정을 불러왔습니다`);
+  };
+  const deleteSavedRoute = async (id: string) => {
+    const ok = await deleteSchedule(id);
+    if (ok) setSavedRoutes((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const saveOrRemoveAction = async () => {
     if (!isLoggedIn) {
       setLoginRequiredModalOpen(true);
       return;
     }
-    saveCurrentRoute();
-    setDevRole('savedViewer');
+    if (role === 'viewer') {
+      if (!scheduleId) return;
+      const ok = await deleteSchedule(scheduleId);
+      if (ok) {
+        showToast('내 일정에서 제거했어요');
+        router.push('/routes');
+      }
+      return;
+    }
+    await saveCurrentRoute();
     showToast('내 일정에 저장했어요');
   };
 
-  // ---- 권한 / 초대 (목업) ----
+  // ---- 권한 / 초대 ----
   const askApproveRequest = (id: string) => {
     setRequestConfirmId(id);
     setRequestConfirmKind('approve');
@@ -857,28 +933,34 @@ export function PlannerClient() {
     setRequestConfirmKind('reject');
     setRequestConfirmOpen(true);
   };
-  const confirmRequestAction = () => {
-    const target = editRequests.find((r) => r.id === requestConfirmId);
-    if (requestConfirmKind === 'approve' && target) {
-      setMembers((prev) => [...prev, { id: target.id, nickname: target.nickname, role: 'editor' }]);
-    }
-    setEditRequests((prev) => prev.filter((r) => r.id !== requestConfirmId));
+  const confirmRequestAction = async () => {
+    if (!scheduleId || !requestConfirmId || !requestConfirmKind) return;
+    await resolveEditRequest(scheduleId, requestConfirmId, requestConfirmKind);
+    const detail = await getSchedule(scheduleId);
+    if (detail) applyScheduleDetail(detail);
     setRequestConfirmOpen(false);
     setRequestConfirmId(null);
     setRequestConfirmKind(null);
   };
-  const copyInvite = () => {
-    const link =
-      permission === 'edit'
-        ? 'pinder.app/invite/8f2xk1?role=editor'
-        : 'pinder.app/invite/8f2xk1?role=viewer';
+  const copyInvite = async () => {
+    if (!scheduleId) return;
+    const link = await getInviteLink(scheduleId, permission === 'edit' ? 'editor' : 'viewer');
+    if (!link) {
+      showToast('초대 링크를 만들지 못했어요.');
+      return;
+    }
+    setInviteLink(link);
     navigator.clipboard?.writeText(link).catch(() => {});
     setCopyLabel('복사됨');
     setTimeout(() => setCopyLabel('복사'), 1200);
   };
-  const requestEditPermission = () => {
-    setEditRequestStatus('pending');
-    showToast('편집 권한을 요청했어요');
+  const requestEditPermission = async () => {
+    if (!scheduleId) return;
+    const ok = await apiRequestEditPermission(scheduleId);
+    if (ok) {
+      setMyEditRequestPending(true);
+      showToast('편집 권한을 요청했어요');
+    }
   };
 
   // ---- AI 도우미 ----
@@ -1094,24 +1176,6 @@ export function PlannerClient() {
                 </div>
               </div>
 
-              <div className={styles.devRoleRow}>
-                <span className={styles.devRoleLabel}>Role</span>
-                {DEV_ROLE_OPTIONS.map((ro) => (
-                  <button
-                    key={ro.key}
-                    type="button"
-                    className={
-                      devRole === ro.key
-                        ? `${styles.devRoleChip} ${styles.devRoleChipActive}`
-                        : styles.devRoleChip
-                    }
-                    onClick={() => setDevRole(ro.key)}
-                  >
-                    {ro.label}
-                  </button>
-                ))}
-              </div>
-
               {inviteOpen ? (
                 <div className={styles.inviteBox}>
                   <p className={styles.inviteDesc}>
@@ -1120,9 +1184,7 @@ export function PlannerClient() {
                   </p>
                   <div className={styles.inviteLinkRow}>
                     <span className={styles.inviteLink}>
-                      {permission === 'edit'
-                        ? 'pinder.app/invite/8f2xk1?role=editor'
-                        : 'pinder.app/invite/8f2xk1?role=viewer'}
+                      {inviteLink || '복사 버튼을 눌러 링크를 만드세요'}
                     </span>
                     <button type="button" className={styles.inviteCopyBtn} onClick={copyInvite}>
                       {copyLabel}
@@ -1143,6 +1205,7 @@ export function PlannerClient() {
                           className={styles.permissionMenuItem}
                           onClick={() => {
                             setPermission('edit');
+                            setInviteLink('');
                             setPermissionMenuOpen(false);
                           }}
                         >
@@ -1153,6 +1216,7 @@ export function PlannerClient() {
                           className={styles.permissionMenuItem}
                           onClick={() => {
                             setPermission('view');
+                            setInviteLink('');
                             setPermissionMenuOpen(false);
                           }}
                         >
@@ -1606,13 +1670,9 @@ export function PlannerClient() {
                   활동 로그
                 </button>
                 <button type="button" className={styles.actionBtn} onClick={saveOrRemoveAction}>
-                  {isViewerRole
-                    ? devRole === 'savedViewer'
-                      ? '내 일정에서 제거 ✓'
-                      : '내 일정에 저장'
-                    : saveLabel}
+                  {isViewerRole ? '내 일정에서 제거' : saveLabel}
                 </button>
-                {devRole === 'viewer' && editRequestStatus === 'none' ? (
+                {role === 'viewer' && !myEditRequestPending ? (
                   <button
                     type="button"
                     className={styles.requestEditBtn}
@@ -1621,7 +1681,7 @@ export function PlannerClient() {
                     편집 권한 요청
                   </button>
                 ) : null}
-                {devRole === 'viewer' && editRequestStatus === 'pending' ? (
+                {role === 'viewer' && myEditRequestPending ? (
                   <span className={styles.pendingChip}>● 승인 대기 중</span>
                 ) : null}
                 {canEdit ? (
