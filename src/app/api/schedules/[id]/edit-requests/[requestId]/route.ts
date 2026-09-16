@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { scheduleCollaborators, scheduleEditRequests } from '@/db/schema';
+import { scheduleCollaborators, scheduleEditRequests, schedules } from '@/db/schema';
+import { createNotification } from '@/lib/server/notifications';
 import { getScheduleRole } from '@/lib/server/schedules';
 import { getSessionUser } from '@/lib/server/session';
 
@@ -44,6 +45,22 @@ export async function POST(
   }
 
   await db.delete(scheduleEditRequests).where(eq(scheduleEditRequests.id, requestId));
+
+  const [schedule] = await db
+    .select({ title: schedules.title })
+    .from(schedules)
+    .where(eq(schedules.id, id))
+    .limit(1);
+  if (schedule) {
+    await createNotification(
+      reqRow.userId,
+      'schedule',
+      action === 'approve'
+        ? `「${schedule.title}」 편집 권한 요청이 승인됐어요.`
+        : `「${schedule.title}」 편집 권한 요청이 거절됐어요.`,
+      'schedule',
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

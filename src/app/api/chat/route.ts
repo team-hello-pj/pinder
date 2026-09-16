@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         {
           text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
         },
+<<<<<<< HEAD
       ],
     },
     contents,
@@ -83,6 +84,16 @@ export async function POST(request: Request) {
   }),
 });
       
+=======
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1000,
+        },
+      }),
+    });
+
+>>>>>>> 7d7099bb59fe8be20fa4e0c55b755c721b7b22a3
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
 
