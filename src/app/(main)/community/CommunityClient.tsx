@@ -206,14 +206,8 @@ export function CommunityClient() {
   if (!isLoggedIn) {
     return (
       <div className={styles.page}>
-        <Modal
-          open={authGateOpen}
-          title="회원만 이용할 수 있어요"
-          onClose={() => router.push('/')}
-        >
-          <p className={styles.deleteDesc}>
-            로그인하면 커뮤니티의 다양한 기능을 이용할 수 있어요.
-          </p>
+        <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push('/')}>
+          <p className={styles.deleteDesc}>로그인하면 커뮤니티의 다양한 기능을 이용할 수 있어요.</p>
           <div className={styles.modalActions}>
             <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
               로그인

@@ -203,11 +203,7 @@ export function MyRoutesClient() {
   if (!isLoggedIn) {
     return (
       <div className={styles.page}>
-        <Modal
-          open={authGateOpen}
-          title="회원만 이용할 수 있어요"
-          onClose={() => router.push('/')}
-        >
+        <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push('/')}>
           <p className={styles.deleteDesc}>
             로그인하면 내 일정을 관리하고 저장된 여행 계획을
             <br />
