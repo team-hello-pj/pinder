@@ -12,7 +12,7 @@ import {
   SITUATION_VARS,
   WEATHER_SUBS,
 } from '@/constants';
-import { askAssistant, type ChatMessage } from '@/lib/chat';
+import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import {
   fetchRouteLeg,
   loadKakaoMapsSdk,
@@ -52,6 +52,19 @@ function resizeSegments(places: Place[], segments: TransportMode[]): TransportMo
   const next = segments.slice(0, need);
   while (next.length < need) next.push('car');
   return next;
+}
+
+const ADD_TO_ROUTE_SUGGESTION = '동선에 추가할까요?';
+
+function buildSuggestionChips(
+  suggestions: string[],
+  recommendedPlaces: RecommendedPlace[],
+): string[] {
+  const base = suggestions.filter(Boolean).slice(0, 3);
+  if (recommendedPlaces.length && !base.includes(ADD_TO_ROUTE_SUGGESTION)) {
+    return [...base, ADD_TO_ROUTE_SUGGESTION];
+  }
+  return base;
 }
 
 /** legacy/Route Planner App.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
@@ -165,6 +178,7 @@ export function PlannerClient() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [addingRecommended, setAddingRecommended] = useState(false);
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([
     {
       role: 'ai',
@@ -172,6 +186,13 @@ export function PlannerClient() {
       suggestions: ['현재 경로 괜찮아?', '더 빠른 순서 있어?', '주변 추천해줘'],
     },
   ]);
+  const aiMessagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = aiMessagesRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [aiMessages, aiLoading]);
 
   const canEdit = role === 'creator' || role === 'editor';
   const canManageInvite = role === 'creator' && Boolean(scheduleId);
@@ -970,8 +991,16 @@ export function PlannerClient() {
     setAiInput('');
     setAiLoading(true);
     try {
-      const reply = await askAssistant(text, history, buildRouteContext());
-      setAiMessages((prev) => [...prev, { role: 'ai', text: reply }]);
+      const res = await askAssistant(text, history, buildRouteContext());
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          text: res.reply,
+          suggestions: buildSuggestionChips(res.suggestions, res.recommendedPlaces),
+          recommendedPlaces: res.recommendedPlaces,
+        },
+      ]);
     } catch (err) {
       console.error('sendAiMessage failed:', err);
       setAiMessages((prev) => [
@@ -981,6 +1010,46 @@ export function PlannerClient() {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const addRecommendedPlaces = async (recs: RecommendedPlace[]) => {
+    if (!recs.length || addingRecommended) return;
+    setAddingRecommended(true);
+    let added = 0;
+    for (const rec of recs) {
+      const query = rec.address ? `${rec.name} ${rec.address}` : rec.name;
+      const geo = await geocodePlace(query);
+      const placeId = nextId + added;
+      setPlaces((prev) => {
+        const next: Place[] = [
+          ...prev,
+          {
+            id: placeId,
+            name: rec.name,
+            category: '미분류',
+            address: rec.address || rec.name,
+            priority: 'normal',
+            duration: 15,
+            hours: 'unknown',
+            hoursLabel: '영업시간 확인 필요',
+            visitTime: '',
+            packItems: '',
+            weather: 'sunny',
+            day: selectedDay ?? 0,
+            x: geo?.x ?? null,
+            y: geo?.y ?? null,
+          },
+        ];
+        setSegments((segs) => resizeSegments(next, segs));
+        return next;
+      });
+      added += 1;
+    }
+    setNextId((n) => n + added);
+    setRouteCache({});
+    logActivity(`AI 추천 장소 ${added}곳을 동선에 추가했습니다`);
+    showToast(`${added}곳을 동선에 추가했어요`);
+    setAddingRecommended(false);
   };
 
   // ---- 파생 값 ----
@@ -1602,7 +1671,7 @@ export function PlannerClient() {
                     ? `경유지 ${places.length}곳 · ${totalDistance.toFixed(1)}km · ${h > 0 ? h + '시간 ' : ''}${m}분`
                     : '방문지를 추가하면 AI가 경로를 참고해요'}
                 </div>
-                <div className={styles.aiMessages}>
+                <div className={styles.aiMessages} ref={aiMessagesRef}>
                   {aiMessages.map((msg, i) => (
                     <div
                       key={i}
@@ -1621,7 +1690,12 @@ export function PlannerClient() {
                               key={s}
                               type="button"
                               className={styles.aiSuggestionChip}
-                              onClick={() => sendAiMessage(s)}
+                              disabled={s === ADD_TO_ROUTE_SUGGESTION && addingRecommended}
+                              onClick={() =>
+                                s === ADD_TO_ROUTE_SUGGESTION && msg.recommendedPlaces?.length
+                                  ? addRecommendedPlaces(msg.recommendedPlaces)
+                                  : sendAiMessage(s)
+                              }
                             >
                               {s}
                             </button>
@@ -1630,6 +1704,15 @@ export function PlannerClient() {
                       ) : null}
                     </div>
                   ))}
+                  {aiLoading ? (
+                    <div className={styles.aiMessageWrap} style={{ alignItems: 'flex-start' }}>
+                      <div className={`${styles.aiBubbleAi} ${styles.aiTypingBubble}`}>
+                        <span className={styles.aiTypingDot} />
+                        <span className={styles.aiTypingDot} />
+                        <span className={styles.aiTypingDot} />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className={styles.aiInputRow}>
                   <input
