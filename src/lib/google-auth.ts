@@ -42,11 +42,15 @@ async function fetchClientId(): Promise<string> {
 /**
  * Google 로그인 버튼을 지정한 컨테이너에 렌더링한다.
  * onSuccess 는 서버가 검증하고 세션을 발급한 뒤 돌려준 실제 계정 정보와 함께 호출된다.
+ * 처음 구글로 로그인하는 경우(=아직 계정이 없는 경우)는 바로 가입시키지 않고
+ * onNeedsSignup(email, name)을 호출한다 — 이메일 인증만 끝난 상태로 회원가입 화면으로 넘겨서
+ * 아이디/별명/비밀번호는 직접 입력해 "회원가입"을 눌러야 완료된다.
  */
 export async function renderGoogleLoginButton(
   container: HTMLElement,
   onSuccess: (user: AuthUser) => void,
   onError: (message: string) => void,
+  onNeedsSignup?: (info: { email: string; name: string }) => void,
 ): Promise<void> {
   if (!sdkPromise) sdkPromise = loadGsiScript();
   try {
@@ -68,8 +72,17 @@ export async function renderGoogleLoginButton(
             body: JSON.stringify({ credential: response.credential }),
           });
           const data = await res.json().catch(() => null);
-          if (!res.ok || !data?.user) {
+          if (!res.ok) {
             onError(data?.error ?? '구글 로그인을 확인하지 못했어요.');
+            return;
+          }
+          if (data?.needsSignup) {
+            if (onNeedsSignup) onNeedsSignup({ email: data.email ?? '', name: data.name ?? '' });
+            else onError('회원가입을 완료해주세요.');
+            return;
+          }
+          if (!data?.user) {
+            onError('구글 로그인을 확인하지 못했어요.');
             return;
           }
           onSuccess(data.user as AuthUser);

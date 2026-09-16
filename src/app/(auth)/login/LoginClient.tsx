@@ -48,6 +48,10 @@ export function LoginClient() {
         setTimeout(() => router.push(ROUTES.home), 500);
       },
       (message) => setGoogleError(message),
+      ({ email, name }) => {
+        const params = new URLSearchParams({ email, name, googleVerified: '1' });
+        router.push(`${ROUTES.signup}?${params.toString()}`);
+      },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 버튼은 마운트 시 한 번만 렌더링한다
   }, []);

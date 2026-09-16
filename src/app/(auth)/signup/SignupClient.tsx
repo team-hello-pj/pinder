@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { ROUTES } from '@/constants';
@@ -71,6 +71,7 @@ function EyeIcon({ open }: { open: boolean }) {
 /** legacy/Signup Screen.dc.html 을 그대로 이식. */
 export function SignupClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useSession();
 
   const [name, setName] = useState('');
@@ -119,6 +120,19 @@ export function SignupClient() {
     },
     [],
   );
+
+  useEffect(() => {
+    // 구글 로그인에서 넘어온 경우: 이메일/이름을 채워두고 이메일 인증 단계는 건너뛴다.
+    // (아이디/별명/비밀번호는 그대로 입력받고 "회원가입"을 눌러야 가입이 완료된다.)
+    const qEmail = searchParams.get('email');
+    const qName = searchParams.get('name');
+    const googleVerified = searchParams.get('googleVerified') === '1';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (qEmail) setEmail(qEmail);
+    if (qName) setName(qName);
+    if (googleVerified && qEmail) setEmailVerified(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 시 한 번만 반영한다
+  }, []);
 
   const onAvatarEditClick = () => {
     avatarInputRef.current?.click();
