@@ -174,6 +174,9 @@ export function MyPageClient() {
     }
     await logout();
     setWithdrawStep('success');
+    setTimeout(() => {
+      router.push('/login');
+    }, 1400);
   };
 
   const onConfirmBlocked = () => {
