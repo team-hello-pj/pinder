@@ -515,32 +515,6 @@ export function PlannerClient() {
     );
   };
 
-  const quickAddPlace = () => {
-    setPlaces((prev) => {
-      const name = `새 방문지 ${prev.length + 1}`;
-      const next: Place[] = [
-        ...prev,
-        {
-          id: nextId,
-          name,
-          category: '미분류',
-          address: '주소를 입력해주세요',
-          priority: 'normal',
-          duration: 15,
-          hours: 'unknown',
-          hoursLabel: '영업시간 확인 필요',
-          visitTime: '',
-          packItems: '',
-          weather: 'sunny',
-        },
-      ];
-      setSegments((segs) => resizeSegments(next, segs));
-      return next;
-    });
-    setNextId((n) => n + 1);
-    logActivity('새 방문지를 추가했습니다');
-  };
-
   const deletePlace = (id: number) => {
     const place = places.find((p) => p.id === id);
     setPlaces((prev) => {
@@ -1319,7 +1293,7 @@ export function PlannerClient() {
             {places.length === 0 ? (
               <div className={styles.emptyState}>
                 {canEdit ? (
-                  <button type="button" className={styles.emptyAddBtn} onClick={quickAddPlace}>
+                  <button type="button" className={styles.emptyAddBtn} onClick={openSearchMode}>
                     ＋
                   </button>
                 ) : null}
