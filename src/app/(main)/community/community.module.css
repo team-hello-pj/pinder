@@ -727,6 +727,23 @@
   object-fit: contain;
 }
 
+.myProfileBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  height: 41px;
+  border: 1px solid var(--pd-border);
+  border-radius: 8px;
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* 모달 공용 */
 .field {
   display: flex;

@@ -32,11 +32,18 @@ type SortMode = 'popular' | 'latest' | 'oldest';
 type ViewMode = 'list' | 'grid';
 
 const PAGE_STEP = 5;
+const INLINE_COMMENT_THRESHOLD = 4;
+
+/** 답글까지 합친 총 댓글 수 (목록 카드/댓글 수 배지에 표시하는 값). */
+function totalCommentCount(post: PostView): number {
+  return post.comments.reduce((sum, c) => sum + 1 + c.replies.length, 0);
+}
 
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
-  const { isLoggedIn, isLoading: sessionLoading } = useSession();
+  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
+  const myAuthorName = user?.nickname || user?.name || '';
   const authGateOpen = !sessionLoading && !isLoggedIn;
   const [posts, setPosts] = useState<PostView[]>([]);
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
@@ -58,13 +65,17 @@ export function CommunityClient() {
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
 
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [openReplyBoxes, setOpenReplyBoxes] = useState<Record<string, boolean>>({});
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [commentModalId, setCommentModalId] = useState<string | null>(null);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const [commentDeleteTarget, setCommentDeleteTarget] = useState<{
+    commentId: string;
+    replyId?: string;
+  } | null>(null);
 
   const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
 
@@ -115,11 +126,20 @@ export function CommunityClient() {
   };
   const deleteComment = (commentId: string) => {
     if (!requireLogin()) return;
-    apiDeleteComment(commentId).then(setPosts);
+    setCommentDeleteTarget({ commentId });
   };
-  const deleteReply = (_commentId: string, replyId: string) => {
+  const deleteReply = (commentId: string, replyId: string) => {
     if (!requireLogin()) return;
-    apiDeleteReply(replyId).then(setPosts);
+    setCommentDeleteTarget({ commentId, replyId });
+  };
+  const confirmDeleteComment = async () => {
+    if (!commentDeleteTarget) return;
+    const { replyId } = commentDeleteTarget;
+    const next = replyId
+      ? await apiDeleteReply(replyId)
+      : await apiDeleteComment(commentDeleteTarget.commentId);
+    setPosts(next);
+    setCommentDeleteTarget(null);
   };
   const toggleReplyBox = (commentId: string) =>
     setOpenReplyBoxes((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
@@ -141,9 +161,6 @@ export function CommunityClient() {
     addComment(id, text).then(setPosts);
     setCommentDrafts((prev) => ({ ...prev, [id]: '' }));
   };
-  const toggleComments = (id: string) =>
-    setExpandedComments((prev) => ({ ...prev, [id]: !prev[id] }));
-
   // ---- 삭제 ----
   const requestDelete = (id: string) => {
     setPendingDeleteId(id);
@@ -385,7 +402,7 @@ export function CommunityClient() {
                 <div className={styles.profileName}>{profileAuthor}</div>
                 <div className={styles.profilePostCount}>게시물 {filtered.length}개</div>
               </div>
-              {profilePost?.isMine ? (
+              {profileAuthor === myAuthorName || profilePost?.isMine ? (
                 <>
                   <button
                     type="button"
@@ -440,8 +457,9 @@ export function CommunityClient() {
           ) : (
             <div className={styles.list}>
               {visiblePosts.map((post) => {
-                const expanded = Boolean(expandedComments[post.id]);
-                const visibleComments = expanded ? post.comments : post.comments.slice(0, 1);
+                const total = totalCommentCount(post);
+                const showInlineAll = total < INLINE_COMMENT_THRESHOLD;
+                const visibleComments = showInlineAll ? post.comments : post.comments.slice(0, 1);
                 const likeColor = post.liked ? '#e5342e' : 'var(--pd-text-sub)';
                 const bookmarkColor = post.bookmarked ? 'var(--pd-brand)' : 'var(--pd-text-sub)';
                 return (
@@ -537,7 +555,7 @@ export function CommunityClient() {
                               background: 'var(--pd-text-sub)',
                             }}
                           />
-                          <span>{post.comments.length}</span>
+                          <span>{total}</span>
                         </button>
                         <button
                           type="button"
@@ -591,22 +609,13 @@ export function CommunityClient() {
                         onDeleteReply={deleteReply}
                       />
 
-                      {!expanded && post.comments.length > 1 ? (
+                      {!showInlineAll ? (
                         <button
                           type="button"
                           className={styles.moreCommentsBtn}
-                          onClick={() => toggleComments(post.id)}
+                          onClick={() => setCommentModalId(post.id)}
                         >
-                          댓글 {post.comments.length - 1}개 더보기
-                        </button>
-                      ) : null}
-                      {expanded && post.comments.length > 1 ? (
-                        <button
-                          type="button"
-                          className={styles.moreCommentsBtn}
-                          onClick={() => toggleComments(post.id)}
-                        >
-                          댓글 접기
+                          댓글 {total}개 더보기
                         </button>
                       ) : null}
 
@@ -714,6 +723,16 @@ export function CommunityClient() {
             여행 후기 쓰기
             {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
             <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
+          </button>
+          <button
+            type="button"
+            className={styles.myProfileBtn}
+            onClick={() => {
+              if (!requireLogin()) return;
+              setProfileAuthor(myAuthorName);
+            }}
+          >
+            내 프로필 보기
           </button>
         </div>
       </div>
@@ -836,6 +855,25 @@ export function CommunityClient() {
             취소
           </Button>
           <Button variant="danger" size="sm" onClick={confirmDelete}>
+            삭제
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 댓글/답글 삭제 확인 */}
+      <Modal
+        open={Boolean(commentDeleteTarget)}
+        title="삭제하시겠습니까?"
+        onClose={() => setCommentDeleteTarget(null)}
+      >
+        <p className={styles.deleteDesc}>
+          삭제한 {commentDeleteTarget?.replyId ? '답글은' : '댓글은'} 되돌릴 수 없어요
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => setCommentDeleteTarget(null)}>
+            취소
+          </Button>
+          <Button variant="danger" size="sm" onClick={confirmDeleteComment}>
             삭제
           </Button>
         </div>
