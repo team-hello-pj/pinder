@@ -10,8 +10,8 @@ interface SectionRevealProps {
 }
 
 /**
- * 섹션이 스크롤로 뷰포트에 처음 들어오는 순간 아래에서 위로 fade-in 시킨다.
- * 한 번 보인 뒤에는 observer 를 끊어서 다시 스크롤해도 재실행되지 않는다.
+ * 섹션이 스크롤로 뷰포트에 들어오면 아래에서 위로 fade-in, 벗어나면 다시 fade-out 시킨다.
+ * 스크롤을 올렸다가 다시 내려도 매번 재실행된다.
  */
 export function SectionReveal({ className, children }: SectionRevealProps) {
   const ref = useRef<HTMLElement>(null);
@@ -23,10 +23,7 @@ export function SectionReveal({ className, children }: SectionRevealProps) {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
+        setVisible(entry.isIntersecting);
       },
       { threshold: 0.15, rootMargin: '0px 0px -60px 0px' },
     );
