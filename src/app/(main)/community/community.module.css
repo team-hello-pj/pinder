@@ -39,7 +39,7 @@
   box-sizing: border-box;
   border: 1px solid var(--pd-border);
   border-radius: 10px;
-  padding: 10px 36px 10px 14px;
+  padding: 10px 36px 10px 42px;
   font-size: 13px;
   font-family: inherit;
   color: var(--pd-text);
@@ -47,13 +47,39 @@
   height: 40px;
 }
 
-.searchIcon {
+.searchAntIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.searchSubmitBtn {
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  opacity: 0.6;
-  pointer-events: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.searchSubmitBtn img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  opacity: 0.55;
 }
 
 .row {
@@ -384,7 +410,19 @@
 
 .bookmarkBtn {
   margin-left: auto;
-  font-size: 15px;
+}
+
+.iconMask {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
 }
 
 .caption {
@@ -562,6 +600,24 @@
   color: var(--pd-text);
 }
 
+.sideCardHeadLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sideCardHeadIcon {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+
+.sideCardHeadIconSm {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
 .liveTag {
   font-size: 10.5px;
   font-weight: 400;
@@ -652,6 +708,12 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.writeBtnIcon {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
 }
 
 /* 모달 공용 */

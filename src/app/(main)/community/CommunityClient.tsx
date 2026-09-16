@@ -231,6 +231,8 @@ export function CommunityClient() {
           </p>
         </div>
         <div className={styles.searchWrap}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘, next/image 최적화 불필요 */}
+          <img src="/icons/pinder_ant.png" alt="" className={styles.searchAntIcon} />
           <input
             value={searchQuery}
             onChange={(e) => {
@@ -240,9 +242,15 @@ export function CommunityClient() {
             placeholder="게시글 키워드로 검색 (여행지, 내용 등)"
             className={styles.searchInput}
           />
-          <span className={styles.searchIcon} aria-hidden>
-            🔍
-          </span>
+          <button
+            type="button"
+            className={styles.searchSubmitBtn}
+            aria-label="검색"
+            onClick={() => setVisibleCount(PAGE_STEP)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘, next/image 최적화 불필요 */}
+            <img src="/icons/search-icon.png" alt="" />
+          </button>
         </div>
       </div>
 
@@ -291,7 +299,23 @@ export function CommunityClient() {
                 style={{ color: viewMode === 'list' ? 'var(--pd-link)' : 'var(--pd-text-sub)' }}
                 onClick={() => setViewMode('list')}
               >
-                ☰ 목록
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none" />
+                </svg>
+                목록
               </button>
               <span className={styles.viewDivider} />
               <button
@@ -300,7 +324,21 @@ export function CommunityClient() {
                 style={{ color: viewMode === 'grid' ? 'var(--pd-link)' : 'var(--pd-text-sub)' }}
                 onClick={() => setViewMode('grid')}
               >
-                ⊞ 사진
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="9.5" r="1.8" fill="currentColor" stroke="none" />
+                  <path d="M21 15l-5-5-9 9" />
+                </svg>
+                사진
               </button>
             </div>
           </div>
@@ -332,15 +370,36 @@ export function CommunityClient() {
                 <div className={styles.profilePostCount}>게시물 {filtered.length}개</div>
               </div>
               {profilePost?.isMine ? (
-                <button
-                  type="button"
-                  className={
-                    showBookmarksOnly ? `${styles.pillBtn} ${styles.pillBtnActive}` : styles.pillBtn
-                  }
-                  onClick={() => setShowBookmarksOnly((v) => !v)}
-                >
-                  🔖 저장
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={
+                      showBookmarksOnly
+                        ? `${styles.pillBtn} ${styles.pillBtnActive}`
+                        : styles.pillBtn
+                    }
+                    onClick={() => setShowBookmarksOnly((v) => !v)}
+                  >
+                    <span
+                      className={styles.iconMask}
+                      style={{
+                        width: 13,
+                        height: 13,
+                        maskImage: 'url(/icons/bookmark-icon.png)',
+                        WebkitMaskImage: 'url(/icons/bookmark-icon.png)',
+                        background: showBookmarksOnly ? '#2f6b45' : 'var(--pd-text)',
+                      }}
+                    />
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.pillBtn}
+                    onClick={() => router.push('/my-page')}
+                  >
+                    프로필 설정
+                  </button>
+                </>
               ) : null}
             </div>
           ) : null}
@@ -367,6 +426,8 @@ export function CommunityClient() {
               {visiblePosts.map((post) => {
                 const expanded = Boolean(expandedComments[post.id]);
                 const visibleComments = expanded ? post.comments : post.comments.slice(0, 1);
+                const likeColor = post.liked ? '#e5342e' : 'var(--pd-text-sub)';
+                const bookmarkColor = post.bookmarked ? 'var(--pd-brand)' : 'var(--pd-text-sub)';
                 return (
                   <article key={post.id} className={styles.postCard}>
                     <div className={styles.postHead}>
@@ -428,27 +489,60 @@ export function CommunityClient() {
                         <button
                           type="button"
                           className={styles.likeBtn}
-                          style={{ color: post.liked ? '#e5342e' : 'var(--pd-text-sub)' }}
+                          style={{ color: likeColor }}
                           onClick={() => toggleLike(post.id)}
                         >
-                          {post.liked ? '♥' : '♡'} {post.likeCount}
+                          {post.liked ? (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill={likeColor}>
+                              <path d="M12 21s-6.7-4.35-9.3-8.1C1.1 10.6 1.6 7.4 4.2 5.7c2.2-1.4 5-.8 6.6 1.1l1.2 1.4 1.2-1.4c1.6-1.9 4.4-2.5 6.6-1.1 2.6 1.7 3.1 4.9 1.5 7.2C18.7 16.65 12 21 12 21Z" />
+                            </svg>
+                          ) : (
+                            <span
+                              className={styles.iconMask}
+                              style={{
+                                maskImage: 'url(/icons/heart.png)',
+                                WebkitMaskImage: 'url(/icons/heart.png)',
+                                background: likeColor,
+                              }}
+                            />
+                          )}
+                          <span>{post.likeCount}</span>
                         </button>
                         <button
                           type="button"
                           className={styles.commentCountBtn}
                           onClick={() => setCommentModalId(post.id)}
                         >
-                          💬 {post.comments.length}
+                          <span
+                            className={styles.iconMask}
+                            style={{
+                              maskImage: 'url(/icons/message-circle.png)',
+                              WebkitMaskImage: 'url(/icons/message-circle.png)',
+                              background: 'var(--pd-text-sub)',
+                            }}
+                          />
+                          <span>{post.comments.length}</span>
                         </button>
                         <button
                           type="button"
                           className={styles.bookmarkBtn}
-                          style={{
-                            color: post.bookmarked ? 'var(--pd-brand)' : 'var(--pd-text-sub)',
-                          }}
                           onClick={() => toggleBookmark(post.id)}
+                          aria-label="저장"
                         >
-                          {post.bookmarked ? '🔖' : '📑'}
+                          {post.bookmarked ? (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill={bookmarkColor}>
+                              <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
+                            </svg>
+                          ) : (
+                            <span
+                              className={styles.iconMask}
+                              style={{
+                                maskImage: 'url(/icons/bookmark-icon.png)',
+                                WebkitMaskImage: 'url(/icons/bookmark-icon.png)',
+                                background: bookmarkColor,
+                              }}
+                            />
+                          )}
                         </button>
                       </div>
 
@@ -537,7 +631,11 @@ export function CommunityClient() {
         <div className={styles.sideCol}>
           <div className={styles.sideCard}>
             <div className={styles.sideCardHead}>
-              <span>🔥 이번 주 인기 여행지</span>
+              <span className={styles.sideCardHeadLeft}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+                <img src="/icons/flame.png" alt="" className={styles.sideCardHeadIcon} />
+                이번 주 인기 여행지
+              </span>
               <span className={styles.liveTag}>실시간</span>
             </div>
             <div className={styles.trendingList}>
@@ -568,7 +666,11 @@ export function CommunityClient() {
 
           <div className={styles.sideCard}>
             <div className={styles.sideCardHead}>
-              <span>🏷 추천 태그</span>
+              <span className={styles.sideCardHeadLeft}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+                <img src="/icons/tag.png" alt="" className={styles.sideCardHeadIconSm} />
+                추천 태그
+              </span>
             </div>
             <div className={styles.tagCloud}>
               {POPULAR_TAGS.map((tag) => (
@@ -588,7 +690,9 @@ export function CommunityClient() {
           </div>
 
           <button type="button" className={styles.writeBtn} onClick={openComposer}>
-            여행 후기 쓰기 ✎
+            여행 후기 쓰기
+            {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+            <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
           </button>
         </div>
       </div>
