@@ -3,17 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { deleteAccount } from '@/lib/account';
+import { deleteAccount, type CreatorScheduleSummary } from '@/lib/account';
 import { checkNickname, updateNickname, type NicknameCheckResult } from '@/lib/nickname';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
 
 import {
   DEFAULT_NOTIFICATION_PREFS,
-  MOCK_MY_SCHEDULES,
   NOTIFICATION_DEFS,
   TERMS_SECTIONS,
-  type MockSchedule,
   type NotificationPrefs,
 } from './data';
 import styles from './my-page.module.css';
@@ -52,7 +50,7 @@ export function MyPageClient() {
   const [withdrawAgreeChecked, setWithdrawAgreeChecked] = useState(false);
   const [blockedAgreeChecked, setBlockedAgreeChecked] = useState(false);
   const [finalWarningAgreeChecked, setFinalWarningAgreeChecked] = useState(false);
-  const [creatorSchedules, setCreatorSchedules] = useState<MockSchedule[]>([]);
+  const [creatorSchedules, setCreatorSchedules] = useState<CreatorScheduleSummary[]>([]);
 
   const email = MOCK_EMAIL;
 
@@ -103,8 +101,8 @@ export function MyPageClient() {
 
   // ---- 로그아웃 ----
   // 로그아웃은 로그인 상태만 정리한다 — '아이디 저장'(pd-saved-id)은 로그인 페이지 기능이라 건드리지 않는다.
-  const onConfirmLogout = () => {
-    logout();
+  const onConfirmLogout = async () => {
+    await logout();
     router.push('/login');
   };
 
@@ -122,7 +120,7 @@ export function MyPageClient() {
     if (!withdrawAgreeChecked) return;
     setWithdrawStep('loading');
     setWithdrawError(false);
-    const result = await deleteAccount(MOCK_MY_SCHEDULES);
+    const result = await deleteAccount();
     if (!result.ok && result.reason === 'has_creator_schedules') {
       setCreatorSchedules(result.creatorSchedules);
       setWithdrawStep('blocked');
@@ -133,7 +131,7 @@ export function MyPageClient() {
       setWithdrawError(true);
       return;
     }
-    logout();
+    await logout();
     setWithdrawStep('success');
   };
 
@@ -147,13 +145,13 @@ export function MyPageClient() {
     if (!finalWarningAgreeChecked) return;
     setWithdrawStep('finalLoading');
     setWithdrawError(false);
-    const result = await deleteAccount(MOCK_MY_SCHEDULES, { skipCreatorCheck: true });
+    const result = await deleteAccount({ force: true });
     if (!result.ok) {
       setWithdrawStep('finalWarning');
       setWithdrawError(true);
       return;
     }
-    logout();
+    await logout();
     setWithdrawStep('success');
     setTimeout(() => {
       router.push('/login');

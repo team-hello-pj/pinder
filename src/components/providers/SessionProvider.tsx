@@ -2,42 +2,53 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-import { clearSession, isSessionActive, setSession } from '@/lib/storage';
+import type { AuthUser } from '@/lib/auth';
 
 interface SessionContextValue {
   isLoggedIn: boolean;
-  login: () => void;
-  logout: () => void;
+  isLoading: boolean;
+  user: AuthUser | null;
+  login: (user: AuthUser) => void;
+  logout: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-/**
- * 프로토타입 단계의 로그인 상태. 실제 인증 백엔드 없이 localStorage(`pd-session`) 로만
- * 로그인 여부를 기억한다 — legacy 의 `prototypeLogin` 과 같은 개념.
- * TODO(인증 담당): 실제 인증 연동 시 login()/logout() 내부만 API 호출로 교체하면 된다.
- */
+/** 서버 세션 쿠키(`pd_session`)를 기준으로 로그인 상태를 관리한다. */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // localStorage 는 클라이언트에만 있어 서버 렌더와 맞출 수 없으므로, 마운트 후 한 번만 반영한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoggedIn(isSessionActive());
+    let cancelled = false;
+    fetch('/api/auth/session')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setUser(data?.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const login = useCallback(() => {
-    setSession();
-    setIsLoggedIn(true);
+  const login = useCallback((nextUser: AuthUser) => {
+    setUser(nextUser);
   }, []);
 
-  const logout = useCallback(() => {
-    clearSession();
-    setIsLoggedIn(false);
+  const logout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    setUser(null);
   }, []);
 
   return (
-    <SessionContext.Provider value={{ isLoggedIn, login, logout }}>
+    <SessionContext.Provider value={{ isLoggedIn: Boolean(user), isLoading, user, login, logout }}>
       {children}
     </SessionContext.Provider>
   );

@@ -1,16 +1,21 @@
 'use client';
 
 /**
- * 목업 인증. 실제 백엔드 없이 localStorage(`pnder-users`)에 계정 목록을 두고
- * 이메일/비밀번호를 그대로 대조한다 — 프로토타입 단계에서 회원가입→로그인 흐름이
- * 실제로 동작하는 것을 보여주기 위한 것. legacy/Login Screen.dc.html,
- * legacy/Signup Screen.dc.html 의 검증 로직을 그대로 옮겼다.
- * TODO(인증 담당): 실제 백엔드 연동 시 registerUser/loginUser 내부만 API 호출로 교체.
+ * 실제 인증 API(`/api/auth/*`) 호출 래퍼. 서버가 비밀번호 해싱/세션 쿠키 발급을 전담하고,
+ * 여기서는 fetch 로 감싸기만 한다 (화면에서 fetch 를 직접 부르지 않는다 — docs/ARCHITECTURE.md).
  */
 
-import { STORAGE_KEYS, storage } from '@/lib/storage';
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string | null;
+  nickname: string | null;
+  name: string;
+}
 
-export interface StoredUser {
+export type AuthResult = { ok: true; user: AuthUser } | { ok: false; message: string };
+
+interface RegisterProfile {
   email: string;
   password: string;
   username: string;
@@ -18,45 +23,35 @@ export interface StoredUser {
   name: string;
 }
 
-// legacy 의 TAKEN_USERNAMES / TAKEN_NICKNAMES — 데모용으로 항상 이미 사용 중인 것처럼 취급.
-const TAKEN_USERNAMES = ['pnder', 'admin', 'traveler', 'test'];
-const TAKEN_NICKNAMES = ['여행자', '관리자'];
-
-function loadUsers(): StoredUser[] {
-  return storage.read<StoredUser[]>(STORAGE_KEYS.users, []);
-}
-
-function saveUsers(users: StoredUser[]): void {
-  storage.write(STORAGE_KEYS.users, users);
-}
-
-export type AuthResult = { ok: true } | { ok: false; message: string };
-
-export function registerUser(profile: Omit<StoredUser, 'name'> & { name: string }): AuthResult {
-  const users = loadUsers();
-  if (users.some((u) => u.email === profile.email)) {
-    return { ok: false, message: '이미 가입된 이메일이에요.' };
+async function postJson(url: string, body: unknown): Promise<AuthResult> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) {
+    return { ok: false, message: data?.message ?? '요청을 처리하지 못했습니다.' };
   }
-  saveUsers([...users, profile]);
-  return { ok: true };
+  return { ok: true, user: data.user as AuthUser };
 }
 
-export function loginUser(email: string, password: string): AuthResult {
-  const users = loadUsers();
-  const account = users.find((u) => u.email === email);
-  if (!account) return { ok: false, message: '가입된 회원이 아닙니다.' };
-  if (account.password !== password) return { ok: false, message: '아이디/비밀번호가 틀렸습니다.' };
-  return { ok: true };
+export function registerUser(profile: RegisterProfile): Promise<AuthResult> {
+  return postJson('/api/auth/register', profile);
 }
 
-/** 아이디(username) 중복확인 — 데모 목록 + 이미 가입된 아이디를 함께 확인한다. */
-export function isUsernameTaken(username: string): boolean {
-  if (TAKEN_USERNAMES.includes(username.toLowerCase())) return true;
-  return loadUsers().some((u) => u.username.toLowerCase() === username.toLowerCase());
+export function loginUser(email: string, password: string): Promise<AuthResult> {
+  return postJson('/api/auth/login', { email, password });
 }
 
-/** 닉네임 중복확인 — 데모 목록 + 이미 가입된 닉네임을 함께 확인한다. */
-export function isNicknameTaken(nickname: string): boolean {
-  if (TAKEN_NICKNAMES.includes(nickname)) return true;
-  return loadUsers().some((u) => u.nickname === nickname);
+export async function isUsernameTaken(username: string): Promise<boolean> {
+  const res = await fetch(`/api/auth/check-username?value=${encodeURIComponent(username)}`);
+  const data = await res.json().catch(() => null);
+  return Boolean(data?.taken);
+}
+
+export async function isNicknameTaken(nickname: string): Promise<boolean> {
+  const res = await fetch(`/api/auth/check-nickname?value=${encodeURIComponent(nickname)}`);
+  const data = await res.json().catch(() => null);
+  return Boolean(data?.taken);
 }

@@ -5,9 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { avatarColorFor } from '@/lib/avatar';
 import { fmtDateLabel, fmtRange } from '@/lib/calendar';
-import { loadSavedRoutes, saveRoutes } from '@/lib/storage';
+import { deleteSchedule, listSchedules, updateSchedule, type ScheduleSummary } from '@/lib/schedules';
 import { Button, DateRangeCalendar, Modal } from '@/components/ui';
-import type { SavedRoute } from '@/types';
 
 import styles from './my-routes.module.css';
 
@@ -22,7 +21,7 @@ function todayStr(): string {
 /** legacy/My Routes.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function MyRoutesClient() {
   const router = useRouter();
-  const [routes, setRoutes] = useState<SavedRoute[] | null>(null);
+  const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -52,16 +51,14 @@ export function MyRoutesClient() {
   const [toastVisible, setToastVisible] = useState(false);
 
   useEffect(() => {
-    // localStorage 는 클라이언트에만 있어 서버 렌더와 맞출 수 없으므로, 마운트 후
-    // 한 번만 읽어와 로딩 상태(null)에서 실제 목록으로 전환한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRoutes(loadSavedRoutes());
+    let cancelled = false;
+    listSchedules().then((list) => {
+      if (!cancelled) setRoutes(list);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const persist = (next: SavedRoute[]) => {
-    setRoutes(next);
-    saveRoutes(next);
-  };
 
   const showToast = (message: string) => {
     setToastMsg(message);
@@ -106,36 +103,43 @@ export function MyRoutesClient() {
   const newTripHref = `/planner?new=1&tripStart=${encodeURIComponent(newTripStart)}&tripEnd=${encodeURIComponent(newTripEnd || newTripStart)}&mode=${createMode}`;
 
   // ---- 삭제 ----
-  const openDeleteConfirm = (route: SavedRoute) => {
+  const openDeleteConfirm = (route: ScheduleSummary) => {
     setDeleteTargetId(route.id);
     setDeleteTargetName(route.title);
     setDeleteConfirmOpen(true);
   };
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!routes || !deleteTargetId) return;
-    persist(routes.filter((r) => r.id !== deleteTargetId));
+    const ok = await deleteSchedule(deleteTargetId);
+    if (!ok) {
+      setDeleteConfirmOpen(false);
+      showToast('삭제하지 못했어요. 다시 시도해주세요.');
+      return;
+    }
+    setRoutes(routes.filter((r) => r.id !== deleteTargetId));
     setDeleteConfirmOpen(false);
     showToast('내 일정 1건이 삭제되었습니다');
   };
 
   // ---- 이름 수정 ----
-  const startEdit = (route: SavedRoute) => {
+  const startEdit = (route: ScheduleSummary) => {
+    if (route.role === 'viewer') return;
     setEditingId(route.id);
     setEditValue(route.title);
   };
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!routes || !editingId) return;
     const name = editValue.trim();
-    persist(
-      routes.map((r) =>
-        r.id === editingId ? { ...r, title: name || r.title, customName: true } : r,
-      ),
-    );
+    const id = editingId;
     setEditingId(null);
+    const updated = await updateSchedule(id, { title: name || undefined, customName: true });
+    if (!updated) return;
+    setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
   };
 
   // ---- 날짜 수정 (카드 내 팝오버) ----
-  const startDateEdit = (route: SavedRoute) => {
+  const startDateEdit = (route: ScheduleSummary) => {
+    if (route.role === 'viewer') return;
     const start = route.tripStart || todayStr();
     const [y, m] = start.split('-').map(Number);
     setDateEditingId(route.id);
@@ -157,14 +161,13 @@ export function MyRoutesClient() {
     }
     setEditEnd(dateStr);
   };
-  const saveDateEdit = () => {
+  const saveDateEdit = async () => {
     if (!routes || !dateEditingId) return;
-    persist(
-      routes.map((r) =>
-        r.id === dateEditingId ? { ...r, tripStart: editStart, tripEnd: editEnd } : r,
-      ),
-    );
+    const id = dateEditingId;
     setDateEditingId(null);
+    const updated = await updateSchedule(id, { tripStart: editStart, tripEnd: editEnd });
+    if (!updated) return;
+    setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
     showToast('일정이 변경되었습니다');
   };
 

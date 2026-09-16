@@ -1,15 +1,7 @@
 import type { Place } from '@/types';
 
-// legacy/Route Planner App.dc.html 의 목업 데이터/타입을 그대로 옮겼다.
-
-export type DevRole = 'creator' | 'editor' | 'viewer' | 'savedViewer';
-
-export const DEV_ROLE_OPTIONS: { key: DevRole; label: string }[] = [
-  { key: 'creator', label: 'Creator' },
-  { key: 'editor', label: 'Editor' },
-  { key: 'viewer', label: 'Viewer' },
-  { key: 'savedViewer', label: 'Saved Viewer' },
-];
+// legacy/Route Planner App.dc.html 의 목업 데이터를 그대로 옮겼다.
+// 협업 멤버/편집요청은 이제 /api/schedules/* 가 실제로 관리한다 (src/lib/schedules.ts).
 
 export interface Member {
   id: string;
@@ -22,15 +14,6 @@ export interface EditRequest {
   nickname: string;
   time: string;
 }
-
-// MOCK: 실제 서비스에서는 서버가 들고 있는 팀원/요청 목록으로 교체.
-export const INITIAL_MEMBERS: Member[] = [
-  { id: 'm1', nickname: '유수', role: 'editor' },
-  { id: 'm2', nickname: '옐', role: 'viewer' },
-];
-export const INITIAL_EDIT_REQUESTS: EditRequest[] = [
-  { id: 'r1', nickname: '양다연', time: '10분 전' },
-];
 
 export const INITIAL_PLACES: Place[] = [
   {
