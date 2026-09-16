@@ -1,11 +1,29 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
+import {
+  addComment,
+  addReply,
+  createPost,
+  deletePost,
+  listPosts,
+  listTrendingPlaces,
+  togglePostBookmark,
+  togglePostLike,
+  toggleCommentLike as apiToggleCommentLike,
+  toggleReplyLike as apiToggleReplyLike,
+  updatePost,
+  type PostView,
+} from '@/lib/community';
+import { avatarColorFor } from '@/lib/avatar';
+import { formatRelativeTime } from '@/lib/format';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Button, HighlightedCaption, Modal, PlaceholderImage } from '@/components/ui';
 
 import { CommentThread } from './CommentThread';
-import { POPULAR_TAGS, REGIONS, TRENDING_DESTINATIONS, seedPosts, type Post } from './data';
+import { POPULAR_TAGS, REGIONS } from './data';
 import styles from './community.module.css';
 
 type SortMode = 'popular' | 'latest' | 'oldest';
@@ -15,7 +33,10 @@ const PAGE_STEP = 5;
 
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
-  const [posts, setPosts] = useState<Post[]>(() => seedPosts());
+  const router = useRouter();
+  const { isLoggedIn } = useSession();
+  const [posts, setPosts] = useState<PostView[]>([]);
+  const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,10 +53,7 @@ export function CommunityClient() {
   const [profileAuthor, setProfileAuthor] = useState<string | null>(null);
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
 
-  const [myNickname, setMyNickname] = useState('나');
-  const [myNicknameDraft, setMyNicknameDraft] = useState('나');
-  const [myProfileEditOpen, setMyProfileEditOpen] = useState(false);
-
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [openReplyBoxes, setOpenReplyBoxes] = useState<Record<string, boolean>>({});
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -44,115 +62,68 @@ export function CommunityClient() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPosts().then((list) => {
+      if (!cancelled) setPosts(list);
+    });
+    listTrendingPlaces().then((list) => {
+      if (!cancelled) setTrending(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const requireLogin = () => {
+    if (!isLoggedIn) {
+      setLoginRequiredOpen(true);
+      return false;
+    }
+    return true;
+  };
+
   // ---- 좋아요 / 북마크 ----
-  const toggleLike = (id: string) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, liked: !p.liked, likeCount: p.liked ? p.likeCount - 1 : p.likeCount + 1 }
-          : p,
-      ),
-    );
-  const toggleBookmark = (id: string) =>
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, bookmarked: !p.bookmarked } : p)));
+  const toggleLike = (id: string) => {
+    if (!requireLogin()) return;
+    togglePostLike(id).then(setPosts);
+  };
+  const toggleBookmark = (id: string) => {
+    if (!requireLogin()) return;
+    togglePostBookmark(id).then(setPosts);
+  };
 
   // ---- 댓글 / 답글 ----
-  const toggleCommentLike = (postId: string, commentId: string) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id !== postId
-          ? p
-          : {
-              ...p,
-              comments: p.comments.map((c) =>
-                c.id !== commentId
-                  ? c
-                  : { ...c, liked: !c.liked, likeCount: c.likeCount + (c.liked ? -1 : 1) },
-              ),
-            },
-      ),
-    );
-  const toggleReplyLike = (postId: string, commentId: string, replyId: string) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id !== postId
-          ? p
-          : {
-              ...p,
-              comments: p.comments.map((c) =>
-                c.id !== commentId
-                  ? c
-                  : {
-                      ...c,
-                      replies: c.replies.map((r) =>
-                        r.id !== replyId
-                          ? r
-                          : { ...r, liked: !r.liked, likeCount: r.likeCount + (r.liked ? -1 : 1) },
-                      ),
-                    },
-              ),
-            },
-      ),
-    );
+  const toggleCommentLike = (commentId: string) => {
+    if (!requireLogin()) return;
+    apiToggleCommentLike(commentId).then(setPosts);
+  };
+  const toggleReplyLike = (_commentId: string, replyId: string) => {
+    if (!requireLogin()) return;
+    apiToggleReplyLike(replyId).then(setPosts);
+  };
   const toggleReplyBox = (commentId: string) =>
     setOpenReplyBoxes((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
   const onReplyInput = (commentId: string, value: string) =>
     setReplyDrafts((prev) => ({ ...prev, [commentId]: value }));
-  const submitReply = (postId: string, commentId: string) => {
+  const submitReply = (_postId: string, commentId: string) => {
+    if (!requireLogin()) return;
     const text = (replyDrafts[commentId] ?? '').trim();
     if (!text) return;
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id !== postId
-          ? p
-          : {
-              ...p,
-              comments: p.comments.map((c) =>
-                c.id !== commentId
-                  ? c
-                  : {
-                      ...c,
-                      replies: [
-                        ...c.replies,
-                        {
-                          id: `r${Date.now()}`,
-                          author: myNickname || '나',
-                          text,
-                          liked: false,
-                          likeCount: 0,
-                        },
-                      ],
-                    },
-              ),
-            },
-      ),
-    );
+    addReply(commentId, text).then(setPosts);
     setReplyDrafts((prev) => ({ ...prev, [commentId]: '' }));
   };
   const onCommentInput = (id: string, value: string) =>
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, commentDraft: value } : p)));
-  const submitComment = (id: string) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === id && p.commentDraft.trim()
-          ? {
-              ...p,
-              comments: [
-                ...p.comments,
-                {
-                  id: `c${Date.now()}`,
-                  author: myNickname || '나',
-                  text: p.commentDraft.trim(),
-                  liked: false,
-                  likeCount: 0,
-                  replies: [],
-                },
-              ],
-              commentDraft: '',
-            }
-          : p,
-      ),
-    );
+    setCommentDrafts((prev) => ({ ...prev, [id]: value }));
+  const submitComment = (id: string) => {
+    if (!requireLogin()) return;
+    const text = (commentDrafts[id] ?? '').trim();
+    if (!text) return;
+    addComment(id, text).then(setPosts);
+    setCommentDrafts((prev) => ({ ...prev, [id]: '' }));
+  };
   const toggleComments = (id: string) =>
     setExpandedComments((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -161,14 +132,17 @@ export function CommunityClient() {
     setPendingDeleteId(id);
     setDeleteConfirmOpen(true);
   };
-  const confirmDelete = () => {
-    setPosts((prev) => prev.filter((p) => p.id !== pendingDeleteId));
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    const next = await deletePost(pendingDeleteId);
+    setPosts(next);
     setDeleteConfirmOpen(false);
     setPendingDeleteId(null);
   };
 
   // ---- 글쓰기 / 수정 ----
   const openComposer = () => {
+    if (!requireLogin()) return;
     setComposerOpen(true);
     setEditingId(null);
     setDraftPlace('');
@@ -184,34 +158,15 @@ export function CommunityClient() {
     setDraftCaption(post.caption);
     setDraftRegion(post.region);
   };
-  const saveComposer = () => {
+  const saveComposer = async () => {
     const place = draftPlace.trim();
     const caption = draftCaption.trim();
     if (!place || !caption) return;
-    if (editingId) {
-      setPosts((prev) =>
-        prev.map((p) => (p.id === editingId ? { ...p, place, caption, region: draftRegion } : p)),
-      );
-    } else {
-      const newPost: Post = {
-        id: `p${Date.now()}`,
-        author: '나',
-        avatarInitial: '나',
-        place,
-        region: draftRegion,
-        time: '방금',
-        timestamp: Date.now(),
-        caption,
-        liked: false,
-        likeCount: 0,
-        bookmarked: false,
-        tags: [],
-        isMine: true,
-        comments: [],
-        commentDraft: '',
-      };
-      setPosts((prev) => [newPost, ...prev]);
-    }
+    const tags = Array.from(caption.matchAll(/#(\S+)/g)).map((m) => m[1]);
+    const next = editingId
+      ? await updatePost(editingId, { place, region: draftRegion, caption, tags })
+      : await createPost({ place, region: draftRegion, caption, tags });
+    setPosts(next);
     setComposerOpen(false);
     setEditingId(null);
   };
@@ -244,8 +199,6 @@ export function CommunityClient() {
   const visiblePosts = sorted.slice(0, visibleCount);
   const profilePost = profileAuthor ? posts.find((p) => p.author === profileAuthor) : null;
   const commentModalPost = commentModalId ? posts.find((p) => p.id === commentModalId) : null;
-
-  const displayName = (p: Post) => (p.isMine ? myNickname : p.author);
 
   return (
     <div className={styles.page}>
@@ -340,35 +293,33 @@ export function CommunityClient() {
               >
                 ←
               </button>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 정적 목업 아바타 */}
-              <img src="/community-avatar-default.png" alt="" className={styles.profileAvatar} />
+              <span
+                className={styles.profileAvatar}
+                style={{
+                  background: avatarColorFor(profileAuthor),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontWeight: 700,
+                }}
+              >
+                {profileAuthor.slice(0, 1)}
+              </span>
               <div className={styles.profileInfo}>
-                <div className={styles.profileName}>
-                  {profilePost?.isMine ? myNickname : profileAuthor}
-                </div>
+                <div className={styles.profileName}>{profileAuthor}</div>
                 <div className={styles.profilePostCount}>게시물 {filtered.length}개</div>
               </div>
               {profilePost?.isMine ? (
-                <>
-                  <button
-                    type="button"
-                    className={
-                      showBookmarksOnly
-                        ? `${styles.pillBtn} ${styles.pillBtnActive}`
-                        : styles.pillBtn
-                    }
-                    onClick={() => setShowBookmarksOnly((v) => !v)}
-                  >
-                    🔖 저장
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.pillBtn}
-                    onClick={() => setMyProfileEditOpen(true)}
-                  >
-                    프로필 설정
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className={
+                    showBookmarksOnly ? `${styles.pillBtn} ${styles.pillBtnActive}` : styles.pillBtn
+                  }
+                  onClick={() => setShowBookmarksOnly((v) => !v)}
+                >
+                  🔖 저장
+                </button>
               ) : null}
             </div>
           ) : null}
@@ -403,21 +354,28 @@ export function CommunityClient() {
                         className={styles.postAvatarBtn}
                         onClick={() => setProfileAuthor(post.author)}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- 정적 목업 아바타 */}
-                        <img
-                          src="/community-avatar-default.png"
-                          alt=""
+                        <span
                           className={styles.postAvatar}
-                        />
+                          style={{
+                            background: avatarColorFor(post.author),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {post.author.slice(0, 1)}
+                        </span>
                       </button>
                       <button
                         type="button"
                         className={styles.postAuthorBtn}
                         onClick={() => setProfileAuthor(post.author)}
                       >
-                        <div className={styles.postAuthor}>{displayName(post)}</div>
+                        <div className={styles.postAuthor}>{post.author}</div>
                         <div className={styles.postMeta}>
-                          {post.place} · {post.time}
+                          {post.place} · {formatRelativeTime(post.timestamp)}
                         </div>
                       </button>
                       {post.isMine ? (
@@ -474,7 +432,7 @@ export function CommunityClient() {
                       </div>
 
                       <p className={styles.caption}>
-                        <b>{displayName(post)}</b> <HighlightedCaption text={post.caption} />
+                        <b>{post.author}</b> <HighlightedCaption text={post.caption} />
                       </p>
 
                       {post.tags.length > 0 ? (
@@ -491,9 +449,9 @@ export function CommunityClient() {
                         comments={visibleComments}
                         openReplyBoxes={openReplyBoxes}
                         replyDrafts={replyDrafts}
-                        onToggleCommentLike={(commentId) => toggleCommentLike(post.id, commentId)}
+                        onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
                         onToggleReplyLike={(commentId, replyId) =>
-                          toggleReplyLike(post.id, commentId, replyId)
+                          toggleReplyLike(commentId, replyId)
                         }
                         onToggleReplyBox={toggleReplyBox}
                         onReplyInput={onReplyInput}
@@ -521,7 +479,7 @@ export function CommunityClient() {
 
                       <div className={styles.commentInputRow}>
                         <input
-                          value={post.commentDraft}
+                          value={commentDrafts[post.id] ?? ''}
                           onChange={(e) => onCommentInput(post.id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') submitComment(post.id);
@@ -562,7 +520,7 @@ export function CommunityClient() {
               <span className={styles.liveTag}>실시간</span>
             </div>
             <div className={styles.trendingList}>
-              {TRENDING_DESTINATIONS.map((t, i) => (
+              {trending.map((t, i) => (
                 <button
                   key={t.name}
                   type="button"
@@ -580,7 +538,7 @@ export function CommunityClient() {
                   </span>
                   <span className={styles.trendingInfo}>
                     <span className={styles.trendingName}>{t.name}</span>
-                    <span className={styles.trendingCount}>게시글 {t.count}</span>
+                    <span className={styles.trendingCount}>게시글 {t.count}개</span>
                   </span>
                 </button>
               ))}
@@ -673,13 +631,13 @@ export function CommunityClient() {
       {/* 댓글 상세 */}
       <Modal
         open={Boolean(commentModalPost)}
-        title={commentModalPost ? `${displayName(commentModalPost)}님의 게시물` : '게시물'}
+        title={commentModalPost ? `${commentModalPost.author}님의 게시물` : '게시물'}
         onClose={() => setCommentModalId(null)}
       >
         {commentModalPost ? (
           <div className={styles.commentModalBody}>
             <p className={styles.caption}>
-              <b>{displayName(commentModalPost)}</b>{' '}
+              <b>{commentModalPost.author}</b>{' '}
               <HighlightedCaption text={commentModalPost.caption} />
             </p>
             {commentModalPost.comments.length === 0 ? (
@@ -689,12 +647,8 @@ export function CommunityClient() {
                 comments={commentModalPost.comments}
                 openReplyBoxes={openReplyBoxes}
                 replyDrafts={replyDrafts}
-                onToggleCommentLike={(commentId) =>
-                  toggleCommentLike(commentModalPost.id, commentId)
-                }
-                onToggleReplyLike={(commentId, replyId) =>
-                  toggleReplyLike(commentModalPost.id, commentId, replyId)
-                }
+                onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
+                onToggleReplyLike={(commentId, replyId) => toggleReplyLike(commentId, replyId)}
                 onToggleReplyBox={toggleReplyBox}
                 onReplyInput={onReplyInput}
                 onReplySubmit={(commentId) => submitReply(commentModalPost.id, commentId)}
@@ -702,7 +656,7 @@ export function CommunityClient() {
             )}
             <div className={styles.commentInputRow}>
               <input
-                value={commentModalPost.commentDraft}
+                value={commentDrafts[commentModalPost.id] ?? ''}
                 onChange={(e) => onCommentInput(commentModalPost.id, e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') submitComment(commentModalPost.id);
@@ -739,35 +693,19 @@ export function CommunityClient() {
         </div>
       </Modal>
 
-      {/* 내 프로필 설정 */}
+      {/* 로그인 필요 */}
       <Modal
-        open={myProfileEditOpen}
-        title="커뮤니티 프로필 설정"
-        onClose={() => setMyProfileEditOpen(false)}
+        open={loginRequiredOpen}
+        title="로그인이 필요해요"
+        onClose={() => setLoginRequiredOpen(false)}
       >
-        <div className={styles.myAvatar}>
-          <PlaceholderImage label="프로필" />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.fieldLabel}>닉네임</span>
-          <input
-            value={myNicknameDraft}
-            onChange={(e) => setMyNicknameDraft(e.target.value)}
-            className={styles.fieldInput}
-          />
-        </div>
+        <p className={styles.deleteDesc}>글쓰기, 좋아요, 댓글은 로그인 후 이용할 수 있어요.</p>
         <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setMyProfileEditOpen(false)}>
+          <Button variant="secondary" size="sm" onClick={() => setLoginRequiredOpen(false)}>
             취소
           </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setMyNickname(myNicknameDraft.trim() || myNickname);
-              setMyProfileEditOpen(false);
-            }}
-          >
-            저장
+          <Button size="sm" onClick={() => router.push('/login')}>
+            로그인하기
           </Button>
         </div>
       </Modal>

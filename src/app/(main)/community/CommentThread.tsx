@@ -1,10 +1,11 @@
 'use client';
 
-import type { CommentItem } from './data';
+import type { CommentView } from '@/lib/community';
+
 import styles from './community.module.css';
 
 export interface CommentThreadProps {
-  comments: CommentItem[];
+  comments: CommentView[];
   openReplyBoxes: Record<string, boolean>;
   replyDrafts: Record<string, string>;
   onToggleCommentLike: (commentId: string) => void;

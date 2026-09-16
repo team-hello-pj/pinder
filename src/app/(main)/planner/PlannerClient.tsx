@@ -313,7 +313,9 @@ export function PlannerClient() {
       setTripEnd(detail.schedule.tripEnd || '');
       setScheduleId(detail.schedule.id);
       setRole(detail.role);
-      setMembers(detail.members.map((m, i) => ({ id: `${i}`, nickname: m.nickname, role: m.role })));
+      setMembers(
+        detail.members.map((m, i) => ({ id: `${i}`, nickname: m.nickname, role: m.role })),
+      );
       setEditRequests(
         detail.editRequests.map((r) => ({ id: r.id, nickname: r.nickname, time: r.createdAt })),
       );
@@ -333,7 +335,10 @@ export function PlannerClient() {
 
     if (inviteToken && isInviteRole) {
       if (!isLoggedIn) {
-        sessionStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ token: inviteToken, role: inviteRole }));
+        sessionStorage.setItem(
+          PENDING_INVITE_KEY,
+          JSON.stringify({ token: inviteToken, role: inviteRole }),
+        );
         router.push('/login');
         return;
       }
@@ -877,7 +882,14 @@ export function PlannerClient() {
   const saveCurrentRoute = async () => {
     if (places.length === 0) return;
     const title = `${places[0].name} 외 ${Math.max(0, places.length - 1)}곳`;
-    const input = { title, places, segments, criteria, tripStart: tripStart || '', tripEnd: tripEnd || '' };
+    const input = {
+      title,
+      places,
+      segments,
+      criteria,
+      tripStart: tripStart || '',
+      tripEnd: tripEnd || '',
+    };
 
     const saved = scheduleId
       ? await updateSchedule(scheduleId, input)

@@ -74,10 +74,7 @@ export async function deleteSchedule(id: string): Promise<boolean> {
   return res.ok;
 }
 
-export async function getInviteLink(
-  id: string,
-  role: 'editor' | 'viewer',
-): Promise<string | null> {
+export async function getInviteLink(id: string, role: 'editor' | 'viewer'): Promise<string | null> {
   const res = await fetch(`/api/schedules/${id}/invite`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

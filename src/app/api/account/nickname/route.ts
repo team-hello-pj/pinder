@@ -20,7 +20,8 @@ export async function POST(request: Request) {
 /** 닉네임 변경. 세션 쿠키에도 새 닉네임을 반영해서 다시 발급한다. */
 export async function PATCH(request: Request) {
   const session = await getSessionUser();
-  if (!session) return NextResponse.json({ ok: false, message: '로그인이 필요합니다.' }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ ok: false, message: '로그인이 필요합니다.' }, { status: 401 });
 
   const { nickname } = ((await request.json().catch(() => null)) ?? {}) as { nickname?: string };
   if (!nickname) {

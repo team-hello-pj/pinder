@@ -53,7 +53,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .from(scheduleCollaborators)
       .innerJoin(users, eq(scheduleCollaborators.userId, users.id))
       .where(eq(scheduleCollaborators.scheduleId, id));
-    members = collabRows.map((r) => ({ nickname: r.nickname ?? '', role: r.role as 'editor' | 'viewer' }));
+    members = collabRows.map((r) => ({
+      nickname: r.nickname ?? '',
+      role: r.role as 'editor' | 'viewer',
+    }));
 
     const requestRows = await db
       .select({
@@ -117,7 +120,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   } else {
     await db
       .delete(scheduleCollaborators)
-      .where(and(eq(scheduleCollaborators.scheduleId, id), eq(scheduleCollaborators.userId, session.id)));
+      .where(
+        and(eq(scheduleCollaborators.scheduleId, id), eq(scheduleCollaborators.userId, session.id)),
+      );
   }
 
   return NextResponse.json({ ok: true });

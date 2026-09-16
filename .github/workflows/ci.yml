@@ -42,3 +42,7 @@ jobs:
           KAKAO_JS_KEY: dummy
           KAKAO_REST_API_KEY: dummy
           GEMINI_API_KEY: dummy
+          GOOGLE_CLIENT_ID: dummy
+          SESSION_SECRET: dummy
+          # db/client.ts 가 모듈 로드 시점에 값 존재 여부만 확인한다 — 실제 DB에 붙지 않는다.
+          DATABASE_URL: postgresql://user:pass@localhost:5432/dummy

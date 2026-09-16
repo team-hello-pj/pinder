@@ -1,23 +1,35 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { listExploreSections, type ExploreSection } from '@/lib/destinations';
 import { PlaceholderImage } from '@/components/ui';
 
-import { MAP_REGIONS, SECTIONS, SECTION_PAGE_SIZE } from './data';
+import { MAP_REGIONS, SECTION_PAGE_SIZE } from './data';
 import styles from './explore.module.css';
 
 /** legacy/Explore Destinations.dc.html 를 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function ExploreClient() {
+  const [rawSections, setRawSections] = useState<ExploreSection[]>([]);
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
 
+  useEffect(() => {
+    let cancelled = false;
+    listExploreSections().then((list) => {
+      if (!cancelled) setRawSections(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const sections = useMemo(
     () =>
-      SECTIONS.map((section, si) => {
+      rawSections.map((section, si) => {
         const items = section.items
           .filter((d) => !activeRegion || d.region === activeRegion)
-          .map((d, di) => ({ ...d, imgId: `dest-${si}-${di}` }));
+          .map((d) => ({ ...d, imgId: d.id }));
 
         const pageCount = Math.max(1, Math.ceil(items.length / SECTION_PAGE_SIZE));
         const page = Math.min(sectionPages[si] ?? 0, pageCount - 1);
@@ -40,10 +52,10 @@ export function ExploreClient() {
             setSectionPages((s) => ({ ...s, [si]: Math.min(pageCount - 1, page + 1) })),
         };
       }),
-    [activeRegion, sectionPages],
+    [rawSections, activeRegion, sectionPages],
   );
 
-  const noResults = sections.every((s) => !s.hasItems);
+  const noResults = sections.length > 0 && sections.every((s) => !s.hasItems);
 
   return (
     <div className={styles.page}>

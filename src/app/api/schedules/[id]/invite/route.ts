@@ -26,7 +26,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'role은 editor 또는 viewer 여야 합니다.' }, { status: 400 });
   }
 
-  const [row] = await db.select({ inviteToken: schedules.inviteToken }).from(schedules).where(eq(schedules.id, id)).limit(1);
+  const [row] = await db
+    .select({ inviteToken: schedules.inviteToken })
+    .from(schedules)
+    .where(eq(schedules.id, id))
+    .limit(1);
   let token = row?.inviteToken ?? null;
   if (!token) {
     token = crypto.randomUUID().replace(/-/g, '').slice(0, 12);

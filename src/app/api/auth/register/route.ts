@@ -19,9 +19,8 @@ interface RegisterBody {
 }
 
 export async function POST(request: Request) {
-  const { email, password, username, nickname, name } = ((await request.json().catch(
-    () => null,
-  )) ?? {}) as RegisterBody;
+  const { email, password, username, nickname, name } = ((await request.json().catch(() => null)) ??
+    {}) as RegisterBody;
 
   if (!email || !password || !username || !nickname || !name) {
     return NextResponse.json({ ok: false, message: '모든 항목을 입력해주세요.' }, { status: 400 });
@@ -43,7 +42,10 @@ export async function POST(request: Request) {
     !verification?.verifiedAt ||
     Date.now() - verification.verifiedAt.getTime() > VERIFIED_TTL_MS
   ) {
-    return NextResponse.json({ ok: false, message: '이메일 인증을 완료해주세요.' }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, message: '이메일 인증을 완료해주세요.' },
+      { status: 400 },
+    );
   }
 
   const [conflict] = await db

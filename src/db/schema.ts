@@ -108,3 +108,135 @@ export const scheduleEditRequests = pgTable(
   },
   (t) => [unique().on(t.scheduleId, t.userId)],
 );
+
+/** 커뮤니티 게시글. 좋아요/북마크 개수는 저장하지 않고 매번 관련 테이블에서 집계한다. */
+export const posts = pgTable('posts', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  place: text('place').notNull(),
+  region: text('region').notNull(),
+  caption: text('caption').notNull(),
+  tags: jsonb('tags').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const postLikes = pgTable(
+  'post_likes',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    postId: text('post_id')
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.postId, t.userId)],
+);
+
+export const postBookmarks = pgTable(
+  'post_bookmarks',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    postId: text('post_id')
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.postId, t.userId)],
+);
+
+/** 댓글 1단계. 답글(post_comment_replies)은 댓글 밑에 한 단계만 더 달린다 (대댓글의 대댓글 없음). */
+export const postComments = pgTable('post_comments', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  postId: text('post_id')
+    .notNull()
+    .references(() => posts.id, { onDelete: 'cascade' }),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const postCommentLikes = pgTable(
+  'post_comment_likes',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    commentId: text('comment_id')
+      .notNull()
+      .references(() => postComments.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.commentId, t.userId)],
+);
+
+export const postCommentReplies = pgTable('post_comment_replies', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  commentId: text('comment_id')
+    .notNull()
+    .references(() => postComments.id, { onDelete: 'cascade' }),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const postReplyLikes = pgTable(
+  'post_reply_likes',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    replyId: text('reply_id')
+      .notNull()
+      .references(() => postCommentReplies.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.replyId, t.userId)],
+);
+
+/**
+ * 탐색 화면의 큐레이션 여행지. 관리자 화면이 없어서 지금은 시드 스크립트로만 채운다 —
+ * sectionTitle/sectionSubtitle 을 각 행에 그대로 들고 있어(비정규화) 섹션 테이블을 따로 두지 않는다.
+ */
+export const destinations = pgTable('destinations', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  sectionTitle: text('section_title').notNull(),
+  sectionSubtitle: text('section_subtitle').notNull(),
+  sectionOrder: integer('section_order').notNull(),
+  itemOrder: integer('item_order').notNull(),
+  name: text('name').notNull(),
+  region: text('region').notNull(),
+  badge: text('badge').notNull(),
+  desc: text('desc').notNull(),
+  tags: jsonb('tags').notNull(),
+});

@@ -36,7 +36,9 @@ export async function POST(request: Request) {
   await db
     .insert(scheduleCollaborators)
     .values({ scheduleId: schedule.id, userId: session.id, role })
-    .onConflictDoNothing({ target: [scheduleCollaborators.scheduleId, scheduleCollaborators.userId] });
+    .onConflictDoNothing({
+      target: [scheduleCollaborators.scheduleId, scheduleCollaborators.userId],
+    });
 
   return NextResponse.json({ scheduleId: schedule.id });
 }

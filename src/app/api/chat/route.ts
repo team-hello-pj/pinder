@@ -60,23 +60,23 @@ export async function POST(request: Request) {
         }))
       : [];
 
-    const contents = [
-  ...historyParts,
-  { role: 'user', parts: [{ text: userMessage }] },
-];
+    const contents = [...historyParts, { role: 'user', parts: [{ text: userMessage }] }];
 
     const geminiRes = await fetch(GEMINI_URL, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-goog-api-key': apiKey,
-  },
-  body: JSON.stringify({
-    system_instruction: {
-      parts: [
-        {
-          text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [
+            {
+              text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+            },
+          ],
         },
+<<<<<<< HEAD
       ],
     },
     contents,
@@ -86,24 +86,32 @@ export async function POST(request: Request) {
     },
   }),
 });
+=======
+        contents,
+        generationConfig: {
+          maxOutputTokens: 400,
+        },
+      }),
+    });
+>>>>>>> 8a4c671c54c4f74c6be25995e881ff7f9e51d756
 
-if (!geminiRes.ok) {
-  const errText = await geminiRes.text();
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
 
-  console.error('================ GEMINI ERROR ================');
-  console.error('Status:', geminiRes.status);
-  console.error('Body:', errText);
-  console.error('================================================');
+      console.error('================ GEMINI ERROR ================');
+      console.error('Status:', geminiRes.status);
+      console.error('Body:', errText);
+      console.error('================================================');
 
-  return NextResponse.json(
-    {
-      error: 'Gemini API request failed',
-      status: geminiRes.status,
-      detail: errText,
-    },
-    { status: 502 },
-  );
-}
+      return NextResponse.json(
+        {
+          error: 'Gemini API request failed',
+          status: geminiRes.status,
+          detail: errText,
+        },
+        { status: 502 },
+      );
+    }
 
     const data = await geminiRes.json();
     const reply =
