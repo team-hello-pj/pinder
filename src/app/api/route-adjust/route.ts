@@ -40,7 +40,6 @@ interface AdjustPlace {
   name: string;
   category: string;
   duration: number;
-  priority: string;
 }
 
 interface RouteAdjustRequestBody {
@@ -101,7 +100,6 @@ export async function POST(request: Request) {
           name: p.name,
           category: p.category,
           duration: p.duration,
-          priority: p.priority,
         })),
       ),
       '',

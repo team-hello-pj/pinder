@@ -1,6 +1,5 @@
 'use client';
 
-import { PRIORITY_MAP } from '@/constants';
 import type { Place } from '@/types';
 
 import styles from './planner.module.css';
@@ -17,7 +16,6 @@ export interface PlaceCardHandlers {
   onPackItemsChange: (id: number, value: string) => void;
   onSaveMemo: (id: number) => void;
   onDurationChange: (id: number, delta: number) => void;
-  onCyclePriority: (id: number) => void;
 }
 
 export interface PlaceCardProps {
@@ -42,8 +40,6 @@ export function PlaceCard({
   canEdit,
   handlers,
 }: PlaceCardProps) {
-  const pr = PRIORITY_MAP[place.priority];
-
   return (
     <div
       draggable={canEdit}
@@ -71,14 +67,6 @@ export function PlaceCard({
               className={styles.memoDot}
             />
           ) : null}
-          <button
-            type="button"
-            className={styles.priorityChip}
-            style={{ background: pr.bg, color: pr.color }}
-            onClick={() => handlers.onCyclePriority(place.id)}
-          >
-            {pr.label}
-          </button>
         </div>
         <div className={styles.placeAddress}>{place.address}</div>
 

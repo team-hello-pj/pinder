@@ -5,7 +5,6 @@ export interface AiRouteAdjustPlace {
   name: string;
   category: string;
   duration: number;
-  priority: string;
 }
 
 export interface AiRouteAdjustResult {

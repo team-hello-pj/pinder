@@ -2,7 +2,6 @@
 
 export type TransportMode = 'car' | 'walk' | 'transit' | 'bike';
 export type RouteCriteria = 'time' | 'distance';
-export type Priority = 'high' | 'normal' | 'low';
 export type WeatherState = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type BusinessHours = 'open' | 'closed' | 'unknown';
 
@@ -12,7 +11,6 @@ export interface Place {
   name: string;
   address: string;
   category: string;
-  priority: Priority;
   /** 체류 시간(분) */
   duration: number;
   visitTime: string;

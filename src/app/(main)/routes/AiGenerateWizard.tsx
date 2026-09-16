@@ -148,7 +148,6 @@ export function AiGenerateWizard({
           name: p.name,
           category: p.category || '미분류',
           address: p.addressHint || p.name,
-          priority: 'normal',
           duration: p.duration,
           hours: 'unknown',
           hoursLabel: '영업시간 확인 필요',

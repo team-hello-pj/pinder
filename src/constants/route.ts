@@ -1,12 +1,4 @@
-import type { Priority, RouteCriteria, TransportMode } from '@/types';
-
-export const PRIORITY_ORDER: Priority[] = ['high', 'normal', 'low'];
-
-export const PRIORITY_MAP: Record<Priority, { label: string; bg: string; color: string }> = {
-  high: { label: '급한 방문', bg: 'var(--pd-danger-bg)', color: 'var(--pd-danger)' },
-  normal: { label: '보통', bg: 'var(--pd-chip-bg)', color: 'var(--pd-text-sub)' },
-  low: { label: '낮음', bg: 'var(--pd-info-bg)', color: 'var(--pd-info)' },
-};
+import type { RouteCriteria, TransportMode } from '@/types';
 
 export const MODE_ORDER: TransportMode[] = ['car', 'walk', 'transit', 'bike'];
 

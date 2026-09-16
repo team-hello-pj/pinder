@@ -475,7 +475,6 @@ export function PlannerClient() {
           placeId: doc.id,
           x: Number(doc.x),
           y: Number(doc.y),
-          priority: 'normal',
           duration: 15,
           hours: 'unknown',
           hoursLabel: '영업시간 확인 필요',
@@ -641,16 +640,6 @@ export function PlannerClient() {
     setSavedMemoIds((prev) => ({ ...prev, [id]: true }));
     if (place) logActivity(`${place.name}의 메모를 저장했습니다`);
   };
-  const cyclePriority = (id: number) => {
-    const PRIORITY_ORDER = ['high', 'normal', 'low'] as const;
-    const place = places.find((p) => p.id === id);
-    if (!place) return;
-    const next = PRIORITY_ORDER[(PRIORITY_ORDER.indexOf(place.priority) + 1) % 3];
-    setPlaces((prev) => prev.map((p) => (p.id === id ? { ...p, priority: next } : p)));
-    logActivity(
-      `${place.name}의 우선순위를 ${next === 'high' ? '급한 방문' : next === 'low' ? '낮음' : '보통'}(으)로 변경했습니다`,
-    );
-  };
   const changeDuration = (id: number, delta: number) => {
     const place = places.find((p) => p.id === id);
     setPlaces((prev) =>
@@ -810,7 +799,6 @@ export function PlannerClient() {
           name: p.name,
           category: p.category,
           duration: p.duration,
-          priority: p.priority,
         })),
         segments,
       );
@@ -1091,7 +1079,6 @@ export function PlannerClient() {
             name: rec.name,
             category: '미분류',
             address: rec.address || rec.name,
-            priority: 'normal',
             duration: 15,
             hours: 'unknown',
             hoursLabel: '영업시간 확인 필요',
@@ -1121,12 +1108,6 @@ export function PlannerClient() {
   const dayTabs = hasDayTabs
     ? Array.from({ length: dayCount }, (_, di) => ({ value: di, label: `${di + 1}일차` }))
     : [];
-
-  const firstNonHighIdx = places.findIndex((p) => p.priority !== 'high');
-  const urgentPushedNames =
-    firstNonHighIdx === -1
-      ? []
-      : places.filter((p, i) => p.priority === 'high' && i > firstNonHighIdx).map((p) => p.name);
 
   const enrichedSegments = useMemo(
     () =>
@@ -1370,12 +1351,6 @@ export function PlannerClient() {
               </div>
             </div>
 
-            {urgentPushedNames.length > 0 ? (
-              <p className={styles.urgentNotice}>
-                ⚠ 급한 방문지 {urgentPushedNames.join(', ')}이(가) 뒤 순서로 밀렸어요
-              </p>
-            ) : null}
-
             {/* 방문지 목록 헤더 */}
             <div className={styles.listHeader}>
               <div className={styles.listHeaderLeft}>
@@ -1459,7 +1434,6 @@ export function PlannerClient() {
                           onPackItemsChange: updatePackItems,
                           onSaveMemo: saveMemo,
                           onDurationChange: changeDuration,
-                          onCyclePriority: cyclePriority,
                         }}
                       />
                     );

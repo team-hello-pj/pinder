@@ -268,17 +268,6 @@
   color: var(--pd-text-sub);
 }
 
-.urgentNotice {
-  margin: 12px 20px 0;
-  background: var(--pd-danger-bg);
-  border: 1px solid #ffc9c9;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 12.5px;
-  color: var(--pd-danger);
-  font-weight: 600;
-}
-
 /* ---- 방문지 목록 ---- */
 
 .listHeader {
@@ -484,15 +473,6 @@
   height: 13px;
   object-fit: contain;
   opacity: 0.45;
-}
-
-.priorityChip {
-  border: none;
-  cursor: pointer;
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
 }
 
 .placeAddress {
