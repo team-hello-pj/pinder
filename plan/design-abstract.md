@@ -1,4 +1,4 @@
-> 문서: design-abstract.md · 출처: pinder screen design (HTML, `C:\pinder\legacy`) · 마지막 갱신: 2026-09-16
+> 문서: design-abstract.md · 출처:`C:\pinder\legacy` · 마지막 갱신: 2026-09-16
 
 ## 화면 목록
 | 화면 | 코드 근거(컴포넌트·id/class) |
