@@ -31,7 +31,6 @@ function todayStr(): string {
 export function MyRoutesClient() {
   const router = useRouter();
   const { isLoggedIn, isLoading: sessionLoading } = useSession();
-  const authGateOpen = !sessionLoading && !isLoggedIn;
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -81,6 +80,10 @@ export function MyRoutesClient() {
 
   // ---- 새 일정 만들기 ----
   const openNewTripFlow = () => {
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
     setNewTripStart(todayStr());
     setNewTripEnd('');
     setModeSelectOpen(true);
@@ -219,31 +222,9 @@ export function MyRoutesClient() {
 
   if (sessionLoading) return null; // 인증 상태 확인 중 (비로그인으로 오판하지 않도록 대기)
 
-  if (!isLoggedIn) {
-    return (
-      <div className={styles.page}>
-        <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push('/')}>
-          <p className={styles.deleteDesc}>
-            로그인하면 내 일정을 관리하고 저장된 여행 계획을
-            <br />
-            확인할 수 있어요.
-          </p>
-          <div className={styles.modalActions}>
-            <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
-              로그인
-            </Button>
-            <Button size="sm" onClick={() => router.push('/signup')}>
-              회원가입
-            </Button>
-          </div>
-        </Modal>
-      </div>
-    );
-  }
+  if (isLoggedIn && routes === null) return null; // 로그인 상태에서 내 일정 초기 로드 중
 
-  if (routes === null) return null; // 초기 로드 중
-
-  const hasRoutes = routes.length > 0;
+  const hasRoutes = isLoggedIn && (routes?.length ?? 0) > 0;
 
   return (
     <div className={styles.page}>

@@ -72,9 +72,8 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
-  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
+  const { isLoggedIn, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
-  const authGateOpen = !sessionLoading && !isLoggedIn;
   const [posts, setPosts] = useState<PostView[]>([]);
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
 
@@ -107,8 +106,6 @@ export function CommunityClient() {
     replyId?: string;
   } | null>(null);
 
-  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     listPosts().then((list) => {
@@ -138,7 +135,7 @@ export function CommunityClient() {
 
   const requireLogin = () => {
     if (!isLoggedIn) {
-      setLoginRequiredOpen(true);
+      router.push('/login');
       return false;
     }
     return true;
@@ -272,26 +269,6 @@ export function CommunityClient() {
   const visiblePosts = sorted.slice(0, visibleCount);
   const profilePost = profileAuthor ? posts.find((p) => p.author === profileAuthor) : null;
   const commentModalPost = commentModalId ? posts.find((p) => p.id === commentModalId) : null;
-
-  if (sessionLoading) return null; // 인증 상태 확인 중 (비로그인으로 오판하지 않도록 대기)
-
-  if (!isLoggedIn) {
-    return (
-      <div className={styles.page}>
-        <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push('/')}>
-          <p className={styles.deleteDesc}>로그인하면 커뮤니티의 다양한 기능을 이용할 수 있어요.</p>
-          <div className={styles.modalActions}>
-            <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
-              로그인
-            </Button>
-            <Button size="sm" onClick={() => router.push('/signup')}>
-              회원가입
-            </Button>
-          </div>
-        </Modal>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.page}>
@@ -975,23 +952,6 @@ export function CommunityClient() {
           </Button>
           <Button variant="danger" size="sm" onClick={confirmDeleteComment}>
             삭제
-          </Button>
-        </div>
-      </Modal>
-
-      {/* 로그인 필요 */}
-      <Modal
-        open={loginRequiredOpen}
-        title="로그인이 필요해요"
-        onClose={() => setLoginRequiredOpen(false)}
-      >
-        <p className={styles.deleteDesc}>글쓰기, 좋아요, 댓글은 로그인 후 이용할 수 있어요.</p>
-        <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setLoginRequiredOpen(false)}>
-            취소
-          </Button>
-          <Button size="sm" onClick={() => router.push('/login')}>
-            로그인하기
           </Button>
         </div>
       </Modal>
