@@ -14,10 +14,10 @@ export interface AdjustResult {
   segments: TransportMode[];
 }
 
-const priorityWeight = (p: Place): number =>
+export const priorityWeight = (p: Place): number =>
   p.priority === 'high' ? 0 : p.priority === 'low' ? 2 : 1;
 
-const isBadWeather = (p: Place): boolean => p.weather === 'rain' || p.weather === 'snow';
+export const isBadWeather = (p: Place): boolean => p.weather === 'rain' || p.weather === 'snow';
 
 /** "상황 변경" 모달에서 고른 조건에 따라 방문 순서와 이동수단을 다시 계산한다. */
 export function applySituationAdjustment(
