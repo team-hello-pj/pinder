@@ -186,6 +186,13 @@
   white-space: nowrap;
 }
 
+.inviteRoleLabel {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+}
+
 .inviteCopyBtn {
   font-size: 12.5px;
   font-weight: 700;
@@ -196,56 +203,6 @@
   padding: 7px 12px;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.permissionMenuWrap {
-  position: relative;
-  align-self: flex-start;
-}
-
-.permissionMenuBtn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--pd-text);
-  padding: 5px 9px;
-  border-radius: 7px;
-  background: var(--pd-card-bg);
-  border: 1px solid var(--pd-border);
-}
-
-.permissionMenu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  background: var(--pd-card-bg);
-  border: 1px solid var(--pd-border);
-  border-radius: 10px;
-  box-shadow: var(--pd-shadow-md);
-  padding: 4px;
-  z-index: 10;
-  min-width: 110px;
-}
-
-.permissionMenuItem {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 7px 9px;
-  border-radius: 7px;
-  cursor: pointer;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--pd-text);
-  background: transparent;
-  border: none;
-}
-
-.permissionMenuItem:hover {
-  background: var(--pd-row-hover);
 }
 
 /* ---- 조건 설정 ---- */

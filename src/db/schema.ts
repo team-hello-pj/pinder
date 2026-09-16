@@ -69,7 +69,9 @@ export const schedules = pgTable('schedules', {
   tripStart: text('trip_start').notNull(),
   tripEnd: text('trip_end').notNull(),
   customName: integer('custom_name').notNull().default(0),
-  inviteToken: text('invite_token').unique(),
+  /** 보기전용/편집가능 초대 링크는 서로 다른 토큰을 쓴다 — 하나가 새면 그 권한만 노출된다. */
+  inviteTokenViewer: text('invite_token_viewer').unique(),
+  inviteTokenEditor: text('invite_token_editor').unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

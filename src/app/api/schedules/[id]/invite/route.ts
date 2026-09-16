@@ -8,7 +8,10 @@ import { getSessionUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
 
-/** 제작자만 초대 링크를 발급할 수 있다. 토큰은 일정마다 하나만 만들고 재사용한다. */
+/**
+ * 제작자만 초대 링크를 발급할 수 있다. 보기전용/편집가능 링크는 서로 다른 토큰을 쓰며,
+ * 일정마다 역할별로 하나만 만들고 이후에는 그대로 재사용한다.
+ */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getSessionUser();
@@ -26,15 +29,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'role은 editor 또는 viewer 여야 합니다.' }, { status: 400 });
   }
 
+  const tokenColumn =
+    inviteRole === 'editor' ? schedules.inviteTokenEditor : schedules.inviteTokenViewer;
+
   const [row] = await db
-    .select({ inviteToken: schedules.inviteToken })
+    .select({ token: tokenColumn })
     .from(schedules)
     .where(eq(schedules.id, id))
     .limit(1);
-  let token = row?.inviteToken ?? null;
+  let token = row?.token ?? null;
   if (!token) {
     token = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-    await db.update(schedules).set({ inviteToken: token }).where(eq(schedules.id, id));
+    await db
+      .update(schedules)
+      .set(inviteRole === 'editor' ? { inviteTokenEditor: token } : { inviteTokenViewer: token })
+      .where(eq(schedules.id, id));
   }
 
   return NextResponse.json({ token, role: inviteRole });
