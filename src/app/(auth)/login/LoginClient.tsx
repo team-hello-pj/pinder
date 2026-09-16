@@ -161,9 +161,9 @@ export function LoginClient() {
             />
             <span>아이디 저장</span>
           </label>
-          <a href="#" className={styles.forgotLink}>
+          <Link href={ROUTES.forgotPassword} className={styles.forgotLink}>
             비밀번호를 잊으셨나요?
-          </a>
+          </Link>
         </div>
 
         <button type="submit" className={styles.submitBtn}>

@@ -12,3 +12,7 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 .vercel
+
+# 디버깅용으로 리포 루트에 떨어뜨리는 스크린샷 — 커밋 대상 아님
+스크린샷 *.png
+Screenshot*.png

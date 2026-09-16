@@ -14,6 +14,7 @@ export const ROUTES = {
   home: '/',
   login: '/login',
   signup: '/signup',
+  forgotPassword: '/forgot-password',
   explore: '/explore',
   routes: '/routes',
   planner: '/planner',

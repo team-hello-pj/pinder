@@ -11,19 +11,26 @@ import {
 
 export const runtime = 'nodejs';
 
+/** 회원가입과 반대로, 이미 가입된 계정일 때만 인증번호를 보낸다. */
 export async function POST(request: Request) {
   const { email } = ((await request.json().catch(() => null)) ?? {}) as { email?: string };
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return NextResponse.json({ error: '올바른 이메일을 입력해주세요.' }, { status: 400 });
   }
 
-  const [existing] = await db
-    .select({ id: users.id })
+  const [account] = await db
+    .select({ passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
-  if (existing) {
-    return NextResponse.json({ error: '이미 가입된 이메일이에요.' }, { status: 409 });
+  if (!account) {
+    return NextResponse.json({ error: '가입된 계정을 찾을 수 없어요.' }, { status: 404 });
+  }
+  if (!account.passwordHash) {
+    return NextResponse.json(
+      { error: '구글 로그인으로 가입된 계정이에요. 구글 로그인을 이용해주세요.' },
+      { status: 400 },
+    );
   }
 
   const result = await issueVerificationCode(email);
