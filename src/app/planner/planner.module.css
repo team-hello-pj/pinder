@@ -473,6 +473,10 @@
   opacity: 0.45;
 }
 
+:global([data-theme='dark']) .memoDot {
+  filter: invert(1);
+}
+
 .placeAddress {
   font-size: 12px;
   color: var(--pd-text-sub);
@@ -543,6 +547,10 @@
   height: 11px;
   object-fit: contain;
   vertical-align: -1px;
+}
+
+:global([data-theme='dark']) .memoSavedCheck {
+  filter: invert(1);
 }
 
 .durationRow {

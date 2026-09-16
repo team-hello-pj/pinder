@@ -112,6 +112,12 @@
   white-space: nowrap;
 }
 
+/* --pd-badge-bg 는 다크모드에서 어두운 반투명 초록이 되므로, 어두운 글씨(#12321f) 대신
+   같은 배경에 이미 쓰이는 --pd-link(밝은 초록)로 바꿔 보이게 한다 */
+:global([data-theme='dark']) .openBtn {
+  color: var(--pd-link);
+}
+
 .deleteBtn {
   width: 26px;
   height: 26px;
@@ -780,7 +786,8 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--pd-text);
+  /* 흰 숫자가 항상 보이도록 원 배경은 다크모드에서도 고정된 어두운 색으로 유지한다 */
+  background: #171719;
   color: #fff;
   font-size: 12px;
   font-weight: 700;

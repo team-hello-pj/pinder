@@ -259,5 +259,8 @@ export const notifications = pgTable('notifications', {
   type: text('type').notNull(), // 'comment' | 'schedule' | 'feature'
   text: text('text').notNull(),
   read: boolean('read').notNull().default(false),
+  /** 편집 권한 요청 알림처럼 알림 자체에서 승인/거절할 수 있어야 하는 경우에만 채워진다. */
+  relatedScheduleId: text('related_schedule_id'),
+  relatedRequestId: text('related_request_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

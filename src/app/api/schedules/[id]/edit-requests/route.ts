@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { scheduleEditRequests, schedules } from '@/db/schema';
@@ -27,17 +27,26 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       target: [scheduleEditRequests.scheduleId, scheduleEditRequests.userId],
     });
 
+  const [reqRow] = await db
+    .select({ id: scheduleEditRequests.id })
+    .from(scheduleEditRequests)
+    .where(
+      and(eq(scheduleEditRequests.scheduleId, id), eq(scheduleEditRequests.userId, session.id)),
+    )
+    .limit(1);
+
   const [schedule] = await db
     .select({ ownerId: schedules.ownerId, title: schedules.title })
     .from(schedules)
     .where(eq(schedules.id, id))
     .limit(1);
-  if (schedule) {
+  if (schedule && reqRow) {
     await createNotification(
       schedule.ownerId,
       'schedule',
-      `${session.nickname ?? session.name}님이 「${schedule.title}」 편집 권한을 요청했어요.`,
+      `${session.nickname ?? session.name}님이 설정한 「${schedule.title}」에 편집 권한을 수락하시겠습니까?`,
       'schedule',
+      { scheduleId: id, requestId: reqRow.id },
     );
   }
 

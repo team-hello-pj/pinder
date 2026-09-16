@@ -57,6 +57,11 @@
   background: var(--pd-row-hover);
 }
 
+/* .legendCol 배경(--pd-legend-bg)은 다크모드에서도 밝은 색을 유지하므로 글씨는 항상 어두운 색으로 고정한다 */
+:global([data-theme='dark']) .legendItem {
+  color: #171719;
+}
+
 .legendActive {
   background: var(--pd-brand) !important;
   color: #12321f !important;

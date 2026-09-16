@@ -96,18 +96,22 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (!existingRequest) {
-    await db
+    const [newRequest] = await db
       .insert(scheduleEditRequests)
       .values({ scheduleId: schedule.id, userId: session.id })
       .onConflictDoNothing({
         target: [scheduleEditRequests.scheduleId, scheduleEditRequests.userId],
-      });
-    await createNotification(
-      schedule.ownerId,
-      'schedule',
-      `${session.nickname ?? session.name}님이 「${schedule.title}」 편집 참여를 요청했어요.`,
-      'schedule',
-    );
+      })
+      .returning({ id: scheduleEditRequests.id });
+    if (newRequest) {
+      await createNotification(
+        schedule.ownerId,
+        'schedule',
+        `${session.nickname ?? session.name}님이 설정한 「${schedule.title}」에 편집 권한을 수락하시겠습니까?`,
+        'schedule',
+        { scheduleId: schedule.id, requestId: newRequest.id },
+      );
+    }
   }
 
   return NextResponse.json({ scheduleId: schedule.id, pending: true });
