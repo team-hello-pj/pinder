@@ -425,6 +425,21 @@ a:hover{color:#146030}
   </div>
 </sc-if>
 
+<!-- 비회원 회원 전용 기능 안내 -->
+<sc-if value="{{ authGateOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(23,23,25,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div onClick="{{ stopPropagation }}" style="position:relative;background:{{ c.cardBg }};border-radius:16px;padding:24px;width:320px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0px 12px 24px -6px rgba(23,23,25,.18);text-align:center">
+      <a href="./main(home).dc.html" style="position:absolute;top:14px;right:14px;cursor:pointer;color:{{ c.textSub }};font-size:16px;text-decoration:none">✕</a>
+      <div style="font-size:16px;font-weight:800;color:{{ c.text }}">회원만 이용할 수 있어요</div>
+      <div style="font-size:13px;color:{{ c.textSub }};line-height:1.5">로그인하면 커뮤니티의 다양한 기능을<br>이용할 수 있어요.</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <a href="./Login Screen.dc.html" style="flex:1;text-align:center;border:1px solid {{ c.border }};border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;color:{{ c.text }};cursor:pointer;text-decoration:none">로그인</a>
+        <a href="./Signup Screen.dc.html" style="flex:1;text-align:center;background:#7BCB93;color:#12321F;border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:none">회원가입</a>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 // MOCK: 실제 연동 시 posts를 서버 API 응답으로 교체하고, 저장/좋아요/댓글 액션을 API 호출로 교체
@@ -448,6 +463,8 @@ const DARK = { bg: '#0F0F10', text: '#F7F7F8', textSub: 'rgba(247,247,248,.62)',
 
 class Component extends DCLogic {
   state = {
+    isLoggedIn: (() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('pd-session') === '1'; } catch (e) { return false; } })(),
+    authGateOpen: false,
     posts: SEED_POSTS.map(p => ({
       ...p,
       commentDraft: '',
@@ -539,22 +556,39 @@ class Component extends DCLogic {
   }));
 
   stopPropagation = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
-  toggleLike = (id) => this.setState(s => ({
-    posts: s.posts.map(p => p.id === id ? { ...p, liked: !p.liked, likeCount: p.liked ? p.likeCount - 1 : p.likeCount + 1 } : p),
-  }));
-  toggleBookmark = (id) => this.setState(s => ({
-    posts: s.posts.map(p => p.id === id ? { ...p, bookmarked: !p.bookmarked } : p),
-  }));
+  toggleLike = (id) => {
+    if (!this.state.isLoggedIn) { this.openAuthGate(); return; }
+    this.setState(s => ({
+      posts: s.posts.map(p => p.id === id ? { ...p, liked: !p.liked, likeCount: p.liked ? p.likeCount - 1 : p.likeCount + 1 } : p),
+    }));
+  };
+  toggleBookmark = (id) => {
+    if (!this.state.isLoggedIn) { this.openAuthGate(); return; }
+    this.setState(s => ({
+      posts: s.posts.map(p => p.id === id ? { ...p, bookmarked: !p.bookmarked } : p),
+    }));
+  };
+  openAuthGate = () => this.setState({ authGateOpen: true });
+  closeAuthGate = () => this.setState({ authGateOpen: false });
+  componentDidMount() {
+    if (!this.state.isLoggedIn) this.openAuthGate();
+  }
   filterByTagOrPlace = (keyword) => this.setState({ searchQuery: keyword, visibleCount: 5 });
   onCommentInput = (id, e) => this.setState(s => ({ posts: s.posts.map(p => p.id === id ? { ...p, commentDraft: e.target.value } : p) }));
-  submitComment = (id) => this.setState(s => ({
+  submitComment = (id) => {
+    if (!this.state.isLoggedIn) { this.openAuthGate(); return; }
+    this.setState(s => ({
     posts: s.posts.map(p => p.id === id && p.commentDraft.trim()
       ? { ...p, comments: [...p.comments, { id: `c${Date.now()}`, author: s.myNickname || '나', text: p.commentDraft.trim(), liked: false, likeCount: 0, replies: [] }], commentDraft: '' }
       : p),
-  }));
+    }));
+  };
   onCommentKeyDown = (id, e) => { if (e.key === 'Enter') this.submitComment(id); };
 
-  openComposer = () => this.setState({ composerOpen: true, editingId: null, draftPlace: '', draftCaption: '', draftRegion: REGIONS[1] });
+  openComposer = () => {
+    if (!this.state.isLoggedIn) { this.openAuthGate(); return; }
+    this.setState({ composerOpen: true, editingId: null, draftPlace: '', draftCaption: '', draftRegion: REGIONS[1] });
+  };
   openEditComposer = (id) => {
     const post = this.state.posts.find(p => p.id === id);
     if (!post) return;
@@ -716,6 +750,7 @@ class Component extends DCLogic {
       bookmarksOnlyBorder: showBookmarksOnly ? '#7BCB93' : c.border,
       bookmarksOnlyBg: showBookmarksOnly ? '#F2F6ED' : 'transparent',
       deleteConfirmOpen, cancelDelete: this.cancelDelete, confirmDelete: this.confirmDelete,
+      authGateOpen: this.state.authGateOpen, closeAuthGate: this.closeAuthGate,
       setViewList: this.setViewList, setViewGrid: this.setViewGrid,
       isListView: viewMode === 'list', isGridView: viewMode === 'grid',
       listViewColor: viewMode === 'list' ? '#1F7A44' : cTheme.textSub, listViewWeight: viewMode === 'list' ? 700 : 500,

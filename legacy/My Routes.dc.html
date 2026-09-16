@@ -254,6 +254,21 @@ a:hover{color:#146030}
       {{ toastMsg }}
     </div>
   </sc-if>
+
+<!-- 비회원 회원 전용 기능 안내 -->
+<sc-if value="{{ authGateOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(23,23,25,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div onClick="{{ stopPropagation }}" style="position:relative;background:#fff;border-radius:16px;padding:24px;width:320px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0px 12px 24px -6px rgba(23,23,25,.18);text-align:center">
+      <a href="./main(home).dc.html" style="position:absolute;top:14px;right:14px;cursor:pointer;color:rgba(23,23,25,.5);font-size:16px;text-decoration:none">✕</a>
+      <div style="font-size:16px;font-weight:800;color:#171719">회원만 이용할 수 있어요</div>
+      <div style="font-size:13px;color:rgba(23,23,25,.55);line-height:1.5">로그인하면 내 일정의 다양한 기능을<br>이용할 수 있어요.</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <a href="./Login Screen.dc.html" style="flex:1;text-align:center;border:1px solid #E1E2E4;border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;color:#171719;cursor:pointer;text-decoration:none">로그인</a>
+        <a href="./Signup Screen.dc.html" style="flex:1;text-align:center;background:#7BCB93;color:#12321F;border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:none">회원가입</a>
+      </div>
+    </div>
+  </div>
+</sc-if>
 </div>
 
 </x-dc>
@@ -320,7 +335,7 @@ function buildCalCells(viewYear, viewMonth, startStr, endStr, onDayClick, isDark
 }
 
 class Component extends DCLogic {
-  state = { routes: [], theme: (typeof localStorage !== 'undefined' && localStorage.getItem('pd-theme')) || this.props.defaultTheme || 'light', editingId: null, editValue: '', newTripModalOpen: false, newTripStartDate: new Date().toISOString().slice(0, 10), newTripEndDate: '', dateEditingId: null, editStart: '', editEnd: '', deleteConfirmOpen: false, deleteTargetId: null, deleteTargetName: '' };
+  state = { routes: [], theme: (typeof localStorage !== 'undefined' && localStorage.getItem('pd-theme')) || this.props.defaultTheme || 'light', editingId: null, editValue: '', newTripModalOpen: false, isLoggedIn: (() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('pd-session') === '1'; } catch (e) { return false; } })(), authGateOpen: false, newTripStartDate: new Date().toISOString().slice(0, 10), newTripEndDate: '', dateEditingId: null, editStart: '', editEnd: '', deleteConfirmOpen: false, deleteTargetId: null, deleteTargetName: '' };
   openDeleteConfirm = (route) => this.setState({ deleteConfirmOpen: true, deleteTargetId: route.id, deleteTargetName: route.name });
   closeDeleteConfirm = () => this.setState({ deleteConfirmOpen: false });
   confirmDelete = () => this.setState(s => {
@@ -383,7 +398,22 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.load();
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openCreate') === '1') {
+        // main(home)의 '최적 동선 생성하기'로 진입한 경우: '+ 새 일정' → '직접 생성하기' 두 단계를 건너뛰고
+        // 캘린더 팝업을 바로 열고, 비로그인 상태여도 이 흐름만은 로그인 게이트 없이 사용할 수 있게 한다.
+        this.setState({
+          newTripModalOpen: true, createMode: 'manual',
+          newTripStartDate: new Date().toISOString().slice(0, 10), newTripEndDate: '',
+          calViewYear: new Date().getFullYear(), calViewMonth: new Date().getMonth(),
+        });
+        return;
+      }
+    } catch (e) {}
+    if (!this.state.isLoggedIn) this.setState({ authGateOpen: true });
   }
+  stopPropagation = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
   load() {
     try {
       const raw = localStorage.getItem('rp-saved-routes');
@@ -527,6 +557,7 @@ class Component extends DCLogic {
       tripEndLabel: this.state.newTripEndDate ? fmtDateLabel(this.state.newTripEndDate) : '날짜를 선택해주세요',
       deleteConfirmOpen: this.state.deleteConfirmOpen, deleteTargetName: this.state.deleteTargetName,
       closeDeleteConfirm: this.closeDeleteConfirm, confirmDelete: this.confirmDelete,
+      authGateOpen: this.state.authGateOpen, stopPropagation: this.stopPropagation,
       toastMsg: this.state.toastMsg, toastVisible: this.state.toastVisible,
     };
   }
