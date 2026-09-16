@@ -3,8 +3,9 @@ import 'server-only';
 import { Resend } from 'resend';
 
 /**
- * RESEND_API_KEY 가 없으면(=아직 Resend 가입 전) 서버 로그로만 인증번호를 남긴다.
- * 키가 채워지면 코드 변경 없이 바로 실제 이메일 발송으로 전환된다.
+ * RESEND_API_KEY 가 없거나(=아직 Resend 가입 전), Resend가 발송을 거부하면
+ * (도메인 미인증 상태의 샌드박스 제한 등) 서버 로그로 대체한다 — 회원가입 자체가
+ * 막히면 안 되기 때문. 도메인을 인증하고 나면 별도 코드 변경 없이 실제 발송으로 바뀐다.
  */
 export async function sendVerificationEmail(email: string, code: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -24,7 +25,9 @@ export async function sendVerificationEmail(email: string, code: string): Promis
   });
 
   if (error) {
-    console.error('Resend 이메일 발송 실패:', error);
-    throw new Error('이메일 발송에 실패했습니다.');
+    console.error(
+      `[email-verification] Resend 발송 실패 (도메인 미인증 샌드박스 제한일 수 있음) — ${email} 인증번호: ${code}`,
+      error,
+    );
   }
 }

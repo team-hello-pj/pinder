@@ -63,17 +63,18 @@ export async function POST(request: Request) {
     const contents = [...historyParts, { role: 'user', parts: [{ text: userMessage }] }];
 
     const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    system_instruction: {
-      parts: [
-        {
-          text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [
+            {
+              text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+            },
+          ],
         },
-
         contents,
         generationConfig: {
           temperature: 0.7,
