@@ -25,15 +25,16 @@
     "google-auth-library": "^11.0.2",
     "jose": "^6.2.12",
     "next": "^16.3.5",
+    "nodemailer": "^10.0.10",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "resend": "^6.28.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "22.15.3",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "drizzle-kit": "^0.31.10",
