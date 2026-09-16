@@ -1,4 +1,5 @@
 import { AntCtaCard } from './AntCtaCard';
+import { SectionReveal } from './SectionReveal';
 import styles from './home.module.css';
 
 const STATS = [
@@ -73,7 +74,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className={styles.stepsSection}>
+      <SectionReveal className={styles.stepsSection}>
         <h2 className={styles.stepsTitle}>단 3단계로 완성되는 최적의 동선</h2>
         <div className={styles.stepsGrid}>
           {STEPS.map((step) => (
@@ -87,7 +88,7 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </SectionReveal>
     </div>
   );
 }
