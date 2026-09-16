@@ -1,0 +1,141 @@
+.wrap {
+  position: relative;
+}
+
+.button {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  background: transparent;
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    filter 0.1s ease,
+    transform 0.06s ease;
+}
+
+.button:hover {
+  filter: brightness(1.03);
+}
+
+.button:active {
+  transform: scale(0.95);
+}
+
+.dot {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pd-danger);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+}
+
+.panel {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: var(--pd-radius-md);
+  box-shadow: var(--pd-shadow-md);
+  padding: 6px;
+  text-align: left;
+}
+
+.item {
+  padding: 9px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.itemBadge {
+  position: relative;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.itemDot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pd-danger);
+}
+
+.itemText {
+  flex: 1;
+}
+
+.deleteBtn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--pd-text-sub);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+}
+
+.footer {
+  border-top: 1px solid var(--pd-border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.clearAllBtn {
+  width: 100%;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text-sub);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.clearAllBtn:hover {
+  background: var(--pd-row-hover);
+}
+
+.empty {
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--pd-text-sub);
+}

@@ -5,7 +5,6 @@
   backdrop-filter: blur(10px);
   background: var(--pd-header-bg);
   border-bottom: 1px solid var(--pd-border);
-  box-shadow: var(--pd-shadow-sm);
 }
 
 .inner {
@@ -23,6 +22,7 @@
   align-items: center;
   gap: var(--pd-space-6);
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .link {
@@ -30,11 +30,12 @@
   font-weight: 600;
   color: var(--pd-text-sub);
   text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
 .link:hover {
-  color: var(--pd-brand);
+  color: #95c898;
 }
 
 .linkActive {
@@ -45,33 +46,30 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--pd-space-2);
-  margin-left: var(--pd-space-6);
+  gap: 10px;
 }
 
-.loginLink {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--pd-text-sub);
-  text-decoration: none;
-  padding: 0 var(--pd-space-2);
-}
-
-.cta {
+.loginBtn {
   background: var(--pd-brand);
   color: var(--pd-brand-ink);
-  border-radius: var(--pd-radius-sm);
-  padding: 9px 16px;
-  font-size: 13px;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13.5px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 0.15s ease;
+  transition:
+    transform 0.12s ease,
+    opacity 0.15s ease;
 }
 
-.cta:hover {
-  background: var(--pd-brand-strong);
+.loginBtn:hover {
+  opacity: 0.92;
   color: var(--pd-brand-ink);
+}
+
+.loginBtn:active {
+  transform: scale(0.98);
 }
 
 @media (max-width: 767px) {
@@ -79,11 +77,11 @@
     display: none;
   }
 
-  .actions {
-    margin-left: auto;
+  .loginBtn {
+    display: none;
   }
 
-  .loginLink {
+  .desktopOnly {
     display: none;
   }
 }

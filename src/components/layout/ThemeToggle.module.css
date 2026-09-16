@@ -23,3 +23,9 @@
 .toggle:active {
   transform: scale(0.95);
 }
+
+.moonIcon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}

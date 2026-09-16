@@ -14,10 +14,14 @@ const MAX_MESSAGE_LENGTH = 500;
 const MAX_HISTORY_TEXT_LENGTH = 1000;
 
 const SYSTEM_PREAMBLE = [
-  '너는 여행 경로 플래너 서비스 p:nder의 AI 도우미야.',
-  '사용자가 만든 현재 경로(방문지, 이동수단, 이동 기준, 여행 날짜)를 참고해서 경로 설명, 개선 아이디어,',
-  '방문 순서 조언, 예상 시간/거리 설명, 주변 장소 추천, 사용법 안내를 해줘.',
-  '사용자의 경로 설정을 네가 대신 바꾸지는 않아. 답변은 한국어로, 간결하고 친근하게 작성해.',
+  '현재 여행 경로를 참고해서 사용자의 여행 계획을 도와주는 AI 도우미야.',
+  '사용자가 만든 현재 경로, 방문지, 이동수단, 이동 기준 등을 참고해서 답변해.',
+  '경로 설명, 개선 아이디어, 방문 순서 조언, 예상 시간과 거리 설명, 주변 장소 추천, 사용법 안내를 해줘.',
+
+  // 👇 여기 추가
+  '답변은 최대 1000토큰 이내로 작성하고, 반드시 문장을 완결해서 끝내.',
+  '답변이 길어질 경우 중요도가 낮은 설명은 생략하고 핵심 내용을 우선해서 간결하게 답변해.',
+  '일반적인 질문에는 3~6문장 정도로 답변하고, 필요한 경우 짧은 목록을 사용해.',
 ].join(' ');
 
 interface ChatHistoryItem {
@@ -56,29 +60,56 @@ export async function POST(request: Request) {
         }))
       : [];
 
-    const contents = [
-      {
-        role: 'user',
-        parts: [{ text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : '') }],
-      },
-      { role: 'model', parts: [{ text: '알겠어요, 현재 경로를 참고해서 도와드릴게요.' }] },
-      ...historyParts,
-      { role: 'user', parts: [{ text: userMessage }] },
-    ];
+    const contents = [...historyParts, { role: 'user', parts: [{ text: userMessage }] }];
 
     const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    system_instruction: {
+      parts: [
+        {
+          text: SYSTEM_PREAMBLE + (contextText ? `\n\n${contextText}` : ''),
+        },
+<<<<<<< HEAD
+      ],
+    },
+    contents,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1000,
+    },
+  }),
+});
+      
+=======
         contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 400 },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1000,
+        },
       }),
     });
 
+>>>>>>> 7d7099bb59fe8be20fa4e0c55b755c721b7b22a3
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini API error:', geminiRes.status, errText);
-      return NextResponse.json({ error: 'Gemini API request failed' }, { status: 502 });
+
+      console.error('================ GEMINI ERROR ================');
+      console.error('Status:', geminiRes.status);
+      console.error('Body:', errText);
+      console.error('================================================');
+
+      return NextResponse.json(
+        {
+          error: 'Gemini API request failed',
+          status: geminiRes.status,
+          detail: errText,
+        },
+        { status: 502 },
+      );
     }
 
     const data = await geminiRes.json();

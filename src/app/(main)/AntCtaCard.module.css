@@ -1,0 +1,284 @@
+.card {
+  margin-top: 20px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--pd-card-bg);
+  border: 2px solid var(--pd-border);
+  border-radius: 20px;
+  padding: 44px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-sizing: border-box;
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.blob {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: var(--pd-cta-blob);
+}
+
+.cornerPin {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: rgba(123, 203, 147, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.cornerPinDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+/* 발자국: 개미가 지나간 자리에 잠깐 나타났다 사라진다 */
+.trail {
+  position: absolute;
+  width: 6px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--pd-trail-color);
+  opacity: 0;
+  z-index: 1;
+  transform: translate(7px, 16px);
+  animation-name: pd-trail-fade;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: 32s;
+}
+
+@keyframes pd-trail-fade {
+  0% {
+    opacity: 0;
+  }
+  0.6% {
+    opacity: 0.6;
+  }
+  5% {
+    opacity: 0.6;
+  }
+  11% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 개미: 카드를 가로지르는 이동 경로 + 다리를 움직이는 듯한 미세한 흔들림 */
+.ant {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  z-index: 2;
+  animation-name: pd-ant-move;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: 32s;
+}
+
+.antCrawl {
+  width: 100%;
+  height: 100%;
+  animation-name: pd-ant-crawl;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: 32s;
+}
+
+.antMark {
+  width: 100%;
+  height: 100%;
+  background: var(--pd-ant-color);
+  mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+  -webkit-mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+}
+
+@keyframes pd-ant-crawl {
+  0% {
+    transform: translate(0, 0);
+  }
+  12.5% {
+    transform: translate(0.4px, -0.5px);
+  }
+  25% {
+    transform: translate(-0.3px, 0.3px);
+  }
+  37.5% {
+    transform: translate(0.3px, 0.4px);
+  }
+  50% {
+    transform: translate(0, 0);
+  }
+  62.5% {
+    transform: translate(-0.4px, -0.3px);
+  }
+  75% {
+    transform: translate(0.3px, 0.4px);
+  }
+  87.5% {
+    transform: translate(-0.3px, 0.3px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes pd-ant-move {
+  0% {
+    left: 3%;
+    top: 93%;
+    opacity: 0;
+  }
+  4% {
+    left: 8%;
+    top: 86%;
+    opacity: 0.9;
+  }
+  15% {
+    left: 15%;
+    top: 66%;
+  }
+  28% {
+    left: 26%;
+    top: 55%;
+  }
+  40% {
+    left: 38%;
+    top: 52%;
+  }
+  55% {
+    left: 55%;
+    top: 53%;
+  }
+  68% {
+    left: 70%;
+    top: 52%;
+  }
+  78% {
+    left: 80%;
+    top: 44%;
+  }
+  84% {
+    left: 84%;
+    top: 30%;
+    opacity: 0.8;
+  }
+  90% {
+    left: 86%;
+    top: 26%;
+    opacity: 0.5;
+  }
+  94% {
+    left: 86.5%;
+    top: 25.5%;
+    opacity: 0.2;
+  }
+  100% {
+    left: 87%;
+    top: 25%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail,
+  .ant,
+  .antCrawl {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.title {
+  position: relative;
+  z-index: 2;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--pd-text);
+  white-space: nowrap;
+}
+
+.sub {
+  position: relative;
+  z-index: 2;
+  font-size: 14px;
+  color: var(--pd-text-sub);
+  white-space: nowrap;
+}
+
+.button {
+  position: relative;
+  z-index: 2;
+  margin-top: 8px;
+  text-decoration: none;
+  background: var(--pd-brand);
+  color: #163b25;
+  border-radius: var(--pd-radius-pill);
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(23, 59, 37, 0.15);
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.button:hover {
+  background: #68bc82;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(23, 59, 37, 0.22);
+  color: #163b25;
+}
+
+.button:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 1px 3px rgba(23, 59, 37, 0.15);
+}
+
+@media (max-width: 767px) {
+  .card {
+    padding: 40px 26px;
+    gap: 20px;
+    margin-top: 28px;
+  }
+
+  .title {
+    margin-top: 6px;
+    line-height: 1.4;
+    white-space: normal;
+  }
+
+  .sub {
+    margin-bottom: 8px;
+    white-space: normal;
+  }
+
+  .button {
+    margin-top: 14px;
+  }
+}
