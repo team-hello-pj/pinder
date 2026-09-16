@@ -65,6 +65,47 @@
   color: #12321f;
 }
 
+.avatarMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 96px;
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.avatarMenuBtn {
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--pd-border);
+  background: transparent;
+  color: var(--pd-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.avatarMenuBtn:last-child {
+  border-bottom: none;
+}
+
+.avatarMenuBtn:hover {
+  background: var(--pd-row-hover);
+}
+
+.avatarMenuBtnDanger {
+  color: var(--pd-danger);
+}
+
 .profileInfo {
   min-width: 0;
 }

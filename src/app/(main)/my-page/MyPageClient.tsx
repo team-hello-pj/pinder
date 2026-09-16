@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { deleteAccount, type CreatorScheduleSummary } from '@/lib/account';
-import { getMyAvatar, resizeImageFile, updateMyAvatar } from '@/lib/avatar-upload';
+import { getMyAvatar, removeMyAvatar, resizeImageFile, updateMyAvatar } from '@/lib/avatar-upload';
 import { checkNickname, updateNickname, type NicknameCheckResult } from '@/lib/nickname';
 import { getNotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { useSession } from '@/components/providers/SessionProvider';
@@ -49,7 +49,9 @@ export function MyPageClient() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState('');
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +66,26 @@ export function MyPageClient() {
     };
   }, []);
 
-  const onAvatarPick = () => avatarInputRef.current?.click();
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (!avatarMenuRef.current?.contains(e.target as Node)) setAvatarMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [avatarMenuOpen]);
+
+  const onAvatarEditBtnClick = () => {
+    if (avatarUrl) {
+      setAvatarMenuOpen((prev) => !prev);
+    } else {
+      avatarInputRef.current?.click();
+    }
+  };
+  const onAvatarPick = () => {
+    setAvatarMenuOpen(false);
+    avatarInputRef.current?.click();
+  };
   const onAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -85,6 +106,23 @@ export function MyPageClient() {
       setAvatarUrl(saved);
     } catch {
       setAvatarError('이미지를 처리하지 못했어요.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+  const onAvatarRemove = async () => {
+    setAvatarMenuOpen(false);
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const ok = await removeMyAvatar();
+      if (!ok) {
+        setAvatarError('삭제에 실패했어요. 다시 시도해주세요.');
+        return;
+      }
+      setAvatarUrl(null);
+    } catch {
+      setAvatarError('삭제에 실패했어요. 다시 시도해주세요.');
     } finally {
       setAvatarUploading(false);
     }
@@ -210,7 +248,7 @@ export function MyPageClient() {
       </div>
 
       <div className={styles.profileCard}>
-        <div className={styles.avatar}>
+        <div className={styles.avatar} ref={avatarMenuRef}>
           {/* eslint-disable-next-line @next/next/no-img-element -- 사용자가 올린 data URL 이라 next/image 최적화 대상이 아님 */}
           <img
             src={avatarUrl || '/icons/mypage-default-avatar.png'}
@@ -222,11 +260,25 @@ export function MyPageClient() {
             className={styles.avatarEditBtn}
             aria-label="프로필 사진 변경"
             title="프로필 사진 변경"
-            onClick={onAvatarPick}
+            onClick={onAvatarEditBtnClick}
             disabled={avatarUploading}
           >
             {avatarUploading ? '…' : '✎'}
           </button>
+          {avatarMenuOpen ? (
+            <div className={styles.avatarMenu}>
+              <button type="button" className={styles.avatarMenuBtn} onClick={onAvatarPick}>
+                사진 변경
+              </button>
+              <button
+                type="button"
+                className={`${styles.avatarMenuBtn} ${styles.avatarMenuBtnDanger}`}
+                onClick={onAvatarRemove}
+              >
+                사진 삭제
+              </button>
+            </div>
+          ) : null}
           <input
             ref={avatarInputRef}
             type="file"

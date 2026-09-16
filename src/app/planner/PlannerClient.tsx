@@ -121,6 +121,7 @@ export function PlannerClient() {
   const [kakaoReady, setKakaoReady] = useState(false);
   const [kakaoLoadFailed, setKakaoLoadFailed] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
+  const [mapSearchBarCollapsed, setMapSearchBarCollapsed] = useState(false);
   const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [mapSearchResults, setMapSearchResults] = useState<KakaoPlaceDoc[]>([]);
   const [mapSearchLoading, setMapSearchLoading] = useState(false);
@@ -808,11 +809,13 @@ export function PlannerClient() {
   const openSearchMode = () => {
     if (searchMode) return;
     setSearchMode(true);
+    setMapSearchBarCollapsed(false);
     setMapSearchQuery(newAddress);
     setMapSearchResults([]);
     setMapSearchError(null);
     setSelectedMapDoc(null);
   };
+  const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
     clearSearchMarker();
     setMapSearchQuery('');
@@ -1471,78 +1474,136 @@ export function PlannerClient() {
 
               {searchMode ? (
                 <div className={styles.searchOverlay}>
-                  <div className={styles.searchBox}>
-                    <input
-                      value={mapSearchQuery}
-                      onChange={(e) => setMapSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          runMapSearch();
-                        }
-                      }}
-                      placeholder="장소명 또는 주소를 검색하세요"
-                      autoFocus
-                      className={styles.searchInput}
-                    />
+                  {mapSearchBarCollapsed ? (
                     <button
                       type="button"
-                      className={styles.searchRunBtn}
-                      onClick={runMapSearch}
-                      aria-label="검색"
+                      className={styles.searchExpandBtn}
+                      onClick={toggleMapSearchCollapsed}
+                      title="펼치기"
+                      aria-label="검색창 펼치기"
                     >
-                      🔍
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.searchCloseBtn}
-                      onClick={clearMapSearchQuery}
-                      aria-label="검색어 지우기"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  {mapSearchLoading ? (
-                    <div className={styles.searchStatusBox}>검색 중...</div>
-                  ) : null}
-                  {mapSearchError ? (
-                    <div className={`${styles.searchStatusBox} ${styles.searchStatusError}`}>
-                      {mapSearchError}
-                    </div>
-                  ) : null}
-                  {mapSearchResults.length > 0 ? (
-                    <div className={styles.searchResults}>
-                      {mapSearchResults.map((doc) => (
-                        <button
-                          key={doc.id}
-                          type="button"
-                          className={styles.searchResultItem}
-                          onClick={() => selectMapResult(doc)}
-                        >
-                          <span className={styles.searchResultName}>{doc.place_name}</span>
-                          <span className={styles.searchResultAddress}>
-                            {doc.road_address_name || doc.address_name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  {selectedMapDoc ? (
-                    <div className={styles.selectedDocCard}>
-                      <p className={styles.selectedDocLabel}>선택한 장소</p>
-                      <p className={styles.selectedDocName}>{selectedMapDoc.place_name}</p>
-                      <p className={styles.selectedDocAddress}>
-                        {selectedMapDoc.road_address_name || selectedMapDoc.address_name}
-                      </p>
-                      <button
-                        type="button"
-                        className={styles.selectedDocBtn}
-                        onClick={confirmMapSelection}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="rgba(23,23,25,.5)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ transform: 'rotate(180deg)' }}
                       >
-                        이 장소 선택
-                      </button>
-                    </div>
-                  ) : null}
+                        <path d="M18 15l-6-6-6 6" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <>
+                      <div className={styles.searchBox}>
+                        <button
+                          type="button"
+                          className={styles.searchCollapseBtn}
+                          onClick={toggleMapSearchCollapsed}
+                          title="접기"
+                          aria-label="검색창 접기"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M18 15l-6-6-6 6" />
+                          </svg>
+                        </button>
+                        <input
+                          value={mapSearchQuery}
+                          onChange={(e) => setMapSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              runMapSearch();
+                            }
+                          }}
+                          placeholder="장소명 또는 주소를 검색하세요"
+                          autoFocus
+                          className={styles.searchInput}
+                        />
+                        <button
+                          type="button"
+                          className={styles.searchCloseBtn}
+                          onClick={clearMapSearchQuery}
+                          aria-label="검색어 지우기"
+                        >
+                          ×
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.searchRunBtn}
+                          onClick={runMapSearch}
+                          aria-label="검색"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#12321F"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          >
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="M21 21l-4.3-4.3" />
+                          </svg>
+                        </button>
+                      </div>
+                      {mapSearchLoading ? (
+                        <div className={styles.searchStatusBox}>검색 중...</div>
+                      ) : null}
+                      {mapSearchError ? (
+                        <div className={`${styles.searchStatusBox} ${styles.searchStatusError}`}>
+                          {mapSearchError}
+                        </div>
+                      ) : null}
+                      {mapSearchResults.length > 0 ? (
+                        <div className={styles.searchResults}>
+                          {mapSearchResults.map((doc) => (
+                            <button
+                              key={doc.id}
+                              type="button"
+                              className={styles.searchResultItem}
+                              onClick={() => selectMapResult(doc)}
+                            >
+                              <span className={styles.searchResultName}>{doc.place_name}</span>
+                              <span className={styles.searchResultAddress}>
+                                {doc.road_address_name || doc.address_name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {searchMode && selectedMapDoc ? (
+                <div className={styles.selectedDocCard}>
+                  <p className={styles.selectedDocLabel}>선택한 장소</p>
+                  <p className={styles.selectedDocName}>{selectedMapDoc.place_name}</p>
+                  <p className={styles.selectedDocAddress}>
+                    {selectedMapDoc.road_address_name || selectedMapDoc.address_name}
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.selectedDocBtn}
+                    onClick={confirmMapSelection}
+                  >
+                    이 장소 선택
+                  </button>
                 </div>
               ) : null}
 
