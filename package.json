@@ -15,7 +15,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed-destinations": "node scripts/seed-destinations.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
