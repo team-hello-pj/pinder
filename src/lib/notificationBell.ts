@@ -10,6 +10,8 @@ export interface NotificationItem {
   text: string;
   read: boolean;
   createdAt: number;
+  relatedScheduleId: string | null;
+  relatedRequestId: string | null;
 }
 
 async function json(res: Response): Promise<NotificationItem[]> {

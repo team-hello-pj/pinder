@@ -14,6 +14,8 @@ export interface NotificationView {
   text: string;
   read: boolean;
   createdAt: number;
+  relatedScheduleId: string | null;
+  relatedRequestId: string | null;
 }
 
 const MAX_STORED = 30;
@@ -28,16 +30,26 @@ async function getPrefs(userId: string): Promise<Record<string, boolean>> {
   return (row?.prefs as Record<string, boolean>) ?? DEFAULT_NOTIFICATION_PREFS;
 }
 
-/** prefKey 가 꺼져 있으면 알림을 만들지 않는다. */
+/**
+ * prefKey 가 꺼져 있으면 알림을 만들지 않는다.
+ * related 를 넘기면 알림벨에서 바로 승인/거절할 수 있는 액션형 알림이 된다.
+ */
 export async function createNotification(
   userId: string,
   type: NotificationType,
   text: string,
   prefKey: keyof typeof DEFAULT_NOTIFICATION_PREFS,
+  related?: { scheduleId: string; requestId: string },
 ): Promise<void> {
   const prefs = await getPrefs(userId);
   if (prefs[prefKey] === false) return;
-  await db.insert(notifications).values({ userId, type, text });
+  await db.insert(notifications).values({
+    userId,
+    type,
+    text,
+    relatedScheduleId: related?.scheduleId,
+    relatedRequestId: related?.requestId,
+  });
 }
 
 function tomorrowDateStr(): string {
@@ -61,6 +73,8 @@ export async function listNotifications(userId: string): Promise<NotificationVie
     text: n.text,
     read: n.read,
     createdAt: n.createdAt.getTime(),
+    relatedScheduleId: n.relatedScheduleId,
+    relatedRequestId: n.relatedRequestId,
   }));
 
   const prefs = await getPrefs(userId);
@@ -88,6 +102,8 @@ export async function listNotifications(userId: string): Promise<NotificationVie
       text: `내일 출발하는 일정이 있어요: ${s.title}`,
       read: true, // 저장되지 않는 실시간 알림이라 읽음 상태를 따로 관리하지 않는다.
       createdAt: Date.now(),
+      relatedScheduleId: null,
+      relatedRequestId: null,
     });
   }
 
