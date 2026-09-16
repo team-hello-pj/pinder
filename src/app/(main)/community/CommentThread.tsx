@@ -13,6 +13,8 @@ export interface CommentThreadProps {
   onToggleReplyBox: (commentId: string) => void;
   onReplyInput: (commentId: string, value: string) => void;
   onReplySubmit: (commentId: string) => void;
+  onDeleteComment: (commentId: string) => void;
+  onDeleteReply: (commentId: string, replyId: string) => void;
 }
 
 /**
@@ -28,6 +30,8 @@ export function CommentThread({
   onToggleReplyBox,
   onReplyInput,
   onReplySubmit,
+  onDeleteComment,
+  onDeleteReply,
 }: CommentThreadProps) {
   return (
     <div className={styles.commentList}>
@@ -52,6 +56,15 @@ export function CommentThread({
             >
               답글
             </button>
+            {cmt.isMine ? (
+              <button
+                type="button"
+                className={styles.commentDeleteBtn}
+                onClick={() => onDeleteComment(cmt.id)}
+              >
+                삭제
+              </button>
+            ) : null}
           </div>
 
           {cmt.replies.map((rep) => (
@@ -67,6 +80,15 @@ export function CommentThread({
               >
                 {rep.liked ? '♥' : '♡'} {rep.likeCount}
               </button>
+              {rep.isMine ? (
+                <button
+                  type="button"
+                  className={styles.commentDeleteBtn}
+                  onClick={() => onDeleteReply(cmt.id, rep.id)}
+                >
+                  삭제
+                </button>
+              ) : null}
             </div>
           ))}
 

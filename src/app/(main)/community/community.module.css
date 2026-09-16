@@ -489,6 +489,17 @@
   color: var(--pd-text-sub);
 }
 
+.commentDeleteBtn {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--pd-danger);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
 .replyRow {
   display: flex;
   align-items: center;

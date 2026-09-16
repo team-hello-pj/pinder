@@ -7,7 +7,9 @@ import {
   addComment,
   addReply,
   createPost,
+  deleteComment as apiDeleteComment,
   deletePost,
+  deleteReply as apiDeleteReply,
   listPosts,
   listTrendingPlaces,
   togglePostBookmark,
@@ -47,6 +49,7 @@ export function CommunityClient() {
 
   const [selectedRegion, setSelectedRegion] = useState('전체');
   const [sortMode, setSortMode] = useState<SortMode>('popular');
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP);
@@ -78,6 +81,11 @@ export function CommunityClient() {
     };
   }, []);
 
+  const runSearch = () => {
+    setSearchQuery(searchInput.trim());
+    setVisibleCount(PAGE_STEP);
+  };
+
   const requireLogin = () => {
     if (!isLoggedIn) {
       setLoginRequiredOpen(true);
@@ -104,6 +112,14 @@ export function CommunityClient() {
   const toggleReplyLike = (_commentId: string, replyId: string) => {
     if (!requireLogin()) return;
     apiToggleReplyLike(replyId).then(setPosts);
+  };
+  const deleteComment = (commentId: string) => {
+    if (!requireLogin()) return;
+    apiDeleteComment(commentId).then(setPosts);
+  };
+  const deleteReply = (_commentId: string, replyId: string) => {
+    if (!requireLogin()) return;
+    apiDeleteReply(replyId).then(setPosts);
   };
   const toggleReplyBox = (commentId: string) =>
     setOpenReplyBoxes((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
@@ -234,10 +250,10 @@ export function CommunityClient() {
           {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘, next/image 최적화 불필요 */}
           <img src="/icons/pinder_ant.png" alt="" className={styles.searchAntIcon} />
           <input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setVisibleCount(PAGE_STEP);
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') runSearch();
             }}
             placeholder="게시글 키워드로 검색 (여행지, 내용 등)"
             className={styles.searchInput}
@@ -246,7 +262,7 @@ export function CommunityClient() {
             type="button"
             className={styles.searchSubmitBtn}
             aria-label="검색"
-            onClick={() => setVisibleCount(PAGE_STEP)}
+            onClick={runSearch}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘, next/image 최적화 불필요 */}
             <img src="/icons/search-icon.png" alt="" />
@@ -571,6 +587,8 @@ export function CommunityClient() {
                         onToggleReplyBox={toggleReplyBox}
                         onReplyInput={onReplyInput}
                         onReplySubmit={(commentId) => submitReply(post.id, commentId)}
+                        onDeleteComment={deleteComment}
+                        onDeleteReply={deleteReply}
                       />
 
                       {!expanded && post.comments.length > 1 ? (
@@ -645,7 +663,9 @@ export function CommunityClient() {
                   type="button"
                   className={styles.trendingItem}
                   onClick={() => {
-                    setSearchQuery(t.name.split(' ')[0]);
+                    const keyword = t.name.split(' ')[0];
+                    setSearchInput(keyword);
+                    setSearchQuery(keyword);
                     setVisibleCount(PAGE_STEP);
                   }}
                 >
@@ -679,6 +699,7 @@ export function CommunityClient() {
                   type="button"
                   className={styles.cloudTag}
                   onClick={() => {
+                    setSearchInput(tag);
                     setSearchQuery(tag);
                     setVisibleCount(PAGE_STEP);
                   }}
@@ -777,6 +798,8 @@ export function CommunityClient() {
                 onToggleReplyBox={toggleReplyBox}
                 onReplyInput={onReplyInput}
                 onReplySubmit={(commentId) => submitReply(commentModalPost.id, commentId)}
+                onDeleteComment={deleteComment}
+                onDeleteReply={deleteReply}
               />
             )}
             <div className={styles.commentInputRow}>

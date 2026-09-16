@@ -8,6 +8,7 @@ export interface ReplyView {
   text: string;
   liked: boolean;
   likeCount: number;
+  isMine: boolean;
 }
 
 export interface CommentView {
@@ -16,6 +17,7 @@ export interface CommentView {
   text: string;
   liked: boolean;
   likeCount: number;
+  isMine: boolean;
   replies: ReplyView[];
 }
 
@@ -98,6 +100,11 @@ export async function toggleCommentLike(commentId: string): Promise<PostView[]> 
   return postsJson(res);
 }
 
+export async function deleteComment(commentId: string): Promise<PostView[]> {
+  const res = await fetch(`/api/community/comments/${commentId}`, { method: 'DELETE' });
+  return postsJson(res);
+}
+
 export async function addReply(commentId: string, text: string): Promise<PostView[]> {
   const res = await fetch(`/api/community/comments/${commentId}/replies`, {
     method: 'POST',
@@ -109,6 +116,11 @@ export async function addReply(commentId: string, text: string): Promise<PostVie
 
 export async function toggleReplyLike(replyId: string): Promise<PostView[]> {
   const res = await fetch(`/api/community/replies/${replyId}/like`, { method: 'POST' });
+  return postsJson(res);
+}
+
+export async function deleteReply(replyId: string): Promise<PostView[]> {
+  const res = await fetch(`/api/community/replies/${replyId}`, { method: 'DELETE' });
   return postsJson(res);
 }
 

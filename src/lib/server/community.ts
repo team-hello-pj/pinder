@@ -20,6 +20,7 @@ export interface ReplyView {
   text: string;
   liked: boolean;
   likeCount: number;
+  isMine: boolean;
 }
 
 export interface CommentView {
@@ -28,6 +29,7 @@ export interface CommentView {
   text: string;
   liked: boolean;
   likeCount: number;
+  isMine: boolean;
   replies: ReplyView[];
 }
 
@@ -155,6 +157,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
       text: r.text,
       liked: replyLikedByViewer.has(r.id),
       likeCount: replyLikeCount.get(r.id) ?? 0,
+      isMine: viewerId === r.authorId,
     });
     repliesByComment.set(r.commentId, list);
   }
@@ -168,6 +171,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
       text: c.text,
       liked: commentLikedByViewer.has(c.id),
       likeCount: commentLikeCount.get(c.id) ?? 0,
+      isMine: viewerId === c.authorId,
       replies: repliesByComment.get(c.id) ?? [],
     });
     commentsByPost.set(c.postId, list);
