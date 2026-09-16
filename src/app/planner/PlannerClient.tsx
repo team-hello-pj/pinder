@@ -40,6 +40,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import type { Place, RouteCriteria, RouteLeg, TransportMode } from '@/types';
 
 import type { EditRequest, Member } from './data';
+import { ModeIcon } from './ModeIcon';
 import { PlaceCard } from './PlaceCard';
 import { SegmentConnector, type SegmentStep } from './SegmentConnector';
 import styles from './planner.module.css';
@@ -1275,13 +1276,7 @@ export function PlannerClient() {
                     style={{ opacity: lastAppliedMode && lastAppliedMode !== mode ? 0.45 : 1 }}
                     onClick={() => applyModeToAll(mode)}
                   >
-                    {mode === 'car'
-                      ? '🚗'
-                      : mode === 'walk'
-                        ? '🚶'
-                        : mode === 'transit'
-                          ? '🚌'
-                          : '🚲'}{' '}
+                    <ModeIcon mode={mode} />
                     {mode === 'car'
                       ? '자동차'
                       : mode === 'walk'

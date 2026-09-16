@@ -4,6 +4,7 @@ import { MODE_MAP } from '@/constants';
 import { formatDuration } from '@/lib/format';
 import type { TransportMode } from '@/types';
 
+import { ModeIcon } from './ModeIcon';
 import styles from './planner.module.css';
 
 export interface SegmentStep {
@@ -27,13 +28,6 @@ export interface SegmentConnectorProps {
   onCycle: () => void;
   onToggleExpand: () => void;
 }
-
-const MODE_ICON: Record<TransportMode, string> = {
-  car: '🚗',
-  walk: '🚶',
-  transit: '🚌',
-  bike: '🚲',
-};
 
 /** 두 방문지 사이 이동 구간. 클릭하면 이동수단이 순환하고, 대중교통이면 세부 단계를 펼쳐 보여준다. */
 export function SegmentConnector({
@@ -71,7 +65,7 @@ export function SegmentConnector({
             onClick={onCycle}
             disabled={!canEdit}
           >
-            <span aria-hidden>{MODE_ICON[mode]}</span>
+            <ModeIcon mode={mode} />
             <span className={styles.segmentLabel}>{info.label}</span>
             <span className={styles.segmentMeta}>
               · {durationLabel}
