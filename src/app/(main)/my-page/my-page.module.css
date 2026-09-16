@@ -69,6 +69,12 @@
   min-width: 0;
 }
 
+.avatarError {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--pd-danger);
+}
+
 .profileName {
   font-size: 15px;
   font-weight: 700;

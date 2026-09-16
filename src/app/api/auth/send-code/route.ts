@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { emailVerificationCodes } from '@/db/schema';
+import { emailVerificationCodes, users } from '@/db/schema';
 import { hash } from '@/lib/server/hash';
 import { sendVerificationEmail } from '@/lib/server/email';
 
@@ -15,6 +15,15 @@ export async function POST(request: Request) {
   const { email } = ((await request.json().catch(() => null)) ?? {}) as { email?: string };
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return NextResponse.json({ error: '올바른 이메일을 입력해주세요.' }, { status: 400 });
+  }
+
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  if (existing) {
+    return NextResponse.json({ error: '이미 가입된 이메일이에요.' }, { status: 409 });
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));

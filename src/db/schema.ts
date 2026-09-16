@@ -16,6 +16,8 @@ export const users = pgTable('users', {
   googleId: text('google_id').unique(),
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   notificationPrefs: jsonb('notification_prefs'),
+  /** 프로필 사진. 별도 스토리지 없이 리사이즈된 data URL 문자열 그대로 저장한다. */
+  avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

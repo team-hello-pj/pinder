@@ -3,6 +3,7 @@ import { eq, or } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { emailVerificationCodes, users } from '@/db/schema';
+import { sendWelcomeEmail } from '@/lib/server/email';
 import { hash } from '@/lib/server/hash';
 import { createSessionCookie } from '@/lib/server/session';
 
@@ -79,5 +80,6 @@ export async function POST(request: Request) {
   await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.email, email));
 
   await createSessionCookie(user);
+  await sendWelcomeEmail(user.email, user.name);
   return NextResponse.json({ ok: true, user });
 }

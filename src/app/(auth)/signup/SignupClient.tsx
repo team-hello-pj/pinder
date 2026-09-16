@@ -79,6 +79,7 @@ export function SignupClient() {
   const [nicknameStatus, setNicknameStatus] = useState<FieldStatus>('');
 
   const [email, setEmail] = useState('');
+  const [emailFieldError, setEmailFieldError] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [codeStepVisible, setCodeStepVisible] = useState(false);
   const [emailCode, setEmailCode] = useState('');
@@ -146,13 +147,12 @@ export function SignupClient() {
 
   const handleSendCode = async () => {
     if (!email || resendDisabled) return;
+    setEmailFieldError('');
     let res;
     try {
       res = await sendCode(email);
     } catch (err) {
-      setEmailCodeMsg(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
-      setEmailCodeError(true);
-      setCodeStepVisible(true);
+      setEmailFieldError(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
       return;
     }
     if (resendTimerRef.current) clearInterval(resendTimerRef.current);
@@ -262,7 +262,7 @@ export function SignupClient() {
     }
     setError('');
     login(result.user);
-    router.push(ROUTES.planner);
+    router.push(ROUTES.home);
   };
 
   return (
@@ -431,6 +431,7 @@ export function SignupClient() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setError('');
+                  setEmailFieldError('');
                 }}
                 className={styles.input}
               />
@@ -456,6 +457,9 @@ export function SignupClient() {
           </div>
           {emailVerified ? (
             <span className={styles.statusTextOk}>✓ 이메일 인증이 완료되었습니다.</span>
+          ) : null}
+          {emailFieldError ? (
+            <span className={styles.statusTextError}>{emailFieldError}</span>
           ) : null}
           {codeStepVisible ? (
             <div className={styles.codeBlock}>

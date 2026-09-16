@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { emailVerificationCodes, schedules, users } from '@/db/schema';
+import { sendAccountDeletedEmail } from '@/lib/server/email';
 import { destroySessionCookie, getSessionUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
@@ -38,5 +39,6 @@ export async function DELETE(request: Request) {
     .delete(emailVerificationCodes)
     .where(eq(emailVerificationCodes.email, sessionUser.email));
   await destroySessionCookie();
+  await sendAccountDeletedEmail(sessionUser.email, sessionUser.name);
   return NextResponse.json({ ok: true });
 }

@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { deleteAccount, type CreatorScheduleSummary } from '@/lib/account';
+import { getMyAvatar, resizeImageFile, updateMyAvatar } from '@/lib/avatar-upload';
 import { checkNickname, updateNickname, type NicknameCheckResult } from '@/lib/nickname';
 import { getNotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { useSession } from '@/components/providers/SessionProvider';
@@ -45,15 +46,49 @@ export function MyPageClient() {
   const [finalWarningAgreeChecked, setFinalWarningAgreeChecked] = useState(false);
   const [creatorSchedules, setCreatorSchedules] = useState<CreatorScheduleSummary[]>([]);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     let cancelled = false;
     getNotificationPrefs().then((prefs) => {
       if (!cancelled && prefs) setNotifications(prefs);
     });
+    getMyAvatar().then((url) => {
+      if (!cancelled) setAvatarUrl(url);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const onAvatarPick = () => avatarInputRef.current?.click();
+  const onAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('이미지 파일만 업로드할 수 있어요.');
+      return;
+    }
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const resized = await resizeImageFile(file);
+      const saved = await updateMyAvatar(resized);
+      if (!saved) {
+        setAvatarError('업로드에 실패했어요. 다시 시도해주세요.');
+        return;
+      }
+      setAvatarUrl(saved);
+    } catch {
+      setAvatarError('이미지를 처리하지 못했어요.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   // ---- 닉네임 수정 ----
   const openEditNickname = () => {
@@ -176,20 +211,34 @@ export function MyPageClient() {
 
       <div className={styles.profileCard}>
         <div className={styles.avatar}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- 정적 목업 아바타 */}
-          <img src="/icons/mypage-default-avatar.png" alt="" className={styles.avatarImg} />
+          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자가 올린 data URL 이라 next/image 최적화 대상이 아님 */}
+          <img
+            src={avatarUrl || '/icons/mypage-default-avatar.png'}
+            alt=""
+            className={styles.avatarImg}
+          />
           <button
             type="button"
             className={styles.avatarEditBtn}
             aria-label="프로필 사진 변경"
             title="프로필 사진 변경"
+            onClick={onAvatarPick}
+            disabled={avatarUploading}
           >
-            ✎
+            {avatarUploading ? '…' : '✎'}
           </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onAvatarFileChange}
+            hidden
+          />
         </div>
         <div className={styles.profileInfo}>
           <div className={styles.profileName}>{nickname}</div>
           <div className={styles.profileEmail}>{email}</div>
+          {avatarError ? <div className={styles.avatarError}>{avatarError}</div> : null}
         </div>
       </div>
 
