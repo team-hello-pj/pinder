@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { schedules, users } from '@/db/schema';
+import { emailVerificationCodes, schedules, users } from '@/db/schema';
 import { destroySessionCookie, getSessionUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
@@ -33,6 +33,10 @@ export async function DELETE(request: Request) {
   }
 
   await db.delete(users).where(eq(users.id, sessionUser.id));
+  // 이메일 인증만 하고 실제로는 구글 로그인 등 다른 경로로 가입해서 여기 남아있을 수 있는 찌꺼기 정리.
+  await db
+    .delete(emailVerificationCodes)
+    .where(eq(emailVerificationCodes.email, sessionUser.email));
   await destroySessionCookie();
   return NextResponse.json({ ok: true });
 }

@@ -45,7 +45,7 @@ export function LoginClient() {
         setGoogleError('');
         setGoogleUserLabel(user.nickname ?? user.name ?? user.email);
         login(user);
-        setTimeout(() => router.push(ROUTES.planner), 500);
+        setTimeout(() => router.push(ROUTES.home), 500);
       },
       (message) => setGoogleError(message),
     );
@@ -76,7 +76,7 @@ export function LoginClient() {
     }
     setError('');
     login(result.user);
-    router.push(ROUTES.planner);
+    router.push(ROUTES.home);
   };
 
   return (
