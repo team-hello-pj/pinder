@@ -597,6 +597,21 @@
   gap: 10px;
 }
 
+.aiWizardCustomRegion {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.aiWizardTextInput {
+  width: 100%;
+  border: 1px solid var(--pd-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--pd-text);
+}
+
 .aiWizardGrid2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

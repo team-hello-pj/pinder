@@ -74,6 +74,9 @@ export function AiGenerateWizard({
 }: AiGenerateWizardProps) {
   const [step, setStep] = useState(0);
   const [region, setRegion] = useState<string | null>(null);
+  const [customRegion, setCustomRegion] = useState('');
+  const [regionError, setRegionError] = useState<string | null>(null);
+  const [validatingRegion, setValidatingRegion] = useState(false);
   const [style, setStyle] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
   const [companion, setCompanion] = useState<string | null>(null);
@@ -89,6 +92,9 @@ export function AiGenerateWizard({
   const resetForClose = () => {
     setStep(0);
     setRegion(null);
+    setCustomRegion('');
+    setRegionError(null);
+    setValidatingRegion(false);
     setStyle(null);
     setInterests([]);
     setCompanion(null);
@@ -104,13 +110,15 @@ export function AiGenerateWizard({
     setInterests((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
   };
 
+  const effectiveRegion = region === '기타' ? customRegion.trim() : region;
+
   const generate = async () => {
-    if (!region || !style || !companion || !transportMode) return;
+    if (!effectiveRegion || !style || !companion || !transportMode) return;
     setGenerating(true);
     setError(null);
     try {
       const aiPlaces = await requestAiRouteGeneration({
-        region,
+        region: effectiveRegion,
         style,
         interests,
         companion,
@@ -121,8 +129,8 @@ export function AiGenerateWizard({
       const resolved: ResultPlace[] = [];
       for (const p of aiPlaces) {
         const query = p.addressHint
-          ? `${region} ${p.addressHint} ${p.name}`
-          : `${region} ${p.name}`;
+          ? `${effectiveRegion} ${p.addressHint} ${p.name}`
+          : `${effectiveRegion} ${p.name}`;
         let x: number | null = null;
         let y: number | null = null;
         try {
@@ -175,7 +183,30 @@ export function AiGenerateWizard({
     }
   };
 
+  const confirmCustomRegion = async () => {
+    const q = customRegion.trim();
+    if (!q) return;
+    setValidatingRegion(true);
+    setRegionError(null);
+    try {
+      const data = await searchKeyword(q);
+      if (!data.documents?.length) {
+        setRegionError('존재하지 않는 지역이에요. 다시 입력해주세요.');
+        return;
+      }
+      setStep((s) => s + 1);
+    } catch {
+      setRegionError('지역을 확인하지 못했어요. 다시 시도해주세요.');
+    } finally {
+      setValidatingRegion(false);
+    }
+  };
+
   const goNext = () => {
+    if (step === 0 && region === '기타') {
+      void confirmCustomRegion();
+      return;
+    }
     if (step < STEP_COUNT - 1) {
       setStep((s) => s + 1);
       return;
@@ -192,7 +223,7 @@ export function AiGenerateWizard({
   };
 
   const nextDisabled =
-    (step === 0 && !region) ||
+    (step === 0 && (!region || (region === '기타' && !customRegion.trim()) || validatingRegion)) ||
     (step === 1 && !style) ||
     (step === 2 && interests.length === 0) ||
     (step === 3 && !companion) ||
@@ -296,12 +327,37 @@ export function AiGenerateWizard({
                           ? `${styles.aiWizardOption} ${styles.aiWizardOptionActive}`
                           : styles.aiWizardOption
                       }
-                      onClick={() => setRegion(r)}
+                      onClick={() => {
+                        setRegion(r);
+                        setRegionError(null);
+                      }}
                     >
                       {r}
                     </button>
                   ))}
                 </div>
+                {region === '기타' ? (
+                  <div className={styles.aiWizardCustomRegion}>
+                    <input
+                      type="text"
+                      className={styles.aiWizardTextInput}
+                      value={customRegion}
+                      onChange={(e) => {
+                        setCustomRegion(e.target.value);
+                        setRegionError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void confirmCustomRegion();
+                        }
+                      }}
+                      placeholder="가고 싶은 지역을 입력해주세요 (예: 안동, 여수)"
+                      maxLength={30}
+                    />
+                    {regionError ? <p className={styles.warnBox}>{regionError}</p> : null}
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -426,7 +482,11 @@ export function AiGenerateWizard({
                 disabled={nextDisabled}
                 onClick={goNext}
               >
-                {step === STEP_COUNT - 1 ? 'AI 일정 생성하기' : '다음'}
+                {validatingRegion
+                  ? '확인 중...'
+                  : step === STEP_COUNT - 1
+                    ? 'AI 일정 생성하기'
+                    : '다음'}
               </button>
             </>
           )}
