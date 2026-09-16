@@ -15,7 +15,24 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   googleId: text('google_id').unique(),
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  notificationPrefs: jsonb('notification_prefs'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * 닉네임을 바꾸면 이전 닉네임이 여기 남는다 — 바뀐 뒤 7일간은 다른 사람이
+ * 같은 닉네임을 다시 쓸 수 없게(reusableAt) 막기 위한 보호 기간 기록이다.
+ */
+export const nicknameHistory = pgTable('nickname_history', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  nickname: text('nickname').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  reusableAt: timestamp('reusable_at', { withTimezone: true }).notNull(),
 });
 
 /**

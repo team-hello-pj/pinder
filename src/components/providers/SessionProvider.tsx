@@ -10,6 +10,8 @@ interface SessionContextValue {
   user: AuthUser | null;
   login: (user: AuthUser) => void;
   logout: () => Promise<void>;
+  /** 닉네임 변경처럼, 이미 로그인된 사용자 정보 중 일부만 갱신할 때 쓴다. */
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -47,8 +49,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   return (
-    <SessionContext.Provider value={{ isLoggedIn: Boolean(user), isLoading, user, login, logout }}>
+    <SessionContext.Provider
+      value={{ isLoggedIn: Boolean(user), isLoading, user, login, logout, updateUser }}
+    >
       {children}
     </SessionContext.Provider>
   );
