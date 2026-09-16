@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
 /**
  * 회원 테이블. 비밀번호/구글 로그인 계정이 공존할 수 있어 passwordHash/googleId 는 nullable.
@@ -239,4 +239,21 @@ export const destinations = pgTable('destinations', {
   badge: text('badge').notNull(),
   desc: text('desc').notNull(),
   tags: jsonb('tags').notNull(),
+});
+
+/**
+ * 헤더 알림벨. type 은 legacy(main(home).dc.html)와 맞춰 'comment'|'schedule'|'feature' 세 가지만 쓴다.
+ * "내일 출발" 같은 일정 임박 알림은 여기 저장하지 않고 조회 시점에 schedules 에서 계산해 합쳐 보여준다.
+ */
+export const notifications = pgTable('notifications', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'comment' | 'schedule' | 'feature'
+  text: text('text').notNull(),
+  read: boolean('read').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

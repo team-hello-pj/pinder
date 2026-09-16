@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { scheduleEditRequests } from '@/db/schema';
+import { scheduleEditRequests, schedules } from '@/db/schema';
+import { createNotification } from '@/lib/server/notifications';
 import { getScheduleRole } from '@/lib/server/schedules';
 import { getSessionUser } from '@/lib/server/session';
 
@@ -24,6 +26,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .onConflictDoNothing({
       target: [scheduleEditRequests.scheduleId, scheduleEditRequests.userId],
     });
+
+  const [schedule] = await db
+    .select({ ownerId: schedules.ownerId, title: schedules.title })
+    .from(schedules)
+    .where(eq(schedules.id, id))
+    .limit(1);
+  if (schedule) {
+    await createNotification(
+      schedule.ownerId,
+      'schedule',
+      `${session.nickname ?? session.name}님이 「${schedule.title}」 편집 권한을 요청했어요.`,
+      'schedule',
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

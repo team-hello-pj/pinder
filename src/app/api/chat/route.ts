@@ -76,24 +76,13 @@ export async function POST(request: Request) {
             },
           ],
         },
-<<<<<<< HEAD
-      ],
-    },
-    contents,
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 1000,
-    },
-  }),
-});
-=======
         contents,
         generationConfig: {
-          maxOutputTokens: 400,
+          temperature: 0.7,
+          maxOutputTokens: 1000,
         },
       }),
     });
->>>>>>> 8a4c671c54c4f74c6be25995e881ff7f9e51d756
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
