@@ -105,7 +105,6 @@ export function PlannerClient() {
 
   // ---- 방문지 입력/편집 ----
   const [newAddress, setNewAddress] = useState('');
-  const [newAddressDay, setNewAddressDay] = useState(0);
   const [pendingSelectedDoc, setPendingSelectedDoc] = useState<KakaoPlaceDoc | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [expandedPlaces, setExpandedPlaces] = useState<Record<number, boolean>>({});
@@ -288,13 +287,22 @@ export function PlannerClient() {
     kakaoMarkersRef.current = [];
     const withCoords = places.filter((p) => p.x && p.y);
     if (!withCoords.length) return;
+    // 지도 핀 번호는 전체 순번이 아니라 일차별로 1부터 다시 매긴다.
+    const dayCounters = new Map<number, number>();
+    const orderByPlaceId = new Map<number, number>();
+    places.forEach((p) => {
+      const day = p.day ?? 0;
+      const next = (dayCounters.get(day) ?? 0) + 1;
+      dayCounters.set(day, next);
+      orderByPlaceId.set(p.id, next);
+    });
     const bounds = new kakao.maps.LatLngBounds();
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
       const marker = new kakao.maps.Marker({ position: pos, map });
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${places.indexOf(p) + 1}</div>`,
+        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
       kakaoMarkersRef.current.push(marker, overlay);
@@ -501,7 +509,7 @@ export function PlannerClient() {
 
   /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
   const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string) => {
-    const day = newAddressDay || 0;
+    const day = selectedDay ?? 0;
     const name = nameOverride?.trim() || doc.place_name;
     setPlaces((prev) => {
       const next: Place[] = [
@@ -882,7 +890,7 @@ export function PlannerClient() {
     }
   };
   const openSearchMode = () => {
-    if (searchMode) return;
+    if (searchMode || isAllDaysView) return;
     setSearchMode(true);
     setMapSearchBarCollapsed(false);
     setMapSearchQuery(newAddress);
@@ -1153,6 +1161,8 @@ export function PlannerClient() {
   const dayTabs = hasDayTabs
     ? Array.from({ length: dayCount }, (_, di) => ({ value: di, label: `${di + 1}일차` }))
     : [];
+  /** 전체보기(모든 일차를 한 번에 보는 상태) — 일차 경계가 모호해지는 동작은 모두 막는다. */
+  const isAllDaysView = hasDayTabs && selectedDay === null;
 
   const enrichedSegments = useMemo(
     () =>
@@ -1219,6 +1229,19 @@ export function PlannerClient() {
       }),
     [segments, places, getSegmentRouteCache, expandedSegments],
   );
+
+  /** 방문지 순번 배지(지도 핀/목록 모두)는 전체 순번이 아니라 일차별로 1부터 다시 매긴다. */
+  const dayOrderByPlaceId = useMemo(() => {
+    const dayCounters = new Map<number, number>();
+    const orderByPlaceId = new Map<number, number>();
+    places.forEach((p) => {
+      const day = p.day ?? 0;
+      const next = (dayCounters.get(day) ?? 0) + 1;
+      dayCounters.set(day, next);
+      orderByPlaceId.set(p.id, next);
+    });
+    return orderByPlaceId;
+  }, [places]);
 
   const timeline = useMemo(() => {
     const items: (
@@ -1420,7 +1443,9 @@ export function PlannerClient() {
                 ) : null}
               </div>
               <div className={styles.listHeaderRight}>
-                {canEdit ? <span className={styles.hint}>드래그로 순서 변경</span> : null}
+                {canEdit && !isAllDaysView ? (
+                  <span className={styles.hint}>드래그로 순서 변경</span>
+                ) : null}
                 {places.length > 0 && canEdit ? (
                   <button type="button" className={styles.clearAllBtn} onClick={clearAllPlaces}>
                     전체 삭제
@@ -1432,7 +1457,12 @@ export function PlannerClient() {
             {places.length === 0 ? (
               <div className={styles.emptyState}>
                 {canEdit ? (
-                  <button type="button" className={styles.emptyAddBtn} onClick={openSearchMode}>
+                  <button
+                    type="button"
+                    className={styles.emptyAddBtn}
+                    onClick={openSearchMode}
+                    disabled={isAllDaysView}
+                  >
                     ＋
                   </button>
                 ) : null}
@@ -1462,11 +1492,13 @@ export function PlannerClient() {
                         key={item.place.id}
                         place={item.place}
                         order={item.index + 1}
+                        displayOrder={dayOrderByPlaceId.get(item.place.id) ?? item.index + 1}
                         isLast={item.index === places.length - 1}
                         isDragging={dragIndex === item.index}
                         expanded={Boolean(expandedPlaces[item.place.id])}
                         memoSaved={Boolean(savedMemoIds[item.place.id])}
                         canEdit={canEdit}
+                        canReorder={!isAllDaysView}
                         handlers={{
                           onDragStart,
                           onDragOver,
@@ -1509,19 +1541,6 @@ export function PlannerClient() {
             {/* 주소 추가 */}
             <div className={styles.addBar}>
               <div className={styles.addBarRow}>
-                {hasDayTabs ? (
-                  <select
-                    value={String(Math.min(newAddressDay, dayCount - 1))}
-                    onChange={(e) => setNewAddressDay(Number(e.target.value))}
-                    className={styles.daySelectSmall}
-                  >
-                    {dayTabs.map((dt) => (
-                      <option key={dt.value} value={dt.value}>
-                        {dt.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
                 {canEdit ? (
                   <>
                     <input
@@ -1534,18 +1553,29 @@ export function PlannerClient() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
+                          if (isAllDaysView) return;
                           openSearchMode();
                           runMapSearch();
                         }
                       }}
-                      onFocus={openSearchMode}
-                      placeholder="주소를 검색하여 추가하기"
+                      onFocus={() => {
+                        if (isAllDaysView) return;
+                        openSearchMode();
+                      }}
+                      placeholder={
+                        isAllDaysView
+                          ? '전체보기에서는 추가할 수 없어요. 일차를 선택해주세요.'
+                          : '주소를 검색하여 추가하기'
+                      }
+                      disabled={isAllDaysView}
                       className={styles.addInput}
                     />
                     <button
                       type="button"
                       className={styles.addBtn}
+                      disabled={isAllDaysView}
                       onClick={() => {
+                        if (isAllDaysView) return;
                         openSearchMode();
                         runMapSearch();
                       }}
@@ -1844,9 +1874,9 @@ export function PlannerClient() {
                     type="button"
                     className={styles.situationBtn}
                     onClick={openSituationModal}
-                    disabled={hasDayTabs && selectedDay === null}
+                    disabled={isAllDaysView}
                     title={
-                      hasDayTabs && selectedDay === null
+                      isAllDaysView
                         ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
                         : undefined
                     }
@@ -1880,9 +1910,9 @@ export function PlannerClient() {
                   <Button
                     size="md"
                     onClick={recalcAndSearch}
-                    disabled={loading || (hasDayTabs && selectedDay === null)}
+                    disabled={loading || isAllDaysView}
                     title={
-                      hasDayTabs && selectedDay === null
+                      isAllDaysView
                         ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
                         : undefined
                     }
