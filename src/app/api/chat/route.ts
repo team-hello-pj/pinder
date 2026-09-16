@@ -17,12 +17,34 @@ const SYSTEM_PREAMBLE = [
   '현재 여행 경로를 참고해서 사용자의 여행 계획을 도와주는 AI 도우미야.',
   '사용자가 만든 현재 경로, 방문지, 이동수단, 이동 기준 등을 참고해서 답변해.',
   '경로 설명, 개선 아이디어, 방문 순서 조언, 예상 시간과 거리 설명, 주변 장소 추천, 사용법 안내를 해줘.',
-
-  // 👇 여기 추가
   '답변은 최대 1000토큰 이내로 작성하고, 반드시 문장을 완결해서 끝내.',
   '답변이 길어질 경우 중요도가 낮은 설명은 생략하고 핵심 내용을 우선해서 간결하게 답변해.',
   '일반적인 질문에는 3~6문장 정도로 답변하고, 필요한 경우 짧은 목록을 사용해.',
+  '반드시 지정된 JSON 형식으로만 응답해.',
+  'reply 필드에는 사용자에게 보여줄 답변 본문을 작성해.',
+  'suggestions 필드에는 사용자가 이어서 물어보면 좋을 짧은 후속 질문을 2~3개, 한국어로, 각 15자 내외로 작성해.',
+  'recommendedPlaces 필드에는 이번 답변에서 구체적인 실제 장소(음식점, 관광지, 카페 등)를 추천했다면 그 이름과 가능하면 지역/주소 힌트를 담아 배열로 작성해. 장소를 추천하지 않았다면 빈 배열로 둬.',
 ].join(' ');
+
+const RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    reply: { type: 'STRING' },
+    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
+    recommendedPlaces: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          address: { type: 'STRING' },
+        },
+        required: ['name'],
+      },
+    },
+  },
+  required: ['reply', 'suggestions', 'recommendedPlaces'],
+};
 
 interface ChatHistoryItem {
   role: 'ai' | 'user';
@@ -33,6 +55,37 @@ interface ChatRequestBody {
   message?: string;
   history?: ChatHistoryItem[];
   context?: unknown;
+}
+
+interface RecommendedPlace {
+  name: string;
+  address?: string;
+}
+
+interface ParsedChatReply {
+  reply: string;
+  suggestions: string[];
+  recommendedPlaces: RecommendedPlace[];
+}
+
+function parseChatReply(rawText: string): ParsedChatReply {
+  try {
+    const parsed = JSON.parse(rawText);
+    return {
+      reply: typeof parsed.reply === 'string' && parsed.reply ? parsed.reply : rawText,
+      suggestions: Array.isArray(parsed.suggestions)
+        ? parsed.suggestions.filter((s: unknown): s is string => typeof s === 'string')
+        : [],
+      recommendedPlaces: Array.isArray(parsed.recommendedPlaces)
+        ? parsed.recommendedPlaces.filter(
+            (p: unknown): p is RecommendedPlace =>
+              !!p && typeof p === 'object' && typeof (p as RecommendedPlace).name === 'string',
+          )
+        : [],
+    };
+  } catch {
+    return { reply: rawText, suggestions: [], recommendedPlaces: [] };
+  }
 }
 
 export async function POST(request: Request) {
@@ -81,6 +134,8 @@ export async function POST(request: Request) {
           temperature: 0.7,
           maxOutputTokens: 2000,
           thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: 'application/json',
+          responseSchema: RESPONSE_SCHEMA,
         },
       }),
     });
@@ -104,11 +159,19 @@ export async function POST(request: Request) {
     }
 
     const data = await geminiRes.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text).join('') ||
-      '지금은 답변을 만들지 못했어요. 다시 시도해주세요.';
+    const rawText: string =
+      data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text).join('') || '';
 
-    return NextResponse.json({ reply });
+    if (!rawText) {
+      return NextResponse.json({
+        reply: '지금은 답변을 만들지 못했어요. 다시 시도해주세요.',
+        suggestions: [],
+        recommendedPlaces: [],
+      });
+    }
+
+    const { reply, suggestions, recommendedPlaces } = parseChatReply(rawText);
+    return NextResponse.json({ reply, suggestions, recommendedPlaces });
   } catch (err) {
     console.error('chat handler error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
