@@ -1825,6 +1825,35 @@
   border-color: var(--pd-brand);
 }
 
+.situationDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0;
+  color: rgba(23, 23, 25, 0.4);
+  font-size: 11px;
+}
+
+.situationDivider::before,
+.situationDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--pd-border);
+}
+
+.situationTextarea {
+  width: 100%;
+  min-height: 70px;
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--pd-text);
+  resize: vertical;
+}
+
 .warnBox {
   background: #fdf3e7;
   border-radius: 10px;

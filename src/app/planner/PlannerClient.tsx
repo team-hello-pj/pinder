@@ -13,6 +13,7 @@ import {
   WEATHER_SUBS,
 } from '@/constants';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
+import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
   fetchRouteLeg,
   loadKakaoMapsSdk,
@@ -145,6 +146,7 @@ export function PlannerClient() {
   const [situationVar, setSituationVar] = useState<string | null>(null);
   const [situationSub, setSituationSub] = useState<string | null>(null);
   const [situationSeverity, setSituationSeverity] = useState<string | null>(null);
+  const [situationFreeText, setSituationFreeText] = useState('');
   const [loading, setLoading] = useState(false);
 
   // ---- 협업 / 권한 ----
@@ -762,9 +764,11 @@ export function PlannerClient() {
     setSituationVar(null);
     setSituationSub(null);
     setSituationSeverity(null);
+    setSituationFreeText('');
     setSituationModalOpen(true);
   };
-  const applySituation = () => {
+
+  const applySituationRuleBased = () => {
     if (!situationVar || !situationSeverity) return;
     if (situationVar === 'weather' && !situationSub) return;
     const sevWeight = SEVERITY_LEVELS.find((s) => s.id === situationSeverity)?.weight ?? 1;
@@ -786,6 +790,54 @@ export function PlannerClient() {
       logActivity(`상황 변경(${varLabel} · ${sevLabel})에 맞춰 동선을 재계산했습니다`);
       showToast('변경된 상황을 동선에 반영했어요');
     }, 800);
+  };
+
+  const applySituationWithAi = async () => {
+    const text = situationFreeText.trim();
+    if (!text || places.length < 2) return;
+    setSituationModalOpen(false);
+    setLoading(true);
+    try {
+      const result = await requestAiRouteAdjustment(
+        text,
+        places.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          duration: p.duration,
+          priority: p.priority,
+        })),
+        segments,
+      );
+      const placeById = new Map(places.map((p) => [p.id, p]));
+      const newPlaces = result.order
+        .map((id) => placeById.get(id))
+        .filter((p): p is Place => Boolean(p));
+      const newSegments = result.segments.map((m) =>
+        (MODE_ORDER as string[]).includes(m) ? (m as TransportMode) : 'car',
+      );
+      if (newPlaces.length === places.length) {
+        setPlaces(newPlaces);
+        setSegments(newSegments);
+        setRouteCache({});
+      }
+      logActivity(`AI 상황 반영: "${text}" → ${result.note || '동선을 재구성했습니다'}`);
+      showToast(result.note || '변경된 상황을 동선에 반영했어요');
+    } catch (err) {
+      console.error('applySituationWithAi failed:', err);
+      showToast('AI 응답을 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+      setSituationFreeText('');
+    }
+  };
+
+  const applySituation = () => {
+    if (situationFreeText.trim()) {
+      void applySituationWithAi();
+      return;
+    }
+    applySituationRuleBased();
   };
 
   // ---- 지도 검색 모드 ----
@@ -2070,6 +2122,18 @@ export function PlannerClient() {
         title="변수 추가"
         onClose={() => setSituationModalOpen(false)}
       >
+        <p className={styles.modalSectionLabel}>상황을 직접 설명해주세요</p>
+        <textarea
+          className={styles.situationTextarea}
+          value={situationFreeText}
+          onChange={(e) => setSituationFreeText(e.target.value)}
+          placeholder="예: 오늘 다리를 다쳐서 많이 못 걸어요 / 갑자기 비가 많이 와요"
+          maxLength={300}
+        />
+        {situationFreeText.trim() && places.length < 2 ? (
+          <p className={styles.warnBox}>방문지를 2곳 이상 추가한 후 사용할 수 있어요.</p>
+        ) : null}
+        <div className={styles.situationDivider}>또는 빠르게 선택</div>
         <p className={styles.modalSectionLabel}>어떤 상황이 생겼나요?</p>
         <div className={styles.situationList}>
           {SITUATION_VARS.map((sv) => (
@@ -2141,10 +2205,14 @@ export function PlannerClient() {
             size="sm"
             onClick={applySituation}
             disabled={
-              !situationVar || !situationSeverity || (situationVar === 'weather' && !situationSub)
+              situationFreeText.trim()
+                ? places.length < 2
+                : !situationVar ||
+                  !situationSeverity ||
+                  (situationVar === 'weather' && !situationSub)
             }
           >
-            동선 재계산
+            {situationFreeText.trim() ? 'AI로 동선 재구성' : '동선 재계산'}
           </Button>
         </div>
       </Modal>
