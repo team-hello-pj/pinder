@@ -2,7 +2,7 @@
 // Proxies chat requests to the Gemini API without exposing the API key to the client.
 // Requires the GEMINI_API_KEY environment variable to be set in Vercel Project Settings.
 
-const GEMINI_MODEL = 'gemini-3.8-flash'; // Current stable GA Flash model
+const GEMINI_MODEL = 'gemini-2.5-flash'; // Free tier: 1,500 requests/day (gemini-3.8-flash free tier is capped at 20/day)
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export default async function handler(req, res) {

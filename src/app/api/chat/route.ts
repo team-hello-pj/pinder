@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const GEMINI_MODEL = 'gemini-3.8-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const MAX_MESSAGE_LENGTH = 500;
