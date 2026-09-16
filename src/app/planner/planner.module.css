@@ -1391,6 +1391,11 @@
   border-color: var(--pd-badge-bg);
 }
 
+.situationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .requestEditBtn {
   background: var(--pd-badge-bg);
   color: var(--pd-link);

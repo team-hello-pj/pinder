@@ -1799,6 +1799,12 @@ export function PlannerClient() {
                     type="button"
                     className={styles.situationBtn}
                     onClick={openSituationModal}
+                    disabled={hasDayTabs && selectedDay === null}
+                    title={
+                      hasDayTabs && selectedDay === null
+                        ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
+                        : undefined
+                    }
                   >
                     변수 추가
                   </button>
@@ -1826,7 +1832,16 @@ export function PlannerClient() {
                   <span className={styles.pendingChip}>● 승인 대기 중</span>
                 ) : null}
                 {canEdit ? (
-                  <Button size="md" onClick={recalcAndSearch} disabled={loading}>
+                  <Button
+                    size="md"
+                    onClick={recalcAndSearch}
+                    disabled={loading || (hasDayTabs && selectedDay === null)}
+                    title={
+                      hasDayTabs && selectedDay === null
+                        ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
+                        : undefined
+                    }
+                  >
                     경로 계산
                   </Button>
                 ) : null}
