@@ -1,13 +1,52 @@
 .logo {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--pd-text);
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .logo:hover {
   color: var(--pd-text);
+}
+
+.logo-sm {
+  gap: 3px;
+  font-size: 14px;
+}
+
+.logo-md {
+  font-size: 20px;
+}
+
+.logo-lg {
+  gap: 3px;
+  font-size: 28px;
+}
+
+.mark {
+  flex-shrink: 0;
+  background: currentColor;
+  mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+  -webkit-mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+}
+
+.mark-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.mark-md {
+  width: 31px;
+  height: 37px;
+}
+
+.mark-lg {
+  width: 52px;
+  height: 58px;
 }
 
 .colon {
@@ -15,4 +54,75 @@
   font-size: 1.4em;
   position: relative;
   top: -0.05em;
+}
+
+/* 헤더 전용 — 개미가 로고 텍스트를 오른쪽으로 밀고 갔다가 다시 나타나는 브랜드 애니메이션 */
+.markAnimated {
+  animation: pd-logo-ant-push 20s ease-in-out infinite;
+}
+
+.textAnimated {
+  display: inline-flex;
+  animation: pd-logo-text-push 20s ease-in-out infinite;
+}
+
+@keyframes pd-logo-ant-push {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(130px);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(150px);
+    opacity: 0;
+  }
+  62% {
+    transform: translateX(-4px);
+    opacity: 0;
+  }
+  64% {
+    transform: translateX(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pd-logo-text-push {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(130px);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(150px);
+    opacity: 0;
+  }
+  62% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  64% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markAnimated,
+  .textAnimated {
+    animation: none;
+  }
 }

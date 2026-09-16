@@ -13,19 +13,31 @@
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed-destinations": "node scripts/seed-destinations.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
+    "google-auth-library": "^11.0.2",
+    "jose": "^6.2.12",
     "next": "^16.3.5",
+    "nodemailer": "^10.0.10",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "22.15.3",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "9.30.0",
     "eslint-config-next": "^16.3.5",
     "eslint-config-prettier": "10.1.5",

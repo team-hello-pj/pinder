@@ -1,0 +1,19 @@
+.footer {
+  border-top: 1px solid var(--pd-border);
+  padding: var(--pd-space-5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.copyright {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--pd-text-sub);
+}
+
+.colon {
+  color: var(--pd-brand-accent);
+}

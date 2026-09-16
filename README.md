@@ -19,13 +19,18 @@ Node 20 이상이 필요하다 (`.nvmrc` 참고).
 
 `.env.local` 에 넣는다. **절대 커밋하지 않는다.**
 
-| 변수                 | 용도                   | 노출 범위                                   |
-| -------------------- | ---------------------- | ------------------------------------------- |
-| `KAKAO_JS_KEY`       | Kakao Maps JS SDK 로드 | `/api/kakao-config` 를 통해 브라우저로 전달 |
-| `KAKAO_REST_API_KEY` | 장소 검색·경로 탐색    | 서버 전용                                   |
-| `GEMINI_API_KEY`     | AI 도우미 답변 생성    | 서버 전용                                   |
+| 변수                 | 용도                   | 노출 범위                                              |
+| -------------------- | ---------------------- | ------------------------------------------------------ |
+| `KAKAO_JS_KEY`       | Kakao Maps JS SDK 로드 | `/api/kakao-config` 를 통해 브라우저로 전달            |
+| `KAKAO_REST_API_KEY` | 장소 검색·경로 탐색    | 서버 전용                                              |
+| `GEMINI_API_KEY`     | AI 도우미 답변 생성    | 서버 전용                                              |
+| `GOOGLE_CLIENT_ID`   | 구글 로그인            | `/api/google-config` 를 통해 브라우저로 전달 (공개 값) |
 
 키가 없어도 앱은 뜨고, 해당 기능만 오류 메시지를 보여준다.
+
+`GOOGLE_CLIENT_ID` 를 실제로 쓰려면 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 의
+"승인된 자바스크립트 원본"에 이 앱이 실행되는 도메인을 등록해야 한다 — 로컬 개발은
+`http://localhost:3000`(포트가 다르면 그 값), 배포 환경은 실제 배포 도메인.
 
 ## 명령어
 

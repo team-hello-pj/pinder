@@ -1,0 +1,1831 @@
+/* legacy/Route Planner App.dc.html 이식 — 좌우 2단 셸 레이아웃 */
+
+.shell {
+  display: grid;
+  grid-template-columns: 392px 1fr;
+  min-height: calc(100vh - var(--pd-header-height));
+  transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shellPanelCollapsed {
+  grid-template-columns: 52px 1fr;
+}
+
+.shellMapCollapsed {
+  grid-template-columns: 1fr 52px;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  border: none;
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.rail:hover {
+  background: var(--pd-row-hover);
+}
+
+/* ---- 좌측 패널 ---- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--pd-card-bg);
+  border-right: 1px solid var(--pd-border);
+  overflow-y: auto;
+}
+
+.panelHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--pd-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--pd-card-bg);
+  box-shadow: var(--pd-shadow-sm);
+}
+
+.panelHeaderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panelLogo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--pd-text);
+  text-decoration: none;
+}
+
+.panelLogoColon {
+  color: var(--pd-brand-accent);
+  font-size: 1.4em;
+  position: relative;
+  top: -0.05em;
+}
+
+.panelHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chipBtn {
+  height: 31px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--pd-chip-bg);
+  border: none;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.collapseBtn {
+  width: 32px;
+  height: 31px;
+  border-radius: 8px;
+  border: none;
+  background: var(--pd-chip-bg);
+  color: var(--pd-text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.devRoleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px dashed var(--pd-border);
+  border-radius: 8px;
+}
+
+.devRoleLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.devRoleChip {
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--pd-text-sub);
+}
+
+.devRoleChipActive {
+  background: var(--pd-brand);
+  color: #12321f;
+}
+
+.inviteBox {
+  background: var(--pd-chip-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inviteDesc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+}
+
+.inviteLinkRow {
+  display: flex;
+  gap: 6px;
+}
+
+.inviteLink {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--pd-text);
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inviteCopyBtn {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pd-text);
+  background: var(--pd-chip-bg);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.permissionMenuWrap {
+  position: relative;
+  align-self: flex-start;
+}
+
+.permissionMenuBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text);
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+}
+
+.permissionMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--pd-card-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  box-shadow: var(--pd-shadow-md);
+  padding: 4px;
+  z-index: 10;
+  min-width: 110px;
+}
+
+.permissionMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pd-text);
+  background: transparent;
+  border: none;
+}
+
+.permissionMenuItem:hover {
+  background: var(--pd-row-hover);
+}
+
+/* ---- 조건 설정 ---- */
+
+.criteriaSection {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--pd-border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  margin: 0 0 8px;
+}
+
+.segmentedGroup {
+  display: flex;
+  background: var(--pd-chip-bg);
+  border-radius: 10px;
+  padding: 2px;
+}
+
+.segmentedItem {
+  flex: 1;
+  text-align: center;
+  padding: 7px 4px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--pd-text-sub);
+}
+
+.segmentedItemActive {
+  background: #171719;
+  color: #fff;
+}
+
+.modeChipRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modeApplyChip {
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-chip-bg);
+  color: var(--pd-text-sub);
+}
+
+.urgentNotice {
+  margin: 12px 20px 0;
+  background: var(--pd-danger-bg);
+  border: 1px solid #ffc9c9;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: var(--pd-danger);
+  font-weight: 600;
+}
+
+/* ---- 방문지 목록 ---- */
+
+.listHeader {
+  padding: 16px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.listHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.listTitle {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--pd-text);
+  white-space: nowrap;
+}
+
+.daySelect,
+.daySelectSmall {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-chip-bg);
+  color: var(--pd-text);
+}
+
+.daySelectSmall {
+  flex-shrink: 0;
+  height: 42px;
+  padding: 0 6px;
+}
+
+.listHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--pd-text-sub);
+}
+
+.clearAllBtn {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pd-danger);
+  background: none;
+  border: none;
+}
+
+.emptyState {
+  margin: 8px 20px 16px;
+  padding: 36px 16px;
+  border: 1.5px dashed var(--pd-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.emptyAddBtn {
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--pd-chip-bg);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--pd-text-sub);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.emptyDesc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  line-height: 1.5;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 10px;
+}
+
+.dayDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.dayDividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--pd-border);
+}
+
+/* ---- 방문지 카드 ---- */
+
+.placeCard {
+  border: 1px solid var(--pd-border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--pd-card-bg);
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.placeCard:hover {
+  border-color: #aeb0b6;
+  box-shadow: var(--pd-shadow-sm);
+}
+
+.placeCardDragging {
+  background: var(--pd-row-hover);
+  border-color: var(--pd-brand);
+}
+
+.placeOrderCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.placeOrderBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #202020;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.placeOrderLine {
+  width: 2px;
+  flex: 1;
+  min-height: 10px;
+  background: var(--pd-border);
+  margin-top: 4px;
+}
+
+.placeMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 2px;
+}
+
+.placeNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.placeName {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.memoDot {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.priorityChip {
+  border: none;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.placeAddress {
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.placeExpanded {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.expandedRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kakaoDirectionsBtn {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #fee500;
+  color: #191919;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.kakaoDirectionsDisabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.categoryBtn {
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--pd-chip-bg);
+  color: var(--pd-text-sub);
+  border: none;
+}
+
+.memoRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.memoInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--pd-text);
+  background: var(--pd-chip-bg);
+  border: 1px solid var(--pd-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+.memoSaveBtn {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  background: var(--pd-chip-bg);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.durationRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--pd-text-sub);
+  width: 100%;
+}
+
+.durationBtn {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--pd-chip-bg);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--pd-text);
+  margin-left: auto;
+}
+
+.durationLabel {
+  min-width: 44px;
+  text-align: center;
+  color: var(--pd-text);
+}
+
+.editIconBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+  color: var(--pd-text-sub);
+}
+
+.placeDeleteBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--pd-text-sub);
+  align-self: flex-start;
+}
+
+.placeExpandBtn {
+  align-self: flex-start;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--pd-text-sub);
+  transition: transform 0.15s ease;
+}
+
+/* ---- 구간(이동수단) ---- */
+
+.segmentRow {
+  display: flex;
+  gap: 12px;
+}
+
+.segmentLine {
+  width: 2px;
+  min-height: 16px;
+  background: var(--pd-border);
+  margin-left: 11px;
+  flex-shrink: 0;
+}
+
+.segmentBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0 10px;
+}
+
+.segmentHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.segmentChip {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--pd-border);
+  width: fit-content;
+  font: inherit;
+}
+
+.segmentChip:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.segmentChip-car {
+  background: var(--pd-chip-bg);
+  color: var(--pd-text-sub);
+  border-color: var(--pd-border);
+}
+
+.segmentChip-walk {
+  background: var(--pd-info-bg);
+  color: var(--pd-info);
+  border-color: var(--pd-info-bg);
+}
+
+.segmentChip-transit {
+  background: var(--pd-warn-bg);
+  color: var(--pd-warn);
+  border-color: var(--pd-warn-bg);
+}
+
+.segmentChip-bike {
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  border-color: var(--pd-badge-bg);
+}
+
+.segmentLabel {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.segmentMeta {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.segmentToggle {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--pd-chip-bg);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--pd-text-sub);
+  transition: transform 0.15s ease;
+}
+
+.segmentDetail {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-top: 4px;
+  background: var(--pd-chip-bg);
+  border: 1px solid var(--pd-border);
+}
+
+.segmentStep {
+  display: flex;
+  gap: 8px;
+}
+
+.segmentStepDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pd-text-sub);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.segmentStepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 10px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--pd-text-sub);
+}
+
+.segmentStepLabel {
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.segmentStepNode {
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--pd-chip-bg);
+  color: var(--pd-text);
+  font-size: 11px;
+  font-weight: 600;
+  width: fit-content;
+  border: 1px solid var(--pd-border);
+}
+
+/* ---- 주소 추가 ---- */
+
+.addBar {
+  padding: 14px 20px;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--pd-card-bg);
+  border-top: 1px solid var(--pd-border);
+  z-index: 4;
+}
+
+.addBarRow {
+  display: flex;
+  gap: 6px;
+}
+
+.addInput {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  box-sizing: border-box;
+  border: 1px solid var(--pd-border);
+  border-radius: 11px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--pd-text);
+  background: var(--pd-bg);
+}
+
+.addBtn {
+  height: 42px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pd-link);
+  border-radius: 10px;
+  padding: 0 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid var(--pd-badge-bg);
+  background: var(--pd-badge-bg);
+}
+
+.addHint {
+  font-size: 11px;
+  color: var(--pd-text-sub);
+  margin: 6px 0 0;
+}
+
+/* ---- 우측: 지도 ---- */
+
+.mapCol {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mapArea {
+  flex: 1;
+  position: relative;
+  background: var(--pd-info-bg);
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.mapCanvas {
+  position: absolute;
+  inset: 0;
+}
+
+.mapStatusBadge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(23, 23, 25, 0.72);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+.mapLoadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(247, 247, 248, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #46474c;
+  z-index: 5;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--pd-border);
+  border-top-color: var(--pd-brand);
+  animation: pd-planner-spin 0.8s linear infinite;
+}
+
+@keyframes pd-planner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- 지도 검색 오버레이 ---- */
+
+.searchOverlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchBox {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 14px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: none;
+  outline: none;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #171719;
+  background: transparent;
+}
+
+.searchRunBtn {
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--pd-brand);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.searchCloseBtn {
+  cursor: pointer;
+  width: 32px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(23, 23, 25, 0.4);
+  font-size: 16px;
+}
+
+.searchStatusBox {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  padding: 14px;
+  font-size: 12.5px;
+  color: rgba(23, 23, 25, 0.5);
+}
+
+.searchStatusError {
+  color: #d9534f;
+}
+
+.searchResults {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.searchResultItem {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f1;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.searchResultName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #171719;
+}
+
+.searchResultAddress {
+  font-size: 11.5px;
+  color: rgba(23, 23, 25, 0.5);
+}
+
+.selectedDocCard {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  width: min(360px, calc(100% - 220px));
+  z-index: 20;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selectedDocLabel {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pd-brand);
+  letter-spacing: 0.04em;
+}
+
+.selectedDocName {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #171719;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectedDocAddress {
+  margin: 0;
+  font-size: 11.5px;
+  color: rgba(23, 23, 25, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectedDocBtn {
+  background: #171719;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* ---- AI 패널 ---- */
+
+.aiPanel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  height: min(560px, calc(100vh - 40px));
+  background: #fff;
+  border: 1px solid #e1e2e4;
+  border-radius: 16px;
+  box-shadow: var(--pd-shadow-md);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(16px) scale(0.97);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s;
+}
+
+.aiPanelOpen {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .aiPanel {
+    left: 10px;
+    right: 10px;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    height: 70vh;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+
+  .aiPanelOpen {
+    transform: translateY(0);
+  }
+}
+
+.aiHead {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eaebec;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.aiTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #171719;
+}
+
+.aiSubtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: rgba(23, 23, 25, 0.5);
+}
+
+.aiCloseBtn {
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #70737c;
+  flex-shrink: 0;
+}
+
+.aiContextBar {
+  padding: 8px 16px;
+  border-bottom: 1px solid #eaebec;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: rgba(23, 23, 25, 0.45);
+  background: #f7f7f8;
+}
+
+.aiMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.aiMessageWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aiBubbleAi,
+.aiBubbleUser {
+  align-self: flex-start;
+  max-width: 82%;
+  border-radius: 4px 14px 14px 14px;
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #f4f4f5;
+  color: #171719;
+}
+
+.aiBubbleUser {
+  align-self: flex-end;
+  border-radius: 14px 4px 14px 14px;
+  background: var(--pd-brand);
+  color: #fff;
+}
+
+.aiSuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.aiSuggestionChip {
+  border: 1px solid #e1e2e4;
+  border-radius: 14px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #171719;
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.aiInputRow {
+  padding: 10px 12px;
+  border-top: 1px solid #eaebec;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.aiInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e1e2e4;
+  border-radius: 20px;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: #171719;
+}
+
+.aiSendBtn {
+  background: var(--pd-brand);
+  color: #12321f;
+  border-radius: 20px;
+  padding: 8px 15px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+}
+
+.aiFab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 44;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: #171719;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0px 6px 16px -4px rgba(23, 23, 25, 0.35);
+  white-space: nowrap;
+}
+
+/* ---- 요약 바 ---- */
+
+.summaryBar {
+  background: var(--pd-card-bg);
+  border-top: 1px solid var(--pd-border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.summaryStats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.summaryLabel {
+  margin: 0 0 2px;
+  font-size: 11px;
+  color: var(--pd-text-sub);
+  white-space: nowrap;
+}
+
+.summaryValue {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pd-text);
+  white-space: nowrap;
+}
+
+.summaryActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+  align-items: center;
+}
+
+.deleteOriginalBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #f3c9c9;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pd-danger);
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--pd-danger-bg);
+}
+
+.situationBtn,
+.actionBtn,
+.requestEditBtn,
+.myRoutesBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+}
+
+.situationBtn {
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  border-color: var(--pd-badge-bg);
+}
+
+.requestEditBtn {
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  font-weight: 700;
+  border: none;
+}
+
+.pendingChip {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--pd-chip-bg);
+  color: var(--pd-text-sub);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- 토스트 ---- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: #12321f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 18px;
+  border-radius: 10px;
+  box-shadow: 0px 6px 16px -4px rgba(23, 23, 25, 0.25);
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ---- 드로어 ---- */
+
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 23, 25, 0.32);
+  z-index: 41;
+}
+
+.myRoutesDrawer,
+.activityDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 340px;
+  max-width: 88vw;
+  background: var(--pd-card-bg);
+  border-left: 1px solid var(--pd-border);
+  box-shadow: -4px 0px 16px rgba(23, 23, 25, 0.08);
+  z-index: 42;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.activityDrawer {
+  width: 320px;
+  z-index: 40;
+}
+
+.drawerHead {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--pd-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.drawerCloseBtn {
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #70737c;
+}
+
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawerEmpty {
+  text-align: center;
+  padding: 30px 0;
+  font-size: 12.5px;
+  color: var(--pd-text-sub);
+}
+
+.savedRouteCard {
+  border: 1px solid var(--pd-border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.savedRouteInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.savedRouteName {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedRouteMeta {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--pd-text-sub);
+}
+
+.savedRouteDeleteBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+}
+
+.nicknameRow {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--pd-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+}
+
+.nicknameInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--pd-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--pd-text);
+  background: var(--pd-bg);
+}
+
+.activityItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pd-border);
+}
+
+.activityText {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--pd-text);
+  line-height: 1.5;
+}
+
+.activityTime {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--pd-text-sub);
+}
+
+/* ---- 모달 공용 ---- */
+
+.modalDesc {
+  font-size: 13px;
+  color: var(--pd-text);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+
+.modalFootnote {
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.modalSectionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  margin: 0 0 8px;
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.modalActionsEnd {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text-sub);
+}
+
+.fieldInput {
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--pd-text);
+  background: var(--pd-bg);
+}
+
+.dateFieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.dateField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text-sub);
+}
+
+.dateField input {
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-bg);
+  color: var(--pd-text);
+  font-family: inherit;
+}
+
+.memberList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memberRow {
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--pd-chip-bg);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.requestRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.requestActions {
+  display: flex;
+  gap: 6px;
+}
+
+.approveBtn {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #12321f;
+  background: var(--pd-brand);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+}
+
+.rejectBtn {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  background: var(--pd-chip-bg);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+}
+
+.categoryGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.categoryOption {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f7f1e7;
+  color: #927a55;
+  border: none;
+}
+
+.situationList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.situationRow {
+  display: flex;
+  gap: 6px;
+}
+
+.situationOption,
+.situationChip {
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-chip-bg);
+  color: var(--pd-text);
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+}
+
+.situationOptionActive {
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  border-color: var(--pd-brand);
+}
+
+.warnBox {
+  background: #fdf3e7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #8a5a1e;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.agreeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--pd-text);
+  font-weight: 600;
+}
+
+.agreeRow input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #c25454;
+}

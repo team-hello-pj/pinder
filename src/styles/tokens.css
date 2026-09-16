@@ -23,6 +23,16 @@
   --pd-chip-bg: #f4f4f5;
   --pd-row-hover: #f7f7f8;
 
+  /* 홈 히어로 배지/CTA 카드 전용 */
+  --pd-badge-bg: #eaf9ef;
+  --pd-cta-blob: rgba(123, 203, 147, 0.25);
+  --pd-ant-color: #3d3a36;
+  --pd-trail-color: rgba(61, 58, 54, 0.55);
+
+  /* 여행지 탐색 지도 전용 */
+  --pd-map-glow: none;
+  --pd-legend-bg: #ffffff;
+
   /* Status */
   --pd-danger: #e52222;
   --pd-danger-bg: #feecec;
@@ -71,6 +81,14 @@
   --pd-brand-ink: #f7f7f8;
   --pd-link: #7bcb93;
   --pd-link-hover: #95c898;
+
+  --pd-badge-bg: rgba(123, 203, 147, 0.14);
+  --pd-cta-blob: rgba(123, 203, 147, 0.16);
+  --pd-ant-color: #ffffff;
+  --pd-trail-color: rgba(255, 255, 255, 0.6);
+
+  --pd-map-glow: radial-gradient(circle 220px at 50% 45%, #1e4230 0%, #0f0f10 100%);
+  --pd-legend-bg: #d6e0d9;
 
   color-scheme: dark;
 }
