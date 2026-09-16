@@ -74,7 +74,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }));
   }
 
-  return NextResponse.json({ schedule: serialize(row), role, members, editRequests });
+  let myEditRequestPending = false;
+  if (role === 'viewer') {
+    const [myRequest] = await db
+      .select({ id: scheduleEditRequests.id })
+      .from(scheduleEditRequests)
+      .where(
+        and(eq(scheduleEditRequests.scheduleId, id), eq(scheduleEditRequests.userId, session.id)),
+      )
+      .limit(1);
+    myEditRequestPending = Boolean(myRequest);
+  }
+
+  return NextResponse.json({
+    schedule: serialize(row),
+    role,
+    members,
+    editRequests,
+    myEditRequestPending,
+  });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
