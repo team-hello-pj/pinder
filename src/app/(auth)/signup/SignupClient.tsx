@@ -6,11 +6,12 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ROUTES } from '@/constants';
 import { isNicknameTaken, isUsernameTaken, registerUser } from '@/lib/auth';
+import { resizeImageFile } from '@/lib/avatar-upload';
 import { sendCode, verifyCode } from '@/lib/email-verification';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Logo } from '@/components/layout/Logo';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { Modal, PlaceholderImage } from '@/components/ui';
+import { Modal } from '@/components/ui';
 
 import { TERMS_DATA } from './data';
 import styles from './signup.module.css';
@@ -101,9 +102,13 @@ export function SignupClient() {
   const [termsSectionOpen, setTermsSectionOpen] = useState(false);
   const [termsModalKey, setTermsModalKey] = useState<string | null>(null);
 
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
   const [avatarActionsOpen, setAvatarActionsOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
   const [error, setError] = useState('');
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const resendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -114,6 +119,33 @@ export function SignupClient() {
     },
     [],
   );
+
+  const onAvatarEditClick = () => {
+    avatarInputRef.current?.click();
+  };
+  const onAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('이미지 파일만 업로드할 수 있어요.');
+      return;
+    }
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const resized = await resizeImageFile(file);
+      setAvatarDataUrl(resized);
+    } catch {
+      setAvatarError('이미지를 처리하지 못했어요.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+  const onAvatarReplace = () => {
+    setAvatarError('');
+    setAvatarDataUrl(null);
+  };
 
   const checkUsername = async () => {
     if (!username || username.length < 4) {
@@ -255,7 +287,14 @@ export function SignupClient() {
       return;
     }
 
-    const result = await registerUser({ email, password, username, nickname, name });
+    const result = await registerUser({
+      email,
+      password,
+      username,
+      nickname,
+      name,
+      avatarUrl: avatarDataUrl ?? undefined,
+    });
     if (!result.ok) {
       setError(result.message);
       return;
@@ -278,26 +317,40 @@ export function SignupClient() {
 
       <div className={styles.avatarBlock}>
         <div className={styles.avatarSlot}>
-          <PlaceholderImage label="프로필 사진" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자가 올린 data URL 이라 next/image 최적화 대상이 아님 */}
+          <img
+            src={avatarDataUrl || '/icons/mypage-default-avatar.png'}
+            alt=""
+            className={styles.avatarImg}
+          />
           <button
             type="button"
             className={styles.avatarPencil}
             onClick={() => setAvatarActionsOpen((v) => !v)}
             aria-label="프로필 사진 변경"
+            disabled={avatarUploading}
           >
-            ✎
+            {avatarUploading ? '…' : '✎'}
           </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onAvatarFileChange}
+            hidden
+          />
         </div>
         {avatarActionsOpen ? (
           <div className={styles.avatarActions}>
-            <button type="button" className={styles.avatarActionBtn}>
+            <button type="button" className={styles.avatarActionBtn} onClick={onAvatarReplace}>
               Replace
             </button>
-            <button type="button" className={styles.avatarActionBtn}>
+            <button type="button" className={styles.avatarActionBtn} onClick={onAvatarEditClick}>
               Edit
             </button>
           </div>
         ) : null}
+        {avatarError ? <span className={styles.avatarError}>{avatarError}</span> : null}
         <span className={styles.avatarHint}>프로필 사진 (선택)</span>
       </div>
 

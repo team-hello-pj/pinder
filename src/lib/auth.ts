@@ -21,6 +21,7 @@ interface RegisterProfile {
   username: string;
   nickname: string;
   name: string;
+  avatarUrl?: string;
 }
 
 async function postJson(url: string, body: unknown): Promise<AuthResult> {

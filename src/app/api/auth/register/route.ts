@@ -17,11 +17,15 @@ interface RegisterBody {
   username?: string;
   nickname?: string;
   name?: string;
+  avatarUrl?: string;
 }
 
+const MAX_AVATAR_DATA_URL_LENGTH = 2_000_000;
+
 export async function POST(request: Request) {
-  const { email, password, username, nickname, name } = ((await request.json().catch(() => null)) ??
-    {}) as RegisterBody;
+  const { email, password, username, nickname, name, avatarUrl } = ((await request
+    .json()
+    .catch(() => null)) ?? {}) as RegisterBody;
 
   if (!email || !password || !username || !nickname || !name) {
     return NextResponse.json({ ok: false, message: '모든 항목을 입력해주세요.' }, { status: 400 });
@@ -29,6 +33,16 @@ export async function POST(request: Request) {
   if (password.length < 8) {
     return NextResponse.json(
       { ok: false, message: '비밀번호는 8자 이상 입력해주세요.' },
+      { status: 400 },
+    );
+  }
+  if (
+    avatarUrl &&
+    (!/^data:image\/(png|jpeg|jpg|webp);base64,/.test(avatarUrl) ||
+      avatarUrl.length > MAX_AVATAR_DATA_URL_LENGTH)
+  ) {
+    return NextResponse.json(
+      { ok: false, message: '이미지 형식이 올바르지 않습니다.' },
       { status: 400 },
     );
   }
@@ -68,7 +82,15 @@ export async function POST(request: Request) {
   const passwordHash = await hash(password);
   const [user] = await db
     .insert(users)
-    .values({ email, passwordHash, username, nickname, name, emailVerifiedAt: new Date() })
+    .values({
+      email,
+      passwordHash,
+      username,
+      nickname,
+      name,
+      avatarUrl: avatarUrl ?? null,
+      emailVerifiedAt: new Date(),
+    })
     .returning({
       id: users.id,
       email: users.email,
