@@ -11,6 +11,7 @@ import {
   updateSchedule,
   type ScheduleSummary,
 } from '@/lib/schedules';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Button, DateRangeCalendar, Modal } from '@/components/ui';
 
 import styles from './my-routes.module.css';
@@ -26,6 +27,9 @@ function todayStr(): string {
 /** legacy/My Routes.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function MyRoutesClient() {
   const router = useRouter();
+  const { isLoggedIn, isLoading: sessionLoading } = useSession();
+  const [authGateDismissed, setAuthGateDismissed] = useState(false);
+  const authGateOpen = !sessionLoading && !isLoggedIn && !authGateDismissed;
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -56,6 +60,7 @@ export function MyRoutesClient() {
   const [toastVisible, setToastVisible] = useState(false);
 
   useEffect(() => {
+    if (sessionLoading || !isLoggedIn) return;
     let cancelled = false;
     listSchedules().then((list) => {
       if (!cancelled) setRoutes(list);
@@ -63,7 +68,7 @@ export function MyRoutesClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionLoading, isLoggedIn]);
 
   const showToast = (message: string) => {
     setToastMsg(message);
@@ -194,7 +199,35 @@ export function MyRoutesClient() {
   const currentPage = Math.min(page, pageCount - 1);
   const pagedRoutes = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
 
-  if (routes === null) return null; // 초기 로드 중 (localStorage 읽기)
+  if (sessionLoading) return null; // 인증 상태 확인 중 (비로그인으로 오판하지 않도록 대기)
+
+  if (!isLoggedIn) {
+    return (
+      <div className={styles.page}>
+        <Modal
+          open={authGateOpen}
+          title="회원만 이용할 수 있어요"
+          onClose={() => setAuthGateDismissed(true)}
+        >
+          <p className={styles.deleteDesc}>
+            로그인하면 내 일정을 관리하고 저장된 여행 계획을
+            <br />
+            확인할 수 있어요.
+          </p>
+          <div className={styles.modalActions}>
+            <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
+              로그인
+            </Button>
+            <Button size="sm" onClick={() => router.push('/signup')}>
+              회원가입
+            </Button>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  if (routes === null) return null; // 초기 로드 중
 
   const hasRoutes = routes.length > 0;
 
