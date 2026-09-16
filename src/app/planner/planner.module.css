@@ -97,7 +97,7 @@
   padding: 0 12px;
   border-radius: 8px;
   background: var(--pd-chip-bg);
-  border: none;
+  border: 1px solid #e4e4e4eb;
   display: flex;
   align-items: center;
   font-size: 12px;
@@ -270,6 +270,7 @@
   background: var(--pd-chip-bg);
   border-radius: 10px;
   padding: 2px;
+  border: 1px solid #d7d7d7;
 }
 
 .segmentedItem {
@@ -1317,7 +1318,7 @@
 .aiFab {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: 72px;
   z-index: 44;
   display: flex;
   align-items: center;

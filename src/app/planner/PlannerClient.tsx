@@ -835,7 +835,7 @@ export function PlannerClient() {
       if (!docs.length) setMapSearchError('검색 결과가 없어요');
     } catch (err) {
       console.error('runMapSearch failed:', err);
-      setMapSearchError('검색 요청 중 오류가 발생했어요');
+      setMapSearchError('검색에 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
     } finally {
       setMapSearchLoading(false);
     }
