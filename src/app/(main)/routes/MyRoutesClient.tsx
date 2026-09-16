@@ -28,8 +28,7 @@ function todayStr(): string {
 export function MyRoutesClient() {
   const router = useRouter();
   const { isLoggedIn, isLoading: sessionLoading } = useSession();
-  const [authGateDismissed, setAuthGateDismissed] = useState(false);
-  const authGateOpen = !sessionLoading && !isLoggedIn && !authGateDismissed;
+  const authGateOpen = !sessionLoading && !isLoggedIn;
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -207,7 +206,7 @@ export function MyRoutesClient() {
         <Modal
           open={authGateOpen}
           title="회원만 이용할 수 있어요"
-          onClose={() => setAuthGateDismissed(true)}
+          onClose={() => router.push('/')}
         >
           <p className={styles.deleteDesc}>
             로그인하면 내 일정을 관리하고 저장된 여행 계획을
