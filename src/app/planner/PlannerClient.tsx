@@ -197,6 +197,11 @@ export function PlannerClient() {
   const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
   const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
   const [addPlaceModalOpen, setAddPlaceModalOpen] = useState(false);
+  // 전체보기에서 여행이 2일 이상이면, 일차마다 따로 "경로 계산"을 누르는 대신
+  // 한 번에 일차별 출발지를 다 고르고 순서대로 계산한다.
+  const [multiDayOriginModalOpen, setMultiDayOriginModalOpen] = useState(false);
+  const [multiDayOriginChoices, setMultiDayOriginChoices] = useState<Record<number, number>>({});
+  const [multiDayRunning, setMultiDayRunning] = useState(false);
   // "출발지가 방문지 목록에 없어요"를 눌러 방문지를 추가한 경우, 추가가 끝나면 출발지 선택
   // 팝업으로 돌아가서 방금 추가한 곳을 바로 고를 수 있게 한다.
   const [returnToOriginPickerAfterAdd, setReturnToOriginPickerAfterAdd] = useState(false);
@@ -379,6 +384,13 @@ export function PlannerClient() {
     // 구간 하나가 실패해도 나머지 구간은 그대로 그린다 (전체를 한 선으로 합치지 않고
     // 실제 데이터가 있는 구간마다 따로따로 그려서 부분 실패에도 지도에 경로가 표시되게 한다).
     for (let idx = 0; idx < segments.length; idx++) {
+      // 특정 일차를 선택 중이면 지도에도 그 일차 안에서 이어지는 구간만 그린다
+      // (전체보기일 때는 모든 구간을 그대로 그린다).
+      if (selectedDay !== null) {
+        const fromDay = places[idx]?.day ?? 0;
+        const toDay = places[idx + 1]?.day ?? 0;
+        if (fromDay !== selectedDay || toDay !== selectedDay) continue;
+      }
       const cache = getSegmentRouteCache(idx);
       if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
       const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
@@ -393,7 +405,7 @@ export function PlannerClient() {
       });
       kakaoPolylinesRef.current.push(line);
     }
-  }, [segments, getSegmentRouteCache]);
+  }, [segments, places, selectedDay, getSegmentRouteCache]);
 
   useEffect(() => {
     if (kakaoReady) syncKakaoPolyline();
@@ -1739,6 +1751,21 @@ export function PlannerClient() {
 
   const handleRouteCalcClick = () => {
     if (loading || originCandidatePlaces.length === 0) return;
+    // 전체보기 + 2일 이상이면 일차마다 따로 누르지 않도록, 일차별 출발지를 한 번에 고른다.
+    if (isAllDaysView && dayCount > 1) {
+      const defaults: Record<number, number> = {};
+      for (let day = 0; day < dayCount; day++) {
+        const dayPlaces = places.filter((p) => (p.day ?? 0) === day);
+        if (!dayPlaces.length) continue;
+        defaults[day] =
+          originId != null && dayPlaces.some((p) => p.id === originId)
+            ? originId
+            : dayPlaces[0].id;
+      }
+      setMultiDayOriginChoices(defaults);
+      setMultiDayOriginModalOpen(true);
+      return;
+    }
     if (originCandidatePlaces.length === 1) {
       setOriginId(originCandidatePlaces[0].id);
       proceedAfterOrigin(originCandidatePlaces[0].id);
@@ -1751,6 +1778,28 @@ export function PlannerClient() {
     setOriginChoiceId(defaultChoice);
     setOriginListExpanded(false);
     setOriginSelectOpen(true);
+  };
+
+  /** 일차별 출발지를 다 고른 뒤 확인하면, 일차 순서대로 하나씩 최적 경로를 계산한다. */
+  const runMultiDayOptimalRoute = async () => {
+    const entries = Object.entries(multiDayOriginChoices)
+      .map(([day, id]) => [Number(day), id] as const)
+      .sort((a, b) => a[0] - b[0]);
+    if (!entries.length) return;
+    setMultiDayOriginModalOpen(false);
+    setMultiDayRunning(true);
+    try {
+      // 일차 순서대로 하나씩 끝내야 places 상태가 꼬이지 않는다 (동시에 돌리지 않음).
+      for (const [, originIdForDay] of entries) {
+        await runOptimalRoute(originIdForDay);
+      }
+      const lastOriginId = entries[entries.length - 1][1];
+      setOriginId(lastOriginId);
+      logActivity(`전체 ${entries.length}개 일차의 경로를 한 번에 계산했습니다`);
+      showToast(`${entries.length}개 일차 경로를 모두 계산했어요`);
+    } finally {
+      setMultiDayRunning(false);
+    }
   };
 
   const confirmOriginChoice = () => {
@@ -2407,7 +2456,11 @@ export function PlannerClient() {
                   <span className={styles.pendingChip}>● 승인 대기 중</span>
                 ) : null}
                 {canEdit ? (
-                  <Button size="md" onClick={handleRouteCalcClick} disabled={loading}>
+                  <Button
+                    size="md"
+                    onClick={handleRouteCalcClick}
+                    disabled={loading || multiDayRunning}
+                  >
                     경로 계산
                   </Button>
                 ) : null}
@@ -2929,6 +2982,56 @@ export function PlannerClient() {
               선택
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* 전체보기(2일 이상)에서 일차별 출발지를 한 번에 선택 */}
+      <Modal
+        open={multiDayOriginModalOpen}
+        title="일차별 출발지를 선택해주세요"
+        onClose={() => setMultiDayOriginModalOpen(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {Array.from({ length: dayCount }, (_, day) => day)
+            .map((day) => ({ day, dayPlaces: places.filter((p) => (p.day ?? 0) === day) }))
+            .filter(({ dayPlaces }) => dayPlaces.length > 0)
+            .map(({ day, dayPlaces }) => (
+              <div key={day}>
+                <label className={styles.hint} style={{ display: 'block', marginBottom: 4 }}>
+                  {day + 1}일차
+                </label>
+                <select
+                  value={multiDayOriginChoices[day] ?? dayPlaces[0].id}
+                  onChange={(e) =>
+                    setMultiDayOriginChoices((prev) => ({
+                      ...prev,
+                      [day]: Number(e.target.value),
+                    }))
+                  }
+                  className={styles.daySelect}
+                  style={{ width: '100%' }}
+                >
+                  {dayPlaces.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+        </div>
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setMultiDayOriginModalOpen(false)}
+            disabled={multiDayRunning}
+          >
+            취소
+          </Button>
+          <Button size="sm" onClick={runMultiDayOptimalRoute} disabled={multiDayRunning}>
+            {multiDayRunning ? '계산 중...' : '전체 계산'}
+          </Button>
         </div>
       </Modal>
 
