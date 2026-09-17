@@ -753,14 +753,17 @@ export function PlannerClient() {
       else if (categoryModalOpen) setCategoryModalOpen(false);
       else if (addConfirmOpen) {
         setAddConfirmOpen(false);
-        setReturnToOriginPickerAfterAdd(false);
+        if (returnToOriginPickerAfterAdd) setAddPlaceModalOpen(true);
       } else if (situationModalOpen) setSituationModalOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
       else if (addPlaceModalOpen) {
         setAddPlaceModalOpen(false);
-        setReturnToOriginPickerAfterAdd(false);
+        if (returnToOriginPickerAfterAdd) {
+          setReturnToOriginPickerAfterAdd(false);
+          setOriginSelectOpen(true);
+        }
       } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
@@ -784,6 +787,7 @@ export function PlannerClient() {
     addPlaceModalOpen,
     multiDayOriginModalOpen,
     leaveConfirmOpen,
+    returnToOriginPickerAfterAdd,
     loginRequiredOpen,
   ]);
 
@@ -846,14 +850,18 @@ export function PlannerClient() {
     setAddConfirmOpen(true);
   };
 
-  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었어도 그 흐름은 그냥 끝난다. */
+  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로
+   * 돌아간다 — 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
-    setReturnToOriginPickerAfterAdd(false);
+    if (returnToOriginPickerAfterAdd) setAddPlaceModalOpen(true);
   };
   const cancelAddPlaceModal = () => {
     setAddPlaceModalOpen(false);
-    setReturnToOriginPickerAfterAdd(false);
+    if (returnToOriginPickerAfterAdd) {
+      setReturnToOriginPickerAfterAdd(false);
+      setOriginSelectOpen(true);
+    }
   };
 
   const confirmAddPlace = () => {
@@ -864,13 +872,14 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
-    // 출발지 선택 흐름에서 들어온 추가라면, 목록 선택 팝업으로 되돌아가지 않고 방금 추가한
-    // 곳을 출발지로 바로 확정하는 팝업("출발지를 OOO로 설정하시겠습니까?")으로 곧장 이어간다 —
-    // 경로 계산 버튼을 다시 누르거나 목록에서 또 골라야 하는 단계를 없앤다.
+    // 출발지 선택 흐름에서 들어온 추가라면, 경로 계산 버튼을 다시 누르지 않아도 되도록 출발지
+    // 선택 목록 팝업을 자동으로 다시 띄운다. 방금 추가한 곳을 선택된 상태로 두면(목록에서도
+    // 맨 앞에 오도록 정렬) 바로 "선택"만 눌러도 된다.
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       setOriginChoiceId(added.id);
-      setOriginConfirmOpen(true);
+      setOriginListExpanded(true);
+      setOriginSelectOpen(true);
     }
   };
 
@@ -2016,6 +2025,15 @@ export function PlannerClient() {
     hasDayTabs && selectedDay !== null
       ? places.filter((p) => (p.day ?? 0) === selectedDay)
       : places;
+  // 방금 방문지를 추가한 직후에는(주로 "출발지가 목록에 없어요" 흐름) 그 방문지를 고르기
+  // 쉽도록 목록 맨 앞에 오게 정렬한다. 그 외에는 지금 선택된 항목이 맨 앞에 온다.
+  const originCandidatePlacesSorted =
+    originChoiceId != null
+      ? [
+          ...originCandidatePlaces.filter((p) => p.id === originChoiceId),
+          ...originCandidatePlaces.filter((p) => p.id !== originChoiceId),
+        ]
+      : originCandidatePlaces;
 
   const handleRouteCalcClick = () => {
     if (loading || originCandidatePlaces.length === 0) return;
@@ -3283,7 +3301,7 @@ export function PlannerClient() {
               className={styles.situationList}
               style={{ marginTop: 6, maxHeight: 224, overflowY: 'auto' }}
             >
-              {originCandidatePlaces.map((p) => (
+              {originCandidatePlacesSorted.map((p) => (
                 <button
                   key={p.id}
                   type="button"
