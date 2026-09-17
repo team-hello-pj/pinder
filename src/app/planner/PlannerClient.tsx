@@ -69,6 +69,11 @@ function resizeSegments(places: Place[], segments: TransportMode[]): TransportMo
   return next;
 }
 
+/** 새 방문지에 부여할 다음 id — 기존 방문지들의 id보다 항상 커야 중복(같은 id를 가진 두 방문지)이 안 생긴다. */
+function nextIdAfter(places: Place[]): number {
+  return places.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+}
+
 const ADD_TO_ROUTE_SUGGESTION = '동선에 추가할까요?';
 
 function buildSuggestionChips(
@@ -388,6 +393,9 @@ export function PlannerClient() {
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
       setRouteSegmentsReady(detail.schedule.segments.length > 0);
+      // 불러온 방문지들의 id보다 다음 id가 항상 커야, 새로 추가하는 방문지가 기존 id와
+      // 겹치지 않는다 (겹치면 리액트 key 충돌로 목록/구간 렌더링이 깨진다).
+      setNextId(nextIdAfter(detail.schedule.places));
       setCriteriaState(detail.schedule.criteria);
       setTripStart(detail.schedule.tripStart || '');
       setTripEnd(detail.schedule.tripEnd || '');
@@ -426,6 +434,7 @@ export function PlannerClient() {
             setPlaces(schedule.places);
             setSegments(schedule.segments);
             setRouteSegmentsReady(schedule.segments.length > 0);
+            setNextId(nextIdAfter(schedule.places));
             setCriteriaState(schedule.criteria);
             setTripStart(schedule.tripStart || '');
             setTripEnd(schedule.tripEnd || '');
@@ -493,7 +502,7 @@ export function PlannerClient() {
         setPlaces(handoff.places);
         setSegments(handoff.segments);
         setRouteSegmentsReady(handoff.segments.length > 0);
-        setNextId(handoff.places.length + 1);
+        setNextId(nextIdAfter(handoff.places));
       }
     }
 
