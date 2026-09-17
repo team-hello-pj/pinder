@@ -2229,6 +2229,16 @@ export function PlannerClient() {
     ],
   );
 
+  // runMultiDayOptimalRoute가 일차마다 순서대로 await runOptimalRoute(...)를 부르는 동안, 앞
+  // 일차의 결과(applyOptimizedOrder로 바뀐 places/segments)가 리렌더로 반영되어도 이미 잡고
+  // 있던 runOptimalRoute 클로저는 그 전 places를 그대로 참조한다 — 그러면 이번 일차의 실제
+  // 방문 순서(최적화 후)와 경로 검색이 조회한 인접 쌍(최적화 전)이 어긋나서, 순서가 바뀐
+  // 일차부터 지도에 경로선이 안 그려진다. 항상 최신 콜백을 쓰도록 ref로 감싼다.
+  const runOptimalRouteRef = useRef(runOptimalRoute);
+  useEffect(() => {
+    runOptimalRouteRef.current = runOptimalRoute;
+  }, [runOptimalRoute]);
+
   const proceedAfterOrigin = (origin: number) => {
     if (!currentVariableInput()) {
       setPendingRouteOrigin(origin);
@@ -2320,8 +2330,10 @@ export function PlannerClient() {
     setMultiDayRunning(true);
     try {
       // 일차 순서대로 하나씩 끝내야 places 상태가 꼬이지 않는다 (동시에 돌리지 않음).
+      // runOptimalRouteRef를 통해 매번 최신 콜백을 호출해야, 앞서 처리한 일차의 재정렬 결과가
+      // 이번 일차의 경로 검색에도 반영된다(위 ref 선언부 설명 참고).
       for (const [, originIdForDay] of entries) {
-        await runOptimalRoute(originIdForDay);
+        await runOptimalRouteRef.current(originIdForDay);
       }
       const lastOriginId = entries[entries.length - 1][1];
       setOriginId(lastOriginId);
