@@ -2653,11 +2653,14 @@ export function PlannerClient() {
                 transition: 'transform .15s',
               }}
             >
-              ▽
+              ▼
             </span>
           </button>
           {originListExpanded ? (
-            <div className={styles.situationList} style={{ marginTop: 6 }}>
+            <div
+              className={styles.situationList}
+              style={{ marginTop: 6, maxHeight: 224, overflowY: 'auto' }}
+            >
               {originCandidatePlaces.map((p) => (
                 <button
                   key={p.id}
@@ -2721,8 +2724,15 @@ export function PlannerClient() {
           (으)로 설정하시겠습니까?
         </p>
         <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setOriginConfirmOpen(false)}>
-            취소
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setOriginConfirmOpen(false);
+              setOriginSelectOpen(true);
+            }}
+          >
+            이전
           </Button>
           <Button size="sm" onClick={finalizeOrigin}>
             예

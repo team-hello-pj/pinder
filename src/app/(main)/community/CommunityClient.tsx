@@ -100,6 +100,7 @@ export function CommunityClient() {
   const [toastVisible, setToastVisible] = useState(false);
 
   const [selectedRegion, setSelectedRegion] = useState('전체');
+  const [regionExpanded, setRegionExpanded] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('popular');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -360,25 +361,40 @@ export function CommunityClient() {
       </div>
 
       <div className={styles.row}>
-        <div className={styles.regionCol}>
-          {REGIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={
-                selectedRegion === r
-                  ? `${styles.regionItem} ${styles.regionActive}`
-                  : styles.regionItem
-              }
-              onClick={() => {
-                setSelectedRegion(r);
-                setProfileAuthor(null);
-                setVisibleCount(PAGE_STEP);
-              }}
-            >
-              {r}
-            </button>
-          ))}
+        <div
+          className={
+            regionExpanded ? styles.regionOuter : `${styles.regionOuter} ${styles.regionCollapsed}`
+          }
+        >
+          <button
+            type="button"
+            className={styles.regionToggle}
+            onClick={() => setRegionExpanded((v) => !v)}
+            aria-expanded={regionExpanded}
+          >
+            <span className={styles.regionToggleLabel}>지역 선택</span>
+            <span aria-hidden>{regionExpanded ? '▴' : '▾'}</span>
+          </button>
+          <div className={styles.regionCol}>
+            {REGIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className={
+                  selectedRegion === r
+                    ? `${styles.regionItem} ${styles.regionActive}`
+                    : styles.regionItem
+                }
+                onClick={() => {
+                  setSelectedRegion(r);
+                  setProfileAuthor(null);
+                  setVisibleCount(PAGE_STEP);
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className={styles.mainCol}>

@@ -12,6 +12,7 @@ import styles from './explore.module.css';
 export function ExploreClient() {
   const [rawSections, setRawSections] = useState<ExploreSection[]>([]);
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [legendExpanded, setLegendExpanded] = useState(true);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
 
   useEffect(() => {
@@ -65,32 +66,47 @@ export function ExploreClient() {
       </p>
 
       <div className={styles.mapRow}>
-        <div className={styles.legendCol}>
+        <div
+          className={
+            legendExpanded ? styles.legendOuter : `${styles.legendOuter} ${styles.legendCollapsed}`
+          }
+        >
           <button
             type="button"
-            className={
-              activeRegion === null
-                ? `${styles.legendItem} ${styles.legendActive}`
-                : styles.legendItem
-            }
-            onClick={() => setActiveRegion(null)}
+            className={styles.legendToggle}
+            onClick={() => setLegendExpanded((v) => !v)}
+            aria-expanded={legendExpanded}
           >
-            전체
+            <span className={styles.legendToggleLabel}>지역 선택</span>
+            <span aria-hidden>{legendExpanded ? '▴' : '▾'}</span>
           </button>
-          {MAP_REGIONS.map((r) => (
+          <div className={styles.legendCol}>
             <button
-              key={r.key}
               type="button"
               className={
-                activeRegion === r.key
+                activeRegion === null
                   ? `${styles.legendItem} ${styles.legendActive}`
                   : styles.legendItem
               }
-              onClick={() => setActiveRegion(r.key)}
+              onClick={() => setActiveRegion(null)}
             >
-              {r.key}
+              전체
             </button>
-          ))}
+            {MAP_REGIONS.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                className={
+                  activeRegion === r.key
+                    ? `${styles.legendItem} ${styles.legendActive}`
+                    : styles.legendItem
+                }
+                onClick={() => setActiveRegion(r.key)}
+              >
+                {r.key}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className={styles.mapWrap}>

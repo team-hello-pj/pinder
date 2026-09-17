@@ -139,6 +139,30 @@
   color: #12321f !important;
 }
 
+.regionOuter {
+  flex-shrink: 0;
+}
+
+/* 767px 이하에서만 보이는 "지역 선택" 접기/펼치기 토글 — PC에서는 항상 숨김 */
+.regionToggle {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pd-text-sub);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.regionToggleLabel {
+  font-weight: 600;
+}
+
 .mainCol {
   flex: 1;
   min-width: 0;
@@ -1099,20 +1123,54 @@
 }
 
 @media (max-width: 767px) {
+  .searchWrap {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
   .sortRow {
-    flex-wrap: wrap;
-    row-gap: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .sortRow > div {
+    min-width: 0;
+  }
+
+  .sortRow > div:first-child {
+    grid-column: 1;
+  }
+
+  .sortRow > div:last-child {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .regionToggle {
+    display: flex;
+  }
+
+  .regionCollapsed .regionCol {
+    display: none;
   }
 
   .regionCol {
     grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: 1fr;
     gap: 4px;
     padding: 8px;
+    box-sizing: border-box;
   }
 
   .regionItem {
     font-size: 11.5px;
     padding: 6px 10px;
+    box-sizing: border-box;
+    line-height: 1.4;
+    min-height: 26px;
   }
 }
 
