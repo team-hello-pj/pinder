@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { listExploreSections, type ExploreSection } from '@/lib/destinations';
+import { getDestinationRoute, listExploreSections, type ExploreSection } from '@/lib/destinations';
 import { PlaceholderImage } from '@/components/ui';
 
 import { MAP_REGIONS, SECTION_PAGE_SIZE } from './data';
@@ -16,7 +16,19 @@ export function ExploreClient() {
   // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.legendCollapsed) — PC에서는 항상 펼쳐져 보인다.
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
+  const [loadingRouteId, setLoadingRouteId] = useState<string | null>(null);
   const newTripFlowRef = useRef<NewTripFlowHandle>(null);
+
+  const startWithDestinationRoute = async (destId: string) => {
+    setLoadingRouteId(destId);
+    const route = await getDestinationRoute(destId);
+    setLoadingRouteId(null);
+    if (!route) {
+      window.alert('아직 준비된 동선이 없어요.');
+      return;
+    }
+    newTripFlowRef.current?.open({ route });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -186,13 +198,18 @@ export function ExploreClient() {
                           </span>
                         ))}
                       </div>
-                      <button
-                        type="button"
-                        className={styles.cardLink}
-                        onClick={() => newTripFlowRef.current?.open({ destination: dest.name })}
-                      >
-                        이 여행지로 일정 짜기 →
-                      </button>
+                      {dest.hasRoute ? (
+                        <button
+                          type="button"
+                          className={styles.cardLink}
+                          disabled={loadingRouteId === dest.id}
+                          onClick={() => startWithDestinationRoute(dest.id)}
+                        >
+                          {loadingRouteId === dest.id
+                            ? '불러오는 중...'
+                            : '이 여행지로 일정 짜기 →'}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}

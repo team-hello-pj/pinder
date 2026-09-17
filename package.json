@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed-destinations": "node scripts/seed-destinations.mjs"
+    "db:seed-destinations": "node scripts/seed-destinations.mjs",
+    "db:generate-destination-routes": "node --env-file=.env.local scripts/generate-destination-routes.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
