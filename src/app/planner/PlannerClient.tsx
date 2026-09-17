@@ -98,7 +98,15 @@ export function PlannerClient() {
   // 쿼리스트링 없이 그냥 /planner 로 들어와도(북마크, 뒤로가기 등) 항상 빈 목록에서 시작한다 —
   // 데모 방문지(INITIAL_PLACES)는 legacy 프로토타입 전용이었고 실사용자에게 보이면 안 된다.
   const [places, setPlaces] = useState<Place[]>([]);
-  const [nextId, setNextId] = useState(1);
+  // 방문지 id 발급은 상태(state)가 아니라 ref 로 관리한다 — state로 하면 AI 추천 장소 추가처럼
+  // 비동기 작업(geocoding) 도중 다른 추가가 끼어들 때 같은 id를 두 번 발급해 지도 핀 번호가
+  // 표시되지 않거나 겹치는 문제가 생길 수 있다. ref 는 그 자리에서 바로 증가하므로 안전하다.
+  const nextIdRef = useRef(1);
+  const allocatePlaceId = useCallback(() => {
+    const id = nextIdRef.current;
+    nextIdRef.current += 1;
+    return id;
+  }, []);
   const [segments, setSegments] = useState<TransportMode[]>([]);
   // 방문지가 추가/삭제/순서변경 되면 구간(이동수단)이 어느 방문지 사이 것인지 알 수 없게 된다 —
   // 기존 구간 배열은 위치 기반이라 순서가 바뀌면 엉뚱한 구간에 매칭되어 밀리거나 겹쳐 보였다.
@@ -182,6 +190,9 @@ export function PlannerClient() {
   const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
   const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
   const [addPlaceModalOpen, setAddPlaceModalOpen] = useState(false);
+  // "출발지가 방문지 목록에 없어요"를 눌러 방문지를 추가한 경우, 추가가 끝나면 출발지 선택
+  // 팝업으로 돌아가서 방금 추가한 곳을 바로 고를 수 있게 한다.
+  const [returnToOriginPickerAfterAdd, setReturnToOriginPickerAfterAdd] = useState(false);
 
   // ---- 협업 / 권한 ----
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
@@ -399,7 +410,7 @@ export function PlannerClient() {
       setRouteSegmentsReady(detail.schedule.segments.length > 0);
       // 불러온 방문지들의 id보다 다음 id가 항상 커야, 새로 추가하는 방문지가 기존 id와
       // 겹치지 않는다 (겹치면 리액트 key 충돌로 목록/구간 렌더링이 깨진다).
-      setNextId(nextIdAfter(detail.schedule.places));
+      nextIdRef.current = nextIdAfter(detail.schedule.places);
       setCriteriaState(detail.schedule.criteria);
       setTripStart(detail.schedule.tripStart || '');
       setTripEnd(detail.schedule.tripEnd || '');
@@ -438,7 +449,7 @@ export function PlannerClient() {
             setPlaces(schedule.places);
             setSegments(schedule.segments);
             setRouteSegmentsReady(schedule.segments.length > 0);
-            setNextId(nextIdAfter(schedule.places));
+            nextIdRef.current = nextIdAfter(schedule.places);
             setCriteriaState(schedule.criteria);
             setTripStart(schedule.tripStart || '');
             setTripEnd(schedule.tripEnd || '');
@@ -506,7 +517,7 @@ export function PlannerClient() {
         setPlaces(handoff.places);
         setSegments(handoff.segments);
         setRouteSegmentsReady(handoff.segments.length > 0);
-        setNextId(nextIdAfter(handoff.places));
+        nextIdRef.current = nextIdAfter(handoff.places);
       }
     }
 
@@ -520,12 +531,16 @@ export function PlannerClient() {
       else if (requestConfirmOpen) setRequestConfirmOpen(false);
       else if (editModalOpen) setEditModalOpen(false);
       else if (categoryModalOpen) setCategoryModalOpen(false);
-      else if (addConfirmOpen) setAddConfirmOpen(false);
-      else if (situationModalOpen) setSituationModalOpen(false);
+      else if (addConfirmOpen) {
+        setAddConfirmOpen(false);
+        setReturnToOriginPickerAfterAdd(false);
+      } else if (situationModalOpen) setSituationModalOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
-      else if (addPlaceModalOpen) setAddPlaceModalOpen(false);
-      else if (originConfirmOpen) setOriginConfirmOpen(false);
+      else if (addPlaceModalOpen) {
+        setAddPlaceModalOpen(false);
+        setReturnToOriginPickerAfterAdd(false);
+      } else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -558,11 +573,11 @@ export function PlannerClient() {
   };
 
   /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
-  const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string) => {
+  const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string): Place => {
     const day = selectedDay ?? 0;
     const name = nameOverride?.trim() || doc.place_name;
     const newPlace: Place = {
-      id: nextId,
+      id: allocatePlaceId(),
       name,
       category: doc.category_group_name || '미분류',
       address: doc.road_address_name || doc.address_name,
@@ -585,12 +600,12 @@ export function PlannerClient() {
     // 방문지를 새로 추가하면 아직 이 방문지를 반영한 경로가 계산되지 않은 상태이므로
     // 이동수단 표시는 숨기고, "경로 계산"을 눌러야 다시 나타나게 한다.
     setRouteSegmentsReady(false);
-    setNextId((n) => n + 1);
     setNewAddress('');
     setPendingSelectedDoc(null);
     setRouteCache({});
     logActivity(`${name}을 추가했습니다`);
     showToast('방문지가 일정에 추가됐어요');
+    return newPlace;
   };
 
   /** 검색 결과 항목을 클릭하면 바로 "방문지를 추가할까요?" 팝업을 정해진 상태로 띄운다. */
@@ -602,14 +617,32 @@ export function PlannerClient() {
     setAddConfirmOpen(true);
   };
 
+  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었어도 그 흐름은 그냥 끝난다. */
+  const cancelAddConfirm = () => {
+    setAddConfirmOpen(false);
+    setReturnToOriginPickerAfterAdd(false);
+  };
+  const cancelAddPlaceModal = () => {
+    setAddPlaceModalOpen(false);
+    setReturnToOriginPickerAfterAdd(false);
+  };
+
   const confirmAddPlace = () => {
     if (!pendingSelectedDoc) return;
     const name = pendingName.trim();
     if (!name) return;
-    addSelectedPlace(pendingSelectedDoc, name);
+    const added = addSelectedPlace(pendingSelectedDoc, name);
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
+    // 출발지 선택 흐름에서 들어온 추가라면, 방금 추가한 곳을 출발지로 바로 고를 수 있도록
+    // 출발지 선택 팝업으로 돌아간다 — 그래야 이 방문지도 다른 방문지와 똑같이 출발지가 될 수 있다.
+    if (returnToOriginPickerAfterAdd) {
+      setReturnToOriginPickerAfterAdd(false);
+      setOriginChoiceId(added.id);
+      setOriginListExpanded(false);
+      setOriginSelectOpen(true);
+    }
   };
 
   const deletePlace = (id: number) => {
@@ -1181,7 +1214,6 @@ export function PlannerClient() {
 
     const nextPlaces = [...places];
     const additions: Place[] = [];
-    let newId = nextId;
     let replaced = 0;
     let added = 0;
 
@@ -1199,7 +1231,7 @@ export function PlannerClient() {
         replaced += 1;
       } else {
         additions.push({
-          id: newId,
+          id: allocatePlaceId(),
           name: rec.name,
           category: '미분류',
           address: rec.address || rec.name,
@@ -1213,7 +1245,6 @@ export function PlannerClient() {
           x,
           y,
         });
-        newId += 1;
         added += 1;
       }
     }
@@ -1223,7 +1254,6 @@ export function PlannerClient() {
     setSegments(resizeSegments(finalPlaces, segments));
     // 방문지가 새로 추가됐으면 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
     if (added > 0) setRouteSegmentsReady(false);
-    setNextId(newId);
     setRouteCache({});
 
     const parts: string[] = [];
@@ -1338,7 +1368,14 @@ export function PlannerClient() {
         lastDay = day;
       }
       items.push({ kind: 'place', place: p, index: i });
-      if (i < enrichedSegments.length && (selectedDay === null || day === selectedDay)) {
+      // 특정 일차만 보고 있을 때는, 다음 방문지가 다른 일차로 넘어가는 구간(그 일차의 마지막
+      // 방문지 뒤에 붙는 연결선)은 보여주지 않는다 — 화면엔 그 다음 방문지가 안 보이는데
+      // 구간만 매달려 나오는 문제가 있었다.
+      const nextPlace = places[i + 1];
+      const nextDay = nextPlace ? Math.min(nextPlace.day ?? 0, dayCount - 1) : null;
+      const segmentInView =
+        selectedDay === null || (day === selectedDay && nextDay === selectedDay);
+      if (i < enrichedSegments.length && segmentInView) {
         items.push({ kind: 'segment', index: i });
       }
     });
@@ -1983,9 +2020,6 @@ export function PlannerClient() {
                   </>
                 ) : null}
               </div>
-              {canEdit ? (
-                <p className={styles.addHint}>여러 줄 붙여넣기·엑셀 업로드도 지원할 예정</p>
-              ) : null}
             </div>
           </>
         )}
@@ -2596,11 +2630,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 확인 */}
-      <Modal
-        open={addConfirmOpen}
-        title="방문지를 추가할까요?"
-        onClose={() => setAddConfirmOpen(false)}
-      >
+      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={cancelAddConfirm}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>장소명</span>
           <input
@@ -2614,7 +2644,7 @@ export function PlannerClient() {
           <p className={styles.fieldStatic}>{pendingAddress}</p>
         </div>
         <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setAddConfirmOpen(false)}>
+          <Button variant="secondary" size="sm" onClick={cancelAddConfirm}>
             취소
           </Button>
           <Button size="sm" onClick={confirmAddPlace} disabled={!pendingName.trim()}>
@@ -2624,11 +2654,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 (출발지 선택 팝업에서 "출발지가 방문지 목록에 없어요"로 진입) */}
-      <Modal
-        open={addPlaceModalOpen}
-        title="방문지 추가"
-        onClose={() => setAddPlaceModalOpen(false)}
-      >
+      <Modal open={addPlaceModalOpen} title="방문지 추가" onClose={cancelAddPlaceModal}>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={mapSearchQuery}
@@ -2673,7 +2699,7 @@ export function PlannerClient() {
           </div>
         ) : null}
         <div className={styles.modalActions} style={{ marginTop: 16 }}>
-          <Button variant="secondary" size="sm" onClick={() => setAddPlaceModalOpen(false)}>
+          <Button variant="secondary" size="sm" onClick={cancelAddPlaceModal}>
             취소
           </Button>
         </div>
@@ -2848,6 +2874,7 @@ export function PlannerClient() {
             }}
             onClick={() => {
               setOriginSelectOpen(false);
+              setReturnToOriginPickerAfterAdd(true);
               openAddPlaceModal();
             }}
           >
