@@ -14,6 +14,7 @@ import {
   WEATHER_SUBS,
 } from '@/constants';
 import { consumeAiRouteHandoff } from '@/lib/ai-route-handoff';
+import { runWithConcurrencyLimit } from '@/lib/concurrency';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
@@ -873,12 +874,14 @@ export function PlannerClient() {
   const searchAllRoutes = async () => {
     if (routeSearching || segments.length < 1) return;
     setRouteSearching(true);
-    const tasks: Promise<void>[] = [];
+    const tasks: (() => Promise<void>)[] = [];
     for (let idx = 0; idx < segments.length; idx++) {
       for (const mode of MODE_ORDER)
-        tasks.push(fetchSegmentRouteForModeWithCriteria(idx, mode, criteria));
+        tasks.push(() => fetchSegmentRouteForModeWithCriteria(idx, mode, criteria));
     }
-    await Promise.all(tasks);
+    // 방문지 수 × 이동수단 4종 요청을 한 번에 다 쏘면 카카오 API 요청 속도 제한에 걸려
+    // 일부(특히 도보/대중교통/자전거)가 조회 실패로 남는다 — 동시 요청 수를 제한한다.
+    await runWithConcurrencyLimit(tasks, 4);
     setRouteSearching(false);
     syncKakaoPolyline();
     logActivity('경로를 검색했습니다');
@@ -1596,18 +1599,20 @@ export function PlannerClient() {
               const matrix: (RouteLeg | null)[][] = Array.from({ length: size }, () =>
                 new Array(size).fill(null),
               );
-              const tasks: Promise<void>[] = [];
+              const tasks: (() => Promise<void>)[] = [];
               for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                   if (i === j) continue;
-                  tasks.push(
+                  tasks.push(() =>
                     fetchLeg(nodes[i], nodes[j], crit).then((leg) => {
                       matrix[i][j] = leg;
                     }),
                   );
                 }
               }
-              await Promise.all(tasks);
+              // 방문지 수의 제곱만큼 요청이 한 번에 몰리면 카카오 API 요청 속도 제한에 걸린다 —
+              // 동시 요청 수를 제한해서 실패율을 낮춘다.
+              await runWithConcurrencyLimit(tasks, 4);
               return matrix;
             };
 
@@ -1723,7 +1728,10 @@ export function PlannerClient() {
     if (routeOptimization) setRouteSegmentsReady(true);
   };
 
-  // 일차별로 경로를 따로 계산하므로, 출발지도 지금 보고 있는 일차의 방문지 중에서만 고른다.
+  // 일차별로 경로를 따로 계산한다. 특정 일차를 보고 있으면 그 일차 방문지 중에서만 출발지를
+  // 고르고, 전체보기에서는 모든 일차의 방문지를 다 보여주되(각 항목에 일차를 표시) 어떤
+  // 일차를 골라도 그 일차의 경로만 계산되도록 한다(runOptimalRoute가 출발지의 day로 범위를
+  // 좁혀서 계산한다).
   const originCandidatePlaces =
     hasDayTabs && selectedDay !== null
       ? places.filter((p) => (p.day ?? 0) === selectedDay)
@@ -1731,7 +1739,6 @@ export function PlannerClient() {
 
   const handleRouteCalcClick = () => {
     if (loading || originCandidatePlaces.length === 0) return;
-    if (hasDayTabs && selectedDay === null) return;
     if (originCandidatePlaces.length === 1) {
       setOriginId(originCandidatePlaces[0].id);
       proceedAfterOrigin(originCandidatePlaces[0].id);
@@ -1957,7 +1964,7 @@ export function PlannerClient() {
                 {timeline.map((item, i) => {
                   if (item.kind === 'divider') {
                     return (
-                      <div key={i} className={styles.dayDivider}>
+                      <div key={`divider-${i}`} className={styles.dayDivider}>
                         <span>{item.dayLabel}</span>
                         <span className={styles.dayDividerLine} />
                       </div>
@@ -1999,7 +2006,7 @@ export function PlannerClient() {
                   if (!seg) return null;
                   return (
                     <SegmentConnector
-                      key={i}
+                      key={`segment-${i}`}
                       mode={seg.mode}
                       totalMinutes={seg.totalMinutes}
                       totalDistanceKm={seg.totalDistanceKm}
@@ -2400,16 +2407,7 @@ export function PlannerClient() {
                   <span className={styles.pendingChip}>● 승인 대기 중</span>
                 ) : null}
                 {canEdit ? (
-                  <Button
-                    size="md"
-                    onClick={handleRouteCalcClick}
-                    disabled={loading || isAllDaysView}
-                    title={
-                      isAllDaysView
-                        ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
-                        : undefined
-                    }
-                  >
+                  <Button size="md" onClick={handleRouteCalcClick} disabled={loading}>
                     경로 계산
                   </Button>
                 ) : null}
@@ -2860,8 +2858,11 @@ export function PlannerClient() {
             onClick={() => setOriginListExpanded((v) => !v)}
           >
             <span>
-              {originCandidatePlaces.find((p) => p.id === originChoiceId)?.name ??
-                '방문지를 선택해주세요'}
+              {(() => {
+                const chosen = originCandidatePlaces.find((p) => p.id === originChoiceId);
+                if (!chosen) return '방문지를 선택해주세요';
+                return isAllDaysView ? `${(chosen.day ?? 0) + 1}일차 · ${chosen.name}` : chosen.name;
+              })()}
             </span>
             <span
               style={{
@@ -2892,7 +2893,7 @@ export function PlannerClient() {
                     setOriginListExpanded(false);
                   }}
                 >
-                  {p.name}
+                  {isAllDaysView ? `${(p.day ?? 0) + 1}일차 · ${p.name}` : p.name}
                 </button>
               ))}
             </div>
