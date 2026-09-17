@@ -80,7 +80,10 @@ export async function POST(request: Request) {
         const r = await kakaoGet(`${MOBILITY_BASE}/v1/directions`, {
           origin: `${params.originX},${params.originY}`,
           destination: `${params.destX},${params.destY}`,
-          priority: params.priority === 'distance' ? 'SHORTEST' : 'RECOMMEND',
+          // 카카오모빌리티 길찾기 priority 유효값은 RECOMMEND/TIME/DISTANCE 뿐이다 —
+          // 'SHORTEST'는 존재하지 않는 값이라 항상 400(invalid priority)으로 실패해서,
+          // "최단 거리" 기준으로 계산할 때 자동차 경로(따라서 지도 경로선)가 아예 안 나왔다.
+          priority: params.priority === 'distance' ? 'DISTANCE' : 'RECOMMEND',
         });
         if (!r.ok) {
           console.error('kakao car route error', r.status, r.data);

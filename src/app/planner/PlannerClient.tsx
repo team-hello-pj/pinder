@@ -75,6 +75,35 @@ function nextIdAfter(places: Place[]): number {
   return places.reduce((max, p) => Math.max(max, p.id), 0) + 1;
 }
 
+/**
+ * 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
+ * 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣을 위치를 찾는다 (해당 일차가 아직 없으면 끝에 붙인다).
+ */
+function dayGroupedInsertIndex(places: Place[], day: number): number {
+  for (let i = places.length - 1; i >= 0; i--) {
+    if (places[i].day === day) return i + 1;
+  }
+  return places.length;
+}
+
+/**
+ * 일차마다 지도 경로선 색을 다르게 보여주기 위한 팔레트. 초록 계열로만 묶으면 지도(도로/
+ * 지형)와 겹쳐서 구분이 잘 안 됐다 — 서로 색상(hue)이 뚜렷이 다른 색으로 바꿔 한눈에
+ * 구분되게 했다. 일차 수가 더 많으면 순환한다.
+ */
+const DAY_ROUTE_COLORS = [
+  '#2C8F4A', // 초록 (1일차)
+  '#C0392B', // 빨강
+  '#8E44AD', // 보라
+  '#D81B60', // 자홍
+  '#16A085', // 청록
+  '#B7950B', // 골드
+];
+
+function routeColorForDay(day: number): string {
+  return DAY_ROUTE_COLORS[day % DAY_ROUTE_COLORS.length];
+}
+
 function buildSuggestionChips(suggestions: string[]): string[] {
   return suggestions.filter(Boolean).slice(0, 3);
 }
@@ -183,6 +212,10 @@ export function PlannerClient() {
   const [mapSearchError, setMapSearchError] = useState<string | null>(null);
 
   // ---- 상황 변경 ----
+  // 전체보기에서 "변수 추가"를 누르면 어느 일차에 적용할지부터 고르게 한다 — 상황 변경 로직
+  // 자체는 일차 구분 없이 전체 places/segments를 대상으로 동작하므로, 먼저 그 일차로
+  // 화면을 좁혀 놓은 뒤 기존과 동일한 흐름을 그대로 태운다.
+  const [variableDayPickerOpen, setVariableDayPickerOpen] = useState(false);
   const [situationModalOpen, setSituationModalOpen] = useState(false);
   const [situationVar, setSituationVar] = useState<string | null>(null);
   const [situationSub, setSituationSub] = useState<string | null>(null);
@@ -192,7 +225,11 @@ export function PlannerClient() {
 
   // ---- 출발지 선택 / AI 가중치 기반 최적경로 계산 ----
   const [originId, setOriginId] = useState<number | null>(null);
-  const [routeOptimization, setRouteOptimization] = useState<RouteOptimizationState | null>(null);
+  // 일차마다 최적 경로 계산 결과를 따로 들고 있는다 — 그래야 전체보기에서 여러 일차를
+  // 각각 계산해 둔 뒤 최단시간/최단거리를 토글해도 일차별로 그 결과가 그대로 반영된다.
+  const [routeOptimizationByDay, setRouteOptimizationByDay] = useState<
+    Record<number, RouteOptimizationState>
+  >({});
   const [originSelectOpen, setOriginSelectOpen] = useState(false);
   const [originListExpanded, setOriginListExpanded] = useState(false);
   const [originChoiceId, setOriginChoiceId] = useState<number | null>(null);
@@ -416,9 +453,10 @@ export function PlannerClient() {
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
       const marker = new kakao.maps.Marker({ position: pos, map });
+      const pinColor = routeColorForDay(p.day ?? 0);
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${orderByPlaceId.get(p.id)}</div>`,
+        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px);box-shadow:0 0 0 2px rgba(255,255,255,0.85)">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
       kakaoMarkersRef.current.push(marker, overlay);
@@ -451,11 +489,12 @@ export function PlannerClient() {
       if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
       const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
       if (path.length < 2) continue;
+      const segmentDay = places[idx]?.day ?? 0;
       const line = new kakao.maps.Polyline({
         map,
         path,
         strokeWeight: 4,
-        strokeColor: '#2C8F4A',
+        strokeColor: routeColorForDay(segmentDay),
         strokeOpacity: 0.85,
         strokeStyle: 'solid',
       });
@@ -632,6 +671,7 @@ export function PlannerClient() {
         setAddConfirmOpen(false);
         if (returnToOriginPickerAfterAdd) setAddPlaceModalOpen(true);
       } else if (situationModalOpen) setSituationModalOpen(false);
+      else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
       else if (addPlaceModalOpen) {
@@ -640,7 +680,8 @@ export function PlannerClient() {
           setReturnToOriginPickerAfterAdd(false);
           setOriginSelectOpen(true);
         }
-      } else if (originConfirmOpen) setOriginConfirmOpen(false);
+      } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
+      else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
       else if (leaveConfirmOpen) setLeaveConfirmOpen(false);
     };
@@ -653,11 +694,13 @@ export function PlannerClient() {
     categoryModalOpen,
     addConfirmOpen,
     situationModalOpen,
+    variableDayPickerOpen,
     deleteConfirmOpen,
     originSelectOpen,
     originConfirmOpen,
     noVariableModalOpen,
     addPlaceModalOpen,
+    multiDayOriginModalOpen,
     leaveConfirmOpen,
     returnToOriginPickerAfterAdd,
   ]);
@@ -697,7 +740,8 @@ export function PlannerClient() {
       weather: 'sunny',
       day,
     };
-    const next = [...places, newPlace];
+    const next = [...places];
+    next.splice(dayGroupedInsertIndex(next, day), 0, newPlace);
     setPlaces(next);
     setSegments(resizeSegments(next, segments));
     // 방문지를 새로 추가하면 아직 이 방문지를 반영한 경로가 계산되지 않은 상태이므로
@@ -762,10 +806,14 @@ export function PlannerClient() {
     setRouteSegmentsReady(false);
     if (place) logActivity(`${place.name}을(를) 삭제했습니다`);
     // 출발지로 지정했던 방문지를 삭제하면 다음 경로 계산에서 출발지를 다시 고를 수 있도록 초기화한다.
-    if (id === originId) {
-      setOriginId(null);
-      setRouteOptimization(null);
-    }
+    if (id === originId) setOriginId(null);
+    const deletedDay = place?.day ?? 0;
+    setRouteOptimizationByDay((prev) => {
+      if (prev[deletedDay]?.originId !== id) return prev;
+      const next = { ...prev };
+      delete next[deletedDay];
+      return next;
+    });
   };
 
   const onDeleteClick = (id: number) => {
@@ -901,6 +949,14 @@ export function PlannerClient() {
   const onDrop = (idx: number) => {
     const wasDragging = dragIndex !== null && dragIndex !== idx;
     if (dragIndex === null || dragIndex === idx) return;
+    // 전체보기에서는 일차 경계를 넘어 순서가 섞이면 일차 구분이 무너지므로, 같은 일차
+    // 안에서의 순서 변경만 허용한다(다른 일차로 드롭하면 무시).
+    const fromDay = places[dragIndex]?.day ?? 0;
+    const toDay = places[idx]?.day ?? 0;
+    if (fromDay !== toDay) {
+      setDragIndex(null);
+      return;
+    }
     const arr = [...places];
     const [moved] = arr.splice(dragIndex, 1);
     arr.splice(idx, 0, moved);
@@ -1405,16 +1461,7 @@ export function PlannerClient() {
           x,
           y,
         };
-        // 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
-        // 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣는다 (해당 일차가 아직 없으면 끝에 붙인다).
-        let insertAt = nextPlaces.length;
-        for (let i = nextPlaces.length - 1; i >= 0; i--) {
-          if (nextPlaces[i].day === newPlace.day) {
-            insertAt = i + 1;
-            break;
-          }
-        }
-        nextPlaces.splice(insertAt, 0, newPlace);
+        nextPlaces.splice(dayGroupedInsertIndex(nextPlaces, newPlace.day ?? 0), 0, newPlace);
         added += 1;
       }
     }
@@ -1616,16 +1663,21 @@ export function PlannerClient() {
    * 그래서 scope 블록 전체를 새 순서(orderedScoped, 0번째가 항상 새 출발지)로 통째로
    * 교체해서, 새 출발지가 항상 그 일차의 맨 앞(1번)에 오고 번호가 겹치지 않게 한다.
    */
-  const applyOptimizedOrder = useCallback(
-    (result: OptimalRouteResult, sourcePlaces: Place[], scopeIds: Set<number>) => {
-      const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
+  // 일차별로 순서대로(runMultiDayOptimalRoute) 또는 여러 일차 결과를 한 번에 다시 적용할 때
+  // (setCriteria) applyOptimizedOrder가 연달아 여러 번 불릴 수 있다. 그때마다 넘겨받은
+  // sourcePlaces(클로저에 고정된 값)를 기준으로 계산하면, 뒤에 처리되는 일차가 앞서 반영된
+  // 일차의 변경을 덮어써 버린다. 그래서 항상 setPlaces의 최신 상태(prev)를 기준으로 계산한다.
+  const applyOptimizedOrder = useCallback((result: OptimalRouteResult, scopeIds: Set<number>) => {
+    let nextPlaces: Place[] = [];
+    setPlaces((prevPlaces) => {
+      const byId = new Map(prevPlaces.map((p) => [p.id, p] as const));
       const orderedScoped = result.placeIds
         .map((id) => byId.get(id))
         .filter((p): p is Place => Boolean(p));
 
       let blockInserted = false;
       const next: Place[] = [];
-      sourcePlaces.forEach((p) => {
+      prevPlaces.forEach((p) => {
         if (!scopeIds.has(p.id)) {
           next.push(p);
           return;
@@ -1636,13 +1688,12 @@ export function PlannerClient() {
         }
         // scope 에 속한 나머지 자리는 이미 orderedScoped 블록에 포함돼 있으므로 건너뛴다.
       });
-
-      setPlaces(next);
-      setSegments((segs) => resizeSegments(next, segs));
-      setRouteSegmentsReady(false);
-    },
-    [],
-  );
+      nextPlaces = next;
+      return next;
+    });
+    setSegments((prevSegments) => resizeSegments(nextPlaces, prevSegments));
+    setRouteSegmentsReady(false);
+  }, []);
 
   const runOptimalRoute = useCallback(
     async (origin: number) => {
@@ -1659,8 +1710,8 @@ export function PlannerClient() {
 
       const variableKey = currentVariableKey();
       const signature = buildRouteSignature(origin, dayPlaces, variableKey);
-      const reusable =
-        routeOptimization && routeOptimization.signature === signature ? routeOptimization : null;
+      const existingForDay = routeOptimizationByDay[originDay];
+      const reusable = existingForDay && existingForDay.signature === signature ? existingForDay : null;
 
       setLoading(true);
       try {
@@ -1786,16 +1837,12 @@ export function PlannerClient() {
               time: timeResult,
             };
           }
-          setRouteOptimization(stateToApply);
+          setRouteOptimizationByDay((prev) => ({ ...prev, [originDay]: stateToApply }));
           logActivity('AI가 변수를 반영해 최적 경로를 계산했습니다');
         }
 
         const scopeIds = new Set(stateToApply.distance.placeIds);
-        applyOptimizedOrder(
-          criteria === 'distance' ? stateToApply.distance : stateToApply.time,
-          places,
-          scopeIds,
-        );
+        applyOptimizedOrder(criteria === 'distance' ? stateToApply.distance : stateToApply.time, scopeIds);
         await searchAllRoutes();
         // 경로 계산이 끝났으므로 이동수단을 다시 표시한다.
         setRouteSegmentsReady(true);
@@ -1810,7 +1857,7 @@ export function PlannerClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- routeCache/searchAllRoutes 는 최신 값을 함수 내부에서 직접 읽는다
     [
       places,
-      routeOptimization,
+      routeOptimizationByDay,
       criteria,
       applyOptimizedOrder,
       showToast,
@@ -1831,26 +1878,24 @@ export function PlannerClient() {
 
   const setCriteria = (c: RouteCriteria) => {
     setCriteriaState(c);
-    // 이미 최적 경로를 계산해 뒀다면(출발지/목적지/변수가 그대로라면) 다시 계산하지 않고
-    // 저장해 둔 최단거리/최단시간 결과 중 해당하는 쪽을 그대로 적용한다.
-    if (routeOptimization && originId != null) {
-      const originPlace = places.find((p) => p.id === originId);
-      const originDay = originPlace?.day ?? 0;
-      const dayPlaces = hasDayTabs ? places.filter((p) => (p.day ?? 0) === originDay) : places;
-      const signature = buildRouteSignature(originId, dayPlaces, currentVariableKey());
-      if (routeOptimization.signature === signature) {
-        const scopeIds = new Set(routeOptimization.distance.placeIds);
-        applyOptimizedOrder(
-          c === 'distance' ? routeOptimization.distance : routeOptimization.time,
-          places,
-          scopeIds,
-        );
-      }
-    }
+    // 이미 계산해 둔 일차가 있다면(출발지/방문지/변수가 그대로인 일차만) 다시 계산하지 않고
+    // 저장해 둔 최단거리/최단시간 결과 중 해당하는 쪽을 그대로 적용한다 — 전체보기에서
+    // 여러 일차를 각각 계산해 뒀다면 그 일차들 전부에 적용된다.
+    const variableKey = currentVariableKey();
+    let anyApplied = false;
+    Object.entries(routeOptimizationByDay).forEach(([dayStr, opt]) => {
+      const day = Number(dayStr);
+      const dayPlaces = hasDayTabs ? places.filter((p) => (p.day ?? 0) === day) : places;
+      const signature = buildRouteSignature(opt.originId, dayPlaces, variableKey);
+      if (opt.signature !== signature) return;
+      const scopeIds = new Set(opt.distance.placeIds);
+      applyOptimizedOrder(c === 'distance' ? opt.distance : opt.time, scopeIds);
+      anyApplied = true;
+    });
     for (let idx = 0; idx < segments.length; idx++) {
       for (const mode of MODE_ORDER) fetchSegmentRouteForModeWithCriteria(idx, mode, c);
     }
-    if (routeOptimization) setRouteSegmentsReady(true);
+    if (anyApplied) setRouteSegmentsReady(true);
   };
 
   // 일차별로 경로를 따로 계산한다. 특정 일차를 보고 있으면 그 일차 방문지 중에서만 출발지를
@@ -1934,9 +1979,18 @@ export function PlannerClient() {
     if (originChoiceId == null) return;
     const chosenId = originChoiceId;
     setOriginConfirmOpen(false);
-    // 출발지를 바꾸면 이전 출발지 기준으로 저장해 둔 최적 경로 결과는 더 이상 유효하지 않다 —
+    // 출발지를 바꾸면 그 일차에 저장해 둔 최적 경로 결과는 더 이상 유효하지 않다 —
     // 시그니처 비교로도 걸러지지만, 이전 출발지가 1번으로 남아있는 일이 없도록 명시적으로 비운다.
-    if (chosenId !== originId) setRouteOptimization(null);
+    if (chosenId !== originId) {
+      const chosenPlace = places.find((p) => p.id === chosenId);
+      const chosenDay = chosenPlace?.day ?? 0;
+      setRouteOptimizationByDay((prev) => {
+        if (!(chosenDay in prev)) return prev;
+        const next = { ...prev };
+        delete next[chosenDay];
+        return next;
+      });
+    }
     setOriginId(chosenId);
     proceedAfterOrigin(chosenId);
   };
@@ -2098,9 +2152,7 @@ export function PlannerClient() {
                 ) : null}
               </div>
               <div className={styles.listHeaderRight}>
-                {canEdit && !isAllDaysView ? (
-                  <span className={styles.hint}>드래그로 순서 변경</span>
-                ) : null}
+                {canEdit ? <span className={styles.hint}>드래그로 순서 변경</span> : null}
                 {places.length > 0 && canEdit ? (
                   <button type="button" className={styles.clearAllBtn} onClick={clearAllPlaces}>
                     전체 삭제
@@ -2153,7 +2205,7 @@ export function PlannerClient() {
                         expanded={Boolean(expandedPlaces[item.place.id])}
                         memoSaved={Boolean(savedMemoIds[item.place.id])}
                         canEdit={canEdit}
-                        canReorder={!isAllDaysView}
+                        canReorder
                         handlers={{
                           onDragStart,
                           onDragOver,
@@ -2250,27 +2302,6 @@ export function PlannerClient() {
 
       {/* 우측: 지도 + 요약 */}
       <div className={styles.mapCol}>
-        {panelCollapsed ? (
-          <button
-            type="button"
-            className={styles.mobileExpandPanelBtn}
-            onClick={togglePanelCollapsed}
-            aria-label="플래너 펼치기"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        ) : null}
         {mapCollapsed ? (
           <button
             type="button"
@@ -2284,6 +2315,31 @@ export function PlannerClient() {
           <>
             <div className={styles.mapArea}>
               <div ref={mapRef} className={styles.mapCanvas} />
+
+              {/* 지도 화면 → 방문지/주소 입력 화면으로 돌아가는 버튼. 지도 상단은 검색창(searchOverlay)이
+                  펼침/접힘 상태에 따라 폭을 다르게 차지하므로, 그 영역과 절대 겹치지 않도록
+                  mapArea 하단(요약바 위쪽)에 고정한다. */}
+              {panelCollapsed ? (
+                <button
+                  type="button"
+                  className={styles.mobileExpandPanelBtn}
+                  onClick={togglePanelCollapsed}
+                  aria-label="플래너 펼치기"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+              ) : null}
 
               {searchMode ? (
                 <div className={styles.searchOverlay}>
@@ -2544,13 +2600,13 @@ export function PlannerClient() {
                   <button
                     type="button"
                     className={styles.situationBtn}
-                    onClick={openSituationModal}
-                    disabled={isAllDaysView}
-                    title={
-                      isAllDaysView
-                        ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
-                        : undefined
-                    }
+                    onClick={() => {
+                      if (isAllDaysView && dayCount > 1) {
+                        setVariableDayPickerOpen(true);
+                        return;
+                      }
+                      openSituationModal();
+                    }}
                   >
                     변수 추가
                   </button>
@@ -2925,6 +2981,37 @@ export function PlannerClient() {
         </div>
       </Modal>
 
+      {/* 전체보기에서 "변수 추가"를 누르면 어느 일차에 적용할지 먼저 고른다 */}
+      <Modal
+        open={variableDayPickerOpen}
+        title="어느 일차에 적용할까요?"
+        onClose={() => setVariableDayPickerOpen(false)}
+      >
+        <div className={styles.situationList}>
+          {Array.from({ length: dayCount }, (_, day) => day)
+            .filter((day) => places.some((p) => (p.day ?? 0) === day))
+            .map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={styles.situationOption}
+                onClick={() => {
+                  setVariableDayPickerOpen(false);
+                  setSelectedDay(day);
+                  openSituationModal();
+                }}
+              >
+                {day + 1}일차
+              </button>
+            ))}
+        </div>
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button variant="secondary" size="sm" onClick={() => setVariableDayPickerOpen(false)}>
+            취소
+          </Button>
+        </div>
+      </Modal>
+
       {/* 상황 변경 */}
       <Modal
         open={situationModalOpen}
@@ -3229,7 +3316,7 @@ export function PlannerClient() {
       >
         <p className={styles.modalDesc}>
           {scheduleId
-            ? '변경한 내용이 아직 저장되지 않았어요. 저장하면 이 일정만 수정돼요.'
+            ? '변경한 내용이 아직 저장되지 않았어요.'
             : '변경한 내용이 아직 저장되지 않았어요. 저장하면 내 일정에 새로 추가돼요.'}
         </p>
         <div className={styles.modalActions}>
