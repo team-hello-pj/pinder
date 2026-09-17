@@ -1,22 +1,72 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
-import { listExploreSections, type ExploreSection } from '@/lib/destinations';
-import { PlaceholderImage } from '@/components/ui';
+import { saveAiRouteHandoff } from '@/lib/ai-route-handoff';
+import {
+  getDestinationRoute,
+  listExploreSections,
+  type DestinationTripLength,
+  type ExploreSection,
+} from '@/lib/destinations';
+import { useSession } from '@/components/providers/SessionProvider';
+import { Modal, PlaceholderImage } from '@/components/ui';
 
 import { MAP_REGIONS, SECTION_PAGE_SIZE } from './data';
-import { NewTripFlow, type NewTripFlowHandle } from '../routes/NewTripFlow';
 import styles from './explore.module.css';
+
+const TRIP_LENGTH_OPTIONS: { length: DestinationTripLength; label: string }[] = [
+  { length: 1, label: '당일치기' },
+  { length: 2, label: '1박2일' },
+  { length: 3, label: '2박3일' },
+];
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 /** legacy/Explore Destinations.dc.html 를 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function ExploreClient() {
+  const router = useRouter();
+  const { isLoggedIn } = useSession();
   const [rawSections, setRawSections] = useState<ExploreSection[]>([]);
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.legendCollapsed) — PC에서는 항상 펼쳐져 보인다.
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
-  const newTripFlowRef = useRef<NewTripFlowHandle>(null);
+  const [durationModalDestId, setDurationModalDestId] = useState<string | null>(null);
+  const [loadingLength, setLoadingLength] = useState<DestinationTripLength | null>(null);
+
+  const openDurationModal = (destId: string) => {
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
+    setDurationModalDestId(destId);
+  };
+
+  const startWithDestinationRoute = async (tripLength: DestinationTripLength) => {
+    if (!durationModalDestId) return;
+    setLoadingLength(tripLength);
+    const route = await getDestinationRoute(durationModalDestId, tripLength);
+    setLoadingLength(null);
+    if (!route) {
+      window.alert('아직 준비된 동선이 없어요.');
+      return;
+    }
+    setDurationModalDestId(null);
+    saveAiRouteHandoff(route);
+    const tripStart = todayStr();
+    const tripEnd = addDaysStr(tripStart, tripLength - 1);
+    router.push(`/planner?new=1&tripStart=${tripStart}&tripEnd=${tripEnd}&mode=ai`);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -186,13 +236,15 @@ export function ExploreClient() {
                           </span>
                         ))}
                       </div>
-                      <button
-                        type="button"
-                        className={styles.cardLink}
-                        onClick={() => newTripFlowRef.current?.open({ destination: dest.name })}
-                      >
-                        이 여행지로 일정 짜기 →
-                      </button>
+                      {dest.hasRoute ? (
+                        <button
+                          type="button"
+                          className={styles.cardLink}
+                          onClick={() => openDurationModal(dest.id)}
+                        >
+                          이 여행지로 일정 짜기 →
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -201,7 +253,25 @@ export function ExploreClient() {
           ),
       )}
 
-      <NewTripFlow ref={newTripFlowRef} />
+      <Modal
+        open={durationModalDestId !== null}
+        title="며칠 동안 다녀오시나요?"
+        onClose={() => setDurationModalDestId(null)}
+      >
+        <div className={styles.tripLengthList}>
+          {TRIP_LENGTH_OPTIONS.map((opt) => (
+            <button
+              key={opt.length}
+              type="button"
+              className={styles.tripLengthOption}
+              disabled={loadingLength !== null}
+              onClick={() => startWithDestinationRoute(opt.length)}
+            >
+              {loadingLength === opt.length ? '불러오는 중...' : opt.label}
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

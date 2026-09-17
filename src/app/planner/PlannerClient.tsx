@@ -2465,51 +2465,51 @@ export function PlannerClient() {
 
             {/* 주소 추가 */}
             <div className={styles.addBar}>
-              <div className={styles.addBarRow}>
-                {canEdit ? (
-                  <>
-                    <input
-                      value={newAddress}
-                      onChange={(e) => {
-                        setNewAddress(e.target.value);
-                        setMapSearchQuery(e.target.value);
-                        setPendingSelectedDoc(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (isAllDaysView) return;
+              {canEdit && isAllDaysView ? (
+                // placeholder 는 한 줄로만 표시되고 input 너비에서 잘려 "전체보기에서는
+                // 추가할 수 없어요. 일차를" 까지만 보였다 — 두 줄로 온전히 보이도록
+                // 비활성 input/placeholder 대신 줄바꿈 가능한 안내 문구로 바꾼다.
+                <p className={styles.addHint}>
+                  전체보기에서는 추가할 수 없어요.
+                  <br />
+                  일차를 선택해주세요.
+                </p>
+              ) : (
+                <div className={styles.addBarRow}>
+                  {canEdit ? (
+                    <>
+                      <input
+                        value={newAddress}
+                        onChange={(e) => {
+                          setNewAddress(e.target.value);
+                          setMapSearchQuery(e.target.value);
+                          setPendingSelectedDoc(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            openSearchMode();
+                            runMapSearch();
+                          }
+                        }}
+                        onFocus={openSearchMode}
+                        placeholder="주소를 검색하여 추가하기"
+                        className={styles.addInput}
+                      />
+                      <button
+                        type="button"
+                        className={styles.addBtn}
+                        onClick={() => {
                           openSearchMode();
                           runMapSearch();
-                        }
-                      }}
-                      onFocus={() => {
-                        if (isAllDaysView) return;
-                        openSearchMode();
-                      }}
-                      placeholder={
-                        isAllDaysView
-                          ? '전체보기에서는 추가할 수 없어요. 일차를 선택해주세요.'
-                          : '주소를 검색하여 추가하기'
-                      }
-                      disabled={isAllDaysView}
-                      className={styles.addInput}
-                    />
-                    <button
-                      type="button"
-                      className={styles.addBtn}
-                      disabled={isAllDaysView}
-                      onClick={() => {
-                        if (isAllDaysView) return;
-                        openSearchMode();
-                        runMapSearch();
-                      }}
-                    >
-                      검색
-                    </button>
-                  </>
-                ) : null}
-              </div>
+                        }}
+                      >
+                        검색
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
           </>
         )}

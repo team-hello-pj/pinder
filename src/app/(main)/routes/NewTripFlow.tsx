@@ -19,12 +19,8 @@ function todayStr(): string {
 }
 
 export interface NewTripFlowHandle {
-  /**
-   * 로그인 상태면 "새 일정 만들기" 팝업을, 아니면 로그인 페이지를 띄운다.
-   * `destination`을 주면(여행지 탐색에서 들어온 경우) 생성 방식 선택 없이 곧바로
-   * AI 생성 흐름으로 이어지고, 지역 선택 단계는 건너뛰고 그 여행지로 바로 시작한다.
-   */
-  open: (preset?: { destination: string }) => void;
+  /** 로그인 상태면 "새 일정 만들기" 팝업을, 아니면 로그인 페이지를 띄운다. */
+  open: () => void;
 }
 
 /**
@@ -44,25 +40,15 @@ export const NewTripFlow = forwardRef<NewTripFlowHandle>(function NewTripFlow(_p
   const [newTripEnd, setNewTripEnd] = useState('');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [presetDestination, setPresetDestination] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
-    open: (preset) => {
+    open: () => {
       if (!isLoggedIn) {
         router.push('/login');
         return;
       }
       setNewTripStart(todayStr());
       setNewTripEnd('');
-      setPresetDestination(preset?.destination ?? null);
-      if (preset?.destination) {
-        // 여행지 탐색에서 들어온 경우 생성 방식을 고를 필요 없이 AI 생성으로 바로 이어간다.
-        setCreateMode('ai');
-        setCalYear(new Date().getFullYear());
-        setCalMonth(new Date().getMonth());
-        setNewTripOpen(true);
-        return;
-      }
       setModeSelectOpen(true);
     },
   }));
@@ -202,7 +188,6 @@ export const NewTripFlow = forwardRef<NewTripFlowHandle>(function NewTripFlow(_p
         open={aiWizardOpen}
         tripStart={newTripStart}
         tripEnd={newTripEnd || newTripStart}
-        initialRegion={presetDestination ?? undefined}
         onClose={() => setAiWizardOpen(false)}
         onConfirm={handleAiConfirm}
       />
