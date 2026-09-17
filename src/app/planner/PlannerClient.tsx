@@ -74,17 +74,14 @@ function nextIdAfter(places: Place[]): number {
   return places.reduce((max, p) => Math.max(max, p.id), 0) + 1;
 }
 
-const MODIFY_ROUTE_SUGGESTION = '동선을 수정해줘';
+function buildSuggestionChips(suggestions: string[]): string[] {
+  return suggestions.filter(Boolean).slice(0, 3);
+}
 
-function buildSuggestionChips(
-  suggestions: string[],
-  recommendedPlaces: RecommendedPlace[],
-): string[] {
-  const base = suggestions.filter(Boolean).slice(0, 3);
-  if (recommendedPlaces.length && !base.includes(MODIFY_ROUTE_SUGGESTION)) {
-    return [...base, MODIFY_ROUTE_SUGGESTION];
-  }
-  return base;
+/** 사용자가 채팅에서 직접 "추가해줘"/"수정해줘" 등으로 동선 반영을 명령했는지 판단한다. */
+const ROUTE_COMMAND_PATTERN = /추가|수정|바꿔|교체|변경/;
+function isRouteCommandMessage(text: string): boolean {
+  return ROUTE_COMMAND_PATTERN.test(text);
 }
 
 /** legacy/Route Planner App.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
@@ -1185,10 +1182,14 @@ export function PlannerClient() {
         {
           role: 'ai',
           text: res.reply,
-          suggestions: buildSuggestionChips(res.suggestions, res.recommendedPlaces),
+          suggestions: buildSuggestionChips(res.suggestions),
           recommendedPlaces: res.recommendedPlaces,
         },
       ]);
+      // 사용자가 채팅으로 직접 "추가해줘"/"수정해줘"라고 명령한 경우에만 바로 동선에 반영한다.
+      if (res.recommendedPlaces.length && isRouteCommandMessage(text)) {
+        void addRecommendedPlaces(res.recommendedPlaces);
+      }
     } catch (err) {
       console.error('sendAiMessage failed:', err);
       setAiMessages((prev) => [
@@ -2235,12 +2236,7 @@ export function PlannerClient() {
                               key={s}
                               type="button"
                               className={styles.aiSuggestionChip}
-                              disabled={s === MODIFY_ROUTE_SUGGESTION && addingRecommended}
-                              onClick={() =>
-                                s === MODIFY_ROUTE_SUGGESTION && msg.recommendedPlaces?.length
-                                  ? addRecommendedPlaces(msg.recommendedPlaces)
-                                  : sendAiMessage(s)
-                              }
+                              onClick={() => sendAiMessage(s)}
                             >
                               {s}
                             </button>
