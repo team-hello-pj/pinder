@@ -986,11 +986,9 @@ export function CommunityClient() {
         title={editingId ? '후기 수정' : '여행 후기 쓰기'}
         onClose={() => setComposerOpen(false)}
       >
-        {editingId ? (
-          <div className={styles.composerPhoto}>
-            <PlaceholderImage label="사진을 추가해주세요" />
-          </div>
-        ) : (
+        {/* 수정 모드에서는 여행지/지역/감상평만 고칠 수 있고 사진은 그대로 유지된다 —
+            그래서 사진 추가/삭제 UI 자체를 아예 보여주지 않는다(새 글 작성 때만 노출). */}
+        {editingId ? null : (
           <div className={styles.field}>
             <span className={styles.fieldLabel}>사진</span>
             <div className={styles.composerPhotoPicker}>
