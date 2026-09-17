@@ -23,7 +23,7 @@ export function SiteHeader() {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <Logo size="md" animated />
+        <Logo size="md" animated={pathname === ROUTES.home} />
 
         <nav className={styles.nav} aria-label="주요 메뉴">
           {MAIN_NAV.map((item) => {

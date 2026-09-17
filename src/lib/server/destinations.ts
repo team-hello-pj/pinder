@@ -6,6 +6,15 @@ import { db } from '@/db/client';
 import { destinations } from '@/db/schema';
 import type { Place, TransportMode } from '@/types';
 
+export type DestinationTripLength = 1 | 2 | 3;
+
+interface DestinationRouteVariant {
+  places: Place[];
+  segments: TransportMode[];
+}
+
+type StoredRoutes = Partial<Record<'1' | '2' | '3', DestinationRouteVariant>>;
+
 export interface DestinationView {
   id: string;
   name: string;
@@ -46,25 +55,28 @@ export async function listExploreSections(): Promise<ExploreSectionView[]> {
       badge: row.badge,
       desc: row.desc,
       tags: row.tags as string[],
-      hasRoute: Array.isArray(row.places) && row.places.length > 0,
+      hasRoute: Boolean(row.routes && typeof row.routes === 'object'),
     });
   }
 
   return sections;
 }
 
-/** "이 여행지로 일정 짜기"에서 쓸, 미리 만들어 둔 동선을 그대로 돌려준다. 없으면 null. */
+/**
+ * "이 여행지로 일정 짜기"에서 쓸, 미리 만들어 둔 동선을 돌려준다 — 당일치기(1)/1박2일(2)/
+ * 2박3일(3) 중 고른 길이에 맞는 것 하나. 그 길이로 만들어 둔 게 없으면 null.
+ */
 export async function getDestinationRoute(
   id: string,
-): Promise<{ places: Place[]; segments: TransportMode[] } | null> {
+  tripLength: DestinationTripLength,
+): Promise<DestinationRouteVariant | null> {
   const [row] = await db
-    .select({ places: destinations.places, segments: destinations.segments })
+    .select({ routes: destinations.routes })
     .from(destinations)
     .where(eq(destinations.id, id))
     .limit(1);
-  if (!row || !Array.isArray(row.places) || row.places.length === 0) return null;
-  return {
-    places: row.places as Place[],
-    segments: (row.segments as TransportMode[]) ?? [],
-  };
+  const routes = row?.routes as StoredRoutes | null | undefined;
+  const variant = routes?.[String(tripLength) as '1' | '2' | '3'];
+  if (!variant || !Array.isArray(variant.places) || variant.places.length === 0) return null;
+  return { places: variant.places, segments: variant.segments ?? [] };
 }

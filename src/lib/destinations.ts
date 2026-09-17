@@ -31,9 +31,15 @@ export interface DestinationRoute {
   segments: TransportMode[];
 }
 
+/** 당일치기/1박2일/2박3일 중 어느 걸로 미리 만들어 둔 동선을 가져올지. */
+export type DestinationTripLength = 1 | 2 | 3;
+
 /** "이 여행지로 일정 짜기"에서 쓸, 미리 만들어 둔 동선을 가져온다. 없으면 null. */
-export async function getDestinationRoute(id: string): Promise<DestinationRoute | null> {
-  const res = await fetch(`/api/explore/destinations/${id}`);
+export async function getDestinationRoute(
+  id: string,
+  tripLength: DestinationTripLength,
+): Promise<DestinationRoute | null> {
+  const res = await fetch(`/api/explore/destinations/${id}?days=${tripLength}`);
   if (!res.ok) return null;
   return res.json().catch(() => null);
 }
