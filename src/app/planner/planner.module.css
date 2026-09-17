@@ -111,12 +111,18 @@
   width: 32px;
   height: 31px;
   border-radius: 8px;
-  border: none;
+  border: 1px solid var(--pd-border);
   background: var(--pd-chip-bg);
   color: var(--pd-text);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* 다크모드에서는 --pd-border 와 --pd-chip-bg 가 둘 다 어두운 회색이라 테두리가 배경에
+   묻혀 거의 안 보인다 — 더 뚜렷한 색으로 구분되게 한다. */
+:global([data-theme='dark']) .collapseBtn {
+  border-color: var(--pd-text-sub);
 }
 
 .devRoleRow {

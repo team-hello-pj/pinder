@@ -15,6 +15,12 @@
     transform 0.06s ease;
 }
 
+/* 다크모드에서는 --pd-border 가 배경(카드/페이지)과 명도 차이가 거의 없어 테두리가 안 보인다
+   — 더 뚜렷한 색으로 구분되게 한다. */
+:global([data-theme='dark']) .toggle {
+  border-color: var(--pd-text-sub);
+}
+
 .toggle:hover {
   filter: brightness(1.05);
   opacity: 0.85;

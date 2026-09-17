@@ -27,7 +27,7 @@ import {
 } from '@/lib/kakao/client';
 import { fmtRange } from '@/lib/calendar';
 import { tripDayCount } from '@/lib/format';
-import { applySituationAdjustment, computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
+import { computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
 import {
   buildRouteSignature,
   computeDelayCost,
@@ -229,6 +229,11 @@ export function PlannerClient() {
   // 자체는 일차 구분 없이 전체 places/segments를 대상으로 동작하므로, 먼저 그 일차로
   // 화면을 좁혀 놓은 뒤 기존과 동일한 흐름을 그대로 태운다.
   const [variableDayPickerOpen, setVariableDayPickerOpen] = useState(false);
+  // 일차를 정하고 나면, 그 일차 안에서 "지금 어디까지 왔는지"(장소)를 고르게 한다 — 그
+  // 장소까지는 이미 지나간 것으로 보고 그대로 두고, 그 다음 장소들만 변수를 반영해 AI가
+  // 다시 짠다.
+  const [variablePlacePickerOpen, setVariablePlacePickerOpen] = useState(false);
+  const [variableAnchorPlaceId, setVariableAnchorPlaceId] = useState<number | null>(null);
   const [situationModalOpen, setSituationModalOpen] = useState(false);
   const [situationVar, setSituationVar] = useState<string | null>(null);
   const [situationSub, setSituationSub] = useState<string | null>(null);
@@ -496,14 +501,16 @@ export function PlannerClient() {
     const bounds = new kakao.maps.LatLngBounds();
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
-      const marker = new kakao.maps.Marker({ position: pos, map });
       const pinColor = routeColorForDay(p.day ?? 0);
+      // 기본 카카오 마커(빨간 물방울) 대신, 핀이 찍히는 자리 자체를 그 일차 색으로 채운
+      // 동그라미로 표시한다 — 숫자 배지를 따로 위에 띄우지 않고 하나로 합치고, 테두리(흰
+      // 링)도 없앤다.
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px);box-shadow:0 0 0 2px rgba(255,255,255,0.85)">${orderByPlaceId.get(p.id)}</div>`,
+        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
-      kakaoMarkersRef.current.push(marker, overlay);
+      kakaoMarkersRef.current.push(overlay);
       bounds.extend(pos);
     });
     map.setBounds(bounds);
@@ -788,6 +795,7 @@ export function PlannerClient() {
           openNextModal(() => setAddPlaceModalOpen(true));
         }
       } else if (situationModalOpen) setSituationModalOpen(false);
+      else if (variablePlacePickerOpen) setVariablePlacePickerOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
@@ -816,6 +824,7 @@ export function PlannerClient() {
     categoryModalOpen,
     addConfirmOpen,
     situationModalOpen,
+    variablePlacePickerOpen,
     variableDayPickerOpen,
     deleteConfirmOpen,
     originSelectOpen,
@@ -1208,70 +1217,102 @@ export function PlannerClient() {
   };
 
   // ---- 상황 변경 ----
+  /** "변수 추가"는 항상 먼저 그 일차의 어느 장소까지 왔는지부터 고른다 — 그 장소까지는
+   * 이미 지나간 것으로 보고 그대로 두고, 그 다음 장소들만 변수를 반영해 다시 짠다. */
+  const openVariablePlacePicker = () => {
+    setVariableAnchorPlaceId(null);
+    // 다른 팝업(일차 선택 등)을 막 닫은 직후 호출될 수 있어 그 팝업이 실제로 닫힌 뒤에 열리도록 미룬다.
+    openNextModal(() => setVariablePlacePickerOpen(true));
+  };
+
   const openSituationModal = () => {
     setSituationVar(null);
     setSituationSub(null);
     setSituationSeverity(null);
     setSituationFreeText('');
-    // 다른 팝업(변수 없음 확인, 일차 선택 등)을 막 닫은 직후 호출될 수 있어 그 팝업이
-    // 실제로 닫힌 뒤에 열리도록 미룬다.
+    // 장소 선택 팝업을 막 닫은 직후 호출되므로 그 팝업이 실제로 닫힌 뒤에 열리도록 미룬다.
     openNextModal(() => setSituationModalOpen(true));
   };
 
-  const applySituationRuleBased = () => {
-    if (!situationVar || !situationSeverity) return;
-    if (situationVar === 'weather' && !situationSub) return;
-    const sevWeight = SEVERITY_LEVELS.find((s) => s.id === situationSeverity)?.weight ?? 1;
-    setSituationModalOpen(false);
-    setLoading(true);
-    setTimeout(() => {
-      const result = applySituationAdjustment(
-        situationVar,
-        situationSub,
-        sevWeight,
-        places,
-        segments,
-      );
-      setPlaces(result.places);
-      setSegments(result.segments);
-      setRouteSegmentsReady(true);
-      setLoading(false);
-      const varLabel = SITUATION_VARS.find((v) => v.id === situationVar)?.label ?? situationVar;
-      const sevLabel = SEVERITY_LEVELS.find((s) => s.id === situationSeverity)?.label ?? '';
-      logActivity(`상황 변경(${varLabel} · ${sevLabel})에 맞춰 동선을 재계산했습니다`);
-      showToast('변경된 상황을 동선에 반영했어요');
-    }, 800);
+  /** 자유 텍스트가 없으면 빠른 선택(변수/세부/심각도)으로 자연어 문장을 만든다. */
+  const buildSituationText = (): string | null => {
+    const freeText = situationFreeText.trim();
+    if (freeText) return freeText;
+    if (!situationVar || !situationSeverity) return null;
+    if (situationVar === 'weather' && !situationSub) return null;
+    const varLabel = SITUATION_VARS.find((v) => v.id === situationVar)?.label ?? situationVar;
+    const subLabel =
+      situationVar === 'weather' ? WEATHER_SUBS.find((w) => w.id === situationSub)?.label : null;
+    const sevLabel = SEVERITY_LEVELS.find((s) => s.id === situationSeverity)?.label ?? '';
+    const situationLabel = subLabel ? `${subLabel} ${varLabel}` : varLabel;
+    return `${situationLabel} 상황이에요. 힘든 정도는 "${sevLabel}" 수준이에요.`;
   };
 
+  /**
+   * 선택한 장소(variableAnchorPlaceId)까지는 이미 지나갔다고 보고 그대로 두고, 그 일차의
+   * 그 다음 장소들만 상황을 반영해 AI로 다시 짠다. 자유 텍스트든 빠른 선택이든 이 함수
+   * 하나로 처리한다 — 어느 쪽이든 결국 AI가 재구성해야 하기 때문이다.
+   */
   const applySituationWithAi = async () => {
-    const text = situationFreeText.trim();
-    if (!text || places.length < 2) return;
+    const text = buildSituationText();
+    if (!text || variableAnchorPlaceId == null) return;
+
+    const day = selectedDay ?? 0;
+    const dayEntries = places.map((p, i) => ({ p, i })).filter(({ p }) => (p.day ?? 0) === day);
+    const splitPos = dayEntries.findIndex(({ p }) => p.id === variableAnchorPlaceId);
+    if (splitPos === -1) return;
+    const anchorEntry = dayEntries[splitPos];
+    const movableEntries = dayEntries.slice(splitPos + 1);
+    if (!movableEntries.length) {
+      showToast('선택한 장소 다음에 재구성할 방문지가 없어요');
+      return;
+    }
+
     setSituationModalOpen(false);
     setLoading(true);
     try {
+      const requestPlaces = [anchorEntry, ...movableEntries].map(({ p }) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        duration: p.duration,
+      }));
+      // segments[anchorEntry.i .. anchorEntry.i+movableEntries.length-1] 가 정확히
+      // anchor→movable[0]→...→movable[마지막] 사이 구간들이라 그대로 잘라 넘긴다.
+      const requestSegments = segments.slice(anchorEntry.i, anchorEntry.i + movableEntries.length);
       const result = await requestAiRouteAdjustment(
         text,
-        places.map((p) => ({
-          id: p.id,
-          name: p.name,
-          category: p.category,
-          duration: p.duration,
-        })),
-        segments,
+        requestPlaces,
+        requestSegments,
+        anchorEntry.p.id,
       );
-      const placeById = new Map(places.map((p) => [p.id, p]));
-      const newPlaces = result.order
-        .map((id) => placeById.get(id))
+
+      const movableById = new Map(movableEntries.map(({ p }) => [p.id, p]));
+      const newMovable = result.order
+        .filter((id) => id !== anchorEntry.p.id)
+        .map((id) => movableById.get(id))
         .filter((p): p is Place => Boolean(p));
-      const newSegments = result.segments.map((m) =>
+      const newSegs = result.segments.map((m) =>
         (MODE_ORDER as string[]).includes(m) ? (m as TransportMode) : 'car',
       );
-      if (newPlaces.length === places.length) {
-        setPlaces(newPlaces);
-        setSegments(newSegments);
-        setRouteSegmentsReady(true);
-        setRouteCache({});
+      if (newMovable.length !== movableEntries.length || newSegs.length !== movableEntries.length) {
+        showToast('AI 응답을 해석하지 못해 동선을 그대로 뒀어요');
+        return;
       }
+
+      const firstMovableIdx = movableEntries[0].i;
+      setPlaces((prev) => {
+        const next = [...prev];
+        next.splice(firstMovableIdx, movableEntries.length, ...newMovable);
+        return next;
+      });
+      setSegments((prev) => {
+        const next = [...prev];
+        next.splice(anchorEntry.i, movableEntries.length, ...newSegs);
+        return next;
+      });
+      setRouteSegmentsReady(true);
+      setRouteCache({});
       logActivity(`AI 상황 반영: "${text}" → ${result.note || '동선을 재구성했습니다'}`);
       showToast(result.note || '변경된 상황을 동선에 반영했어요');
     } catch (err) {
@@ -1280,15 +1321,12 @@ export function PlannerClient() {
     } finally {
       setLoading(false);
       setSituationFreeText('');
+      setVariableAnchorPlaceId(null);
     }
   };
 
   const applySituation = () => {
-    if (situationFreeText.trim()) {
-      void applySituationWithAi();
-      return;
-    }
-    applySituationRuleBased();
+    void applySituationWithAi();
   };
 
   // ---- 지도 검색 모드 ----
@@ -2959,7 +2997,7 @@ export function PlannerClient() {
                         setVariableDayPickerOpen(true);
                         return;
                       }
-                      openSituationModal();
+                      openVariablePlacePicker();
                     }}
                   >
                     변수 추가
@@ -3307,23 +3345,6 @@ export function PlannerClient() {
             검색
           </Button>
         </div>
-        <button
-          type="button"
-          className={styles.hint}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            marginTop: 8,
-            cursor: locatingCurrentPosition ? 'default' : 'pointer',
-            textDecoration: 'underline',
-            opacity: locatingCurrentPosition ? 0.6 : 1,
-          }}
-          onClick={useCurrentLocationAsOrigin}
-          disabled={locatingCurrentPosition}
-        >
-          {locatingCurrentPosition ? '현재 위치를 확인하는 중...' : '현재 위치를 출발지로 설정'}
-        </button>
         {mapSearchLoading ? <p className={styles.modalDesc}>검색 중...</p> : null}
         {mapSearchError ? <p className={styles.modalDesc}>{mapSearchError}</p> : null}
         {mapSearchResults.length > 0 ? (
@@ -3349,7 +3370,26 @@ export function PlannerClient() {
             ))}
           </div>
         ) : null}
-        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+        <div
+          className={styles.modalActions}
+          style={{ marginTop: 16, justifyContent: 'space-between' }}
+        >
+          <button
+            type="button"
+            className={styles.hint}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: locatingCurrentPosition ? 'default' : 'pointer',
+              textDecoration: 'underline',
+              opacity: locatingCurrentPosition ? 0.6 : 1,
+            }}
+            onClick={useCurrentLocationAsOrigin}
+            disabled={locatingCurrentPosition}
+          >
+            {locatingCurrentPosition ? '현재 위치를 확인하는 중...' : '현재 위치를 출발지로 설정'}
+          </button>
           <Button variant="secondary" size="sm" onClick={cancelAddPlaceModal}>
             취소
           </Button>
@@ -3373,7 +3413,7 @@ export function PlannerClient() {
                 onClick={() => {
                   setVariableDayPickerOpen(false);
                   setSelectedDay(day);
-                  openSituationModal();
+                  openVariablePlacePicker();
                 }}
               >
                 {day + 1}일차
@@ -3383,6 +3423,51 @@ export function PlannerClient() {
         <div className={styles.modalActions} style={{ marginTop: 16 }}>
           <Button variant="secondary" size="sm" onClick={() => setVariableDayPickerOpen(false)}>
             취소
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 변수를 적용할 장소 선택 — 이 장소까지는 이미 지나간 것으로 보고 그대로 두고,
+          그 다음 장소들만 AI가 상황에 맞춰 다시 짠다. */}
+      <Modal
+        open={variablePlacePickerOpen}
+        title="지금 어디까지 왔나요?"
+        onClose={() => setVariablePlacePickerOpen(false)}
+      >
+        <p className={styles.modalDesc}>
+          선택한 장소까지는 그대로 두고, 그 다음 장소들만 변수를 반영해 다시 짜요.
+        </p>
+        <div className={styles.situationList}>
+          {places
+            .filter((p) => (p.day ?? 0) === (selectedDay ?? 0))
+            .map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={
+                  variableAnchorPlaceId === p.id
+                    ? `${styles.situationOption} ${styles.situationOptionActive}`
+                    : styles.situationOption
+                }
+                onClick={() => setVariableAnchorPlaceId(p.id)}
+              >
+                {dayOrderByPlaceId.get(p.id) ?? ''}. {p.name}
+              </button>
+            ))}
+        </div>
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button variant="secondary" size="sm" onClick={() => setVariablePlacePickerOpen(false)}>
+            취소
+          </Button>
+          <Button
+            size="sm"
+            disabled={variableAnchorPlaceId == null}
+            onClick={() => {
+              setVariablePlacePickerOpen(false);
+              openSituationModal();
+            }}
+          >
+            다음
           </Button>
         </div>
       </Modal>
@@ -3401,9 +3486,6 @@ export function PlannerClient() {
           placeholder="예: 오늘 다리를 다쳐서 많이 못 걸어요 / 갑자기 비가 많이 와요"
           maxLength={300}
         />
-        {situationFreeText.trim() && places.length < 2 ? (
-          <p className={styles.warnBox}>방문지를 2곳 이상 추가한 후 사용할 수 있어요.</p>
-        ) : null}
         <div className={styles.situationDivider}>또는 빠르게 선택</div>
         <p className={styles.modalSectionLabel}>어떤 상황이 생겼나요?</p>
         <div className={styles.situationList}>
@@ -3476,14 +3558,13 @@ export function PlannerClient() {
             size="sm"
             onClick={applySituation}
             disabled={
-              situationFreeText.trim()
-                ? places.length < 2
-                : !situationVar ||
-                  !situationSeverity ||
-                  (situationVar === 'weather' && !situationSub)
+              !situationFreeText.trim() &&
+              (!situationVar ||
+                !situationSeverity ||
+                (situationVar === 'weather' && !situationSub))
             }
           >
-            {situationFreeText.trim() ? 'AI로 동선 재구성' : '동선 재계산'}
+            AI로 동선 재구성
           </Button>
         </div>
       </Modal>
@@ -3686,7 +3767,7 @@ export function PlannerClient() {
             size="sm"
             onClick={() => {
               setNoVariableModalOpen(false);
-              openSituationModal();
+              openVariablePlacePicker();
             }}
           >
             변수 추가하기
