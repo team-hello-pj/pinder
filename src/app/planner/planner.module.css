@@ -1874,7 +1874,9 @@
     position: absolute;
     top: 12px;
     left: 12px;
-    z-index: 30;
+    /* .searchOverlay(검색창/검색 결과, z-index:20)보다 항상 위 스택 순서에 오도록 — 아래
+       .searchOverlay 위치 조정과 함께 이중으로 겹침을 막는다. */
+    z-index: 40;
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -1885,6 +1887,13 @@
     border: 1px solid var(--pd-border);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  /* 지도 화면(주소창으로 돌아가기 버튼이 뜨는 상태)에서는 검색창이 버튼 자리를 침범하지
+     않도록 왼쪽 여백을 버튼 폭(36px)+여백만큼 띄운다 — 버튼/검색창이 같은 좌상단 자리를
+     두고 겹치지 않게 자리 자체를 분리하는 것이 z-index 만으로 해결하는 것보다 확실하다. */
+  .shellPanelCollapsed .searchOverlay {
+    left: 56px;
   }
 
   /* 일괄적용 이동수단 칩 — PC와 달리 각 배경색에 border-color 가 묻혀 보이지 않으므로
