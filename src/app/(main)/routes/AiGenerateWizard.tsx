@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { MODE_MAP } from '@/constants';
 import { searchKeyword } from '@/lib/kakao/client';
@@ -61,6 +61,8 @@ export interface AiGenerateWizardProps {
   open: boolean;
   tripStart: string;
   tripEnd: string;
+  /** 여행지 탐색에서 특정 여행지를 고르고 들어온 경우 — 지역 선택 단계를 건너뛰고 이 값으로 바로 시작한다. */
+  initialRegion?: string;
   onClose: () => void;
   onConfirm: (places: Place[], segments: TransportMode[]) => void;
 }
@@ -69,11 +71,13 @@ export function AiGenerateWizard({
   open,
   tripStart,
   tripEnd,
+  initialRegion,
   onClose,
   onConfirm,
 }: AiGenerateWizardProps) {
-  const [step, setStep] = useState(0);
-  const [region, setRegion] = useState<string | null>(null);
+  const firstStep = initialRegion ? 1 : 0;
+  const [step, setStep] = useState(firstStep);
+  const [region, setRegion] = useState<string | null>(initialRegion ?? null);
   const [customRegion, setCustomRegion] = useState('');
   const [regionError, setRegionError] = useState<string | null>(null);
   const [validatingRegion, setValidatingRegion] = useState(false);
@@ -87,11 +91,31 @@ export function AiGenerateWizard({
   const [resultPlaces, setResultPlaces] = useState<ResultPlace[] | null>(null);
   const [resultSegments, setResultSegments] = useState<TransportMode[]>([]);
 
+  // 이 컴포넌트는 항상 마운트돼 있고 open prop만 바뀌므로(useState 초기값은 처음 마운트될 때
+  // 한 번만 쓰인다), 열릴 때마다 그 시점의 initialRegion 을 반영해 처음부터 다시 시작한다.
+  useEffect(() => {
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 열릴 때 폼 상태를 초기화한다
+    setStep(initialRegion ? 1 : 0);
+    setRegion(initialRegion ?? null);
+    setCustomRegion('');
+    setRegionError(null);
+    setValidatingRegion(false);
+    setStyle(null);
+    setInterests([]);
+    setCompanion(null);
+    setTransportMode(null);
+    setGenerating(false);
+    setError(null);
+    setResultPlaces(null);
+    setResultSegments([]);
+  }, [open, initialRegion]);
+
   if (!open) return null;
 
   const resetForClose = () => {
-    setStep(0);
-    setRegion(null);
+    setStep(firstStep);
+    setRegion(initialRegion ?? null);
     setCustomRegion('');
     setRegionError(null);
     setValidatingRegion(false);
@@ -224,7 +248,7 @@ export function AiGenerateWizard({
   };
 
   const goBack = () => {
-    if (step === 0) {
+    if (step === firstStep) {
       resetForClose();
       return;
     }
@@ -390,7 +414,9 @@ export function AiGenerateWizard({
             {step === 1 ? (
               <>
                 <h2 className={styles.aiWizardTitle}>어떤 스타일의 여행을 원하세요?</h2>
-                <p className={styles.aiWizardSubtitle}>하나를 선택해주세요</p>
+                <p className={styles.aiWizardSubtitle}>
+                  {initialRegion ? `${initialRegion} 여행 · ` : ''}하나를 선택해주세요
+                </p>
                 <div className={styles.aiWizardGrid2}>
                   {STYLES.map((s) => (
                     <button
