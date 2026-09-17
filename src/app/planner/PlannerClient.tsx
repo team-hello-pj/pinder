@@ -1246,7 +1246,6 @@ export function PlannerClient() {
     }
 
     const nextPlaces = [...places];
-    const additions: Place[] = [];
     let replaced = 0;
     let added = 0;
 
@@ -1263,7 +1262,7 @@ export function PlannerClient() {
         };
         replaced += 1;
       } else {
-        additions.push({
+        const newPlace: Place = {
           id: allocatePlaceId(),
           name: rec.name,
           category: '미분류',
@@ -1277,12 +1276,22 @@ export function PlannerClient() {
           day: dayOverride ?? selectedDay ?? 0,
           x,
           y,
-        });
+        };
+        // 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
+        // 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣는다 (해당 일차가 아직 없으면 끝에 붙인다).
+        let insertAt = nextPlaces.length;
+        for (let i = nextPlaces.length - 1; i >= 0; i--) {
+          if (nextPlaces[i].day === newPlace.day) {
+            insertAt = i + 1;
+            break;
+          }
+        }
+        nextPlaces.splice(insertAt, 0, newPlace);
         added += 1;
       }
     }
 
-    const finalPlaces = [...nextPlaces, ...additions];
+    const finalPlaces = nextPlaces;
     setPlaces(finalPlaces);
     setSegments(resizeSegments(finalPlaces, segments));
     // 방문지가 새로 추가됐으면 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
