@@ -90,6 +90,11 @@
   filter: invert(1);
 }
 
+/* .sideCol 이 숨겨지는 1024px 이하에서만 보이는 글쓰기/내 프로필 버튼 — PC에서는 숨김 */
+.mobileActions {
+  display: none;
+}
+
 .row {
   display: flex;
   gap: 20px;
@@ -1105,6 +1110,22 @@
 @media (max-width: 1024px) {
   .sideCol {
     display: none;
+  }
+
+  /* .sideCol 이 사라지는 지점부터 같은 버튼을 상단 영역에 노출한다 — 화면이 좁아 두 버튼을
+     나란히 두기 부족하면(작은 모바일) .writeBtn/.myProfileBtn 자체의 width:100% 대신
+     flex:1 로 같은 줄에서 폭을 나눠 쓰게 하고, 헤더 바로 아래라 다른 요소에 밀려
+     화면 밖으로 내려갈 일이 없다. */
+  .mobileActions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .mobileActions .writeBtn,
+  .mobileActions .myProfileBtn {
+    width: auto;
+    flex: 1;
   }
 }
 

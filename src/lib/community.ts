@@ -81,6 +81,14 @@ export function resizePostImageFile(file: File): Promise<string> {
 
 async function postsJson(res: Response): Promise<PostView[]> {
   const data = await res.json().catch(() => null);
+  // 서버가 검증 실패(400)/미인증(401)/오류(500)로 { error } 를 응답하면 { posts } 가 없어
+  // data?.posts 가 그냥 undefined 로 흘러버렸다 — 실패를 "게시물 0개 응답"으로 오인해 목록이
+  // 비어 보이고, 호출부는 정상 완료된 것처럼 다음 동작(모달 닫기, 완료 토스트 등)을 이어갔다.
+  // 상태 코드로 실패를 명확히 구분해 호출부가 catch 로 실패를 알 수 있게 한다.
+  if (!res.ok) {
+    const message = (data as { error?: string } | null)?.error || '요청을 처리하지 못했어요.';
+    throw new Error(message);
+  }
   return data?.posts ?? [];
 }
 

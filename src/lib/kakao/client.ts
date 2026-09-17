@@ -52,6 +52,16 @@ export function geocodeAddress(query: string) {
   return callKakao<{ documents: KakaoPlaceDoc[] }>('geocode', { query });
 }
 
+export interface KakaoReverseGeocodeDoc {
+  address?: { address_name: string } | null;
+  road_address?: { address_name: string } | null;
+}
+
+/** 좌표(x=경도, y=위도)를 사람이 읽을 수 있는 주소로 바꾼다. "현재 위치" 표시용. */
+export function reverseGeocode(x: number, y: number) {
+  return callKakao<{ documents: KakaoReverseGeocodeDoc[] }>('reverseGeocode', { x, y });
+}
+
 export interface RouteRequest {
   originX: number;
   originY: number;

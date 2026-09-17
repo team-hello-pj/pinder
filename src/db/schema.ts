@@ -254,6 +254,8 @@ export const destinations = pgTable('destinations', {
    * 형태로 담는다. 아직 안 만든 여행지는 null — 그럴 땐 "이 여행지로 일정 짜기"를 쓸 수 없다.
    */
   routes: jsonb('routes'),
+  /** 카드에 보여줄 사진 경로(예: "/제주도.jpeg"). 없으면 자리표시자(PlaceholderImage)를 쓴다. */
+  imageUrl: text('image_url'),
 });
 
 /**

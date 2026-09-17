@@ -22,6 +22,8 @@ export interface DestinationView {
   badge: string;
   desc: string;
   tags: string[];
+  /** 카드에 보여줄 사진 경로. 없으면 화면에서 자리표시자를 보여준다. */
+  imageUrl: string | null;
   /** 우리 AI 동선 생성 기능으로 미리 만들어 둔 동선이 있는지 — "이 여행지로 일정 짜기" 노출 여부. */
   hasRoute: boolean;
   /**
@@ -65,6 +67,7 @@ export async function listExploreSections(): Promise<ExploreSectionView[]> {
       badge: row.badge,
       desc: row.desc,
       tags: row.tags as string[],
+      imageUrl: row.imageUrl,
       hasRoute: availableTripLengths.length > 0,
       availableTripLengths,
     });

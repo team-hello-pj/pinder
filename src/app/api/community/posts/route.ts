@@ -50,14 +50,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '이미지 용량이 너무 큽니다.' }, { status: 400 });
   }
 
-  await db.insert(posts).values({
-    authorId: session.id,
-    place: place.trim(),
-    region: region.trim(),
-    caption: caption.trim(),
-    tags: Array.isArray(tags) ? tags : [],
-    images,
-  });
+  try {
+    await db.insert(posts).values({
+      authorId: session.id,
+      place: place.trim(),
+      region: region.trim(),
+      caption: caption.trim(),
+      tags: Array.isArray(tags) ? tags : [],
+      images,
+    });
+  } catch (err) {
+    // insert 가 실패해도 여기서 잡지 않으면 라우트 핸들러가 예외로 죽어 { posts } 대신
+    // 빈 응답이 나가고, 클라이언트는 이를 "정상인데 게시물 0개"로 오인했다 — 원인 파악이
+    // 가능하도록 서버 로그를 남기고, 클라이언트에는 명확한 실패 응답을 준다.
+    console.error('[community] failed to create post:', err);
+    return NextResponse.json(
+      { error: '게시물을 저장하지 못했어요. 잠시 후 다시 시도해주세요.' },
+      { status: 500 },
+    );
+  }
 
   const list = await listPosts(session.id);
   return NextResponse.json({ posts: list });

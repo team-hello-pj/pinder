@@ -166,6 +166,11 @@ export function CommunityClient() {
     if (!sessionLoading && !isLoggedIn) setAuthGateOpen(true);
   }, [sessionLoading, isLoggedIn]);
 
+  const openMyProfile = () => {
+    if (!requireLogin()) return;
+    setProfileAuthor(myAuthorName);
+  };
+
   // ---- 좋아요 / 북마크 ----
   const toggleLike = (id: string) => {
     if (!requireLogin()) return;
@@ -292,18 +297,28 @@ export function CommunityClient() {
     }
     setPhotoError(null);
     setComposerStatus('loading');
-    const next = await createPost({
-      place,
-      region: draftRegion,
-      caption,
-      tags,
-      images: draftImages,
-    });
-    setPosts(next);
-    setSortMode('latest');
-    setComposerStatus('idle');
-    setComposerOpen(false);
-    showToast('게시물 업로드가 완료되었어요');
+    try {
+      const next = await createPost({
+        place,
+        region: draftRegion,
+        caption,
+        tags,
+        images: draftImages,
+      });
+      setPosts(next);
+      setSortMode('latest');
+      setComposerOpen(false);
+      showToast('게시물 업로드가 완료되었어요');
+    } catch (err) {
+      // createPost 가 실패해도 그냥 넘어가면(기존에는 여기서 던진 적이 없었다) 모달이 닫히고
+      // "업로드가 완료되었어요" 토스트가 뜨는데 실제로는 게시물이 저장되지 않은 상태였다 —
+      // 실패 메시지를 그대로 보여주고 모달을 열어 둔 채로 다시 시도할 수 있게 한다.
+      setPhotoError(
+        err instanceof Error ? err.message : '게시물을 올리지 못했어요. 잠시 후 다시 시도해주세요.',
+      );
+    } finally {
+      setComposerStatus('idle');
+    }
   };
 
   // ---- 목록 필터/정렬 ----
@@ -366,6 +381,20 @@ export function CommunityClient() {
             <img src="/icons/search-icon.png" alt="" />
           </button>
         </div>
+      </div>
+
+      {/* 1024px 이하에서는 .sideCol(글쓰기/내 프로필 버튼이 있는 우측 사이드바)이 통째로
+          숨겨져 두 버튼을 누를 방법이 없어진다 — 모바일 상단 영역에 같은 버튼을 그대로
+          재사용해 노출한다. PC에서는 CSS로 숨긴다. */}
+      <div className={styles.mobileActions}>
+        <button type="button" className={styles.writeBtn} onClick={openComposer}>
+          여행 후기 쓰기
+          {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+          <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
+        </button>
+        <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
+          내 프로필 보기
+        </button>
       </div>
 
       <div className={styles.row}>
@@ -534,7 +563,13 @@ export function CommunityClient() {
           ) : null}
 
           {sorted.length === 0 ? (
-            <p className={styles.empty}>{q ? '검색 결과가 없어요' : '아직 게시물이 없어요'}</p>
+            <p className={styles.empty}>
+              {!isLoggedIn
+                ? '로그인이 필요한 페이지예요.'
+                : q
+                  ? '검색 결과가 없어요'
+                  : '아직 게시물이 없어요'}
+            </p>
           ) : null}
 
           {viewMode === 'grid' ? (
@@ -820,14 +855,7 @@ export function CommunityClient() {
             {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
             <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
           </button>
-          <button
-            type="button"
-            className={styles.myProfileBtn}
-            onClick={() => {
-              if (!requireLogin()) return;
-              setProfileAuthor(myAuthorName);
-            }}
-          >
+          <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
             내 프로필 보기
           </button>
         </div>
