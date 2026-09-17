@@ -179,6 +179,9 @@ export function PlannerClient() {
   const [deleteTargetLabel, setDeleteTargetLabel] = useState('');
   const [deleteAgreeChecked, setDeleteAgreeChecked] = useState(false);
 
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [leaveTargetHref, setLeaveTargetHref] = useState('/');
+
   // ---- 지도 / 검색 ----
   const mapRef = useRef<HTMLDivElement>(null);
   const kakaoMapRef = useRef<KakaoMapInstance | null>(null);
@@ -233,6 +236,59 @@ export function PlannerClient() {
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [role, setRole] = useState<ScheduleRole>('creator');
+
+  // ---- 저장 안 된 변경사항 추적 ----
+  // "마지막으로 불러오거나 저장한 상태"의 스냅샷과 현재 상태를 비교해서 dirty 여부를 정한다.
+  // (state+effect로 변경을 감지하는 방식은, 초기 로드가 여러 단계 — 날짜 입력 모달, URL 파라미터,
+  // 스케줄 조회 등 — 로 나뉘어 진행될 때 그 초기화 자체를 "사용자 변경"으로 오인했다.)
+  const snapshotOf = (s: {
+    places: Place[];
+    segments: TransportMode[];
+    criteria: RouteCriteria;
+    tripStart: string;
+    tripEnd: string;
+  }) => JSON.stringify(s);
+  const [isDirty, setIsDirty] = useState(false);
+  const cleanSnapshotRef = useRef(snapshotOf({ places, segments, criteria, tripStart, tripEnd }));
+  const markClean = useCallback(
+    (override?: {
+      places?: Place[];
+      segments?: TransportMode[];
+      criteria?: RouteCriteria;
+      tripStart?: string;
+      tripEnd?: string;
+    }) => {
+      cleanSnapshotRef.current = snapshotOf({
+        places: override?.places ?? places,
+        segments: override?.segments ?? segments,
+        criteria: override?.criteria ?? criteria,
+        tripStart: override?.tripStart ?? tripStart,
+        tripEnd: override?.tripEnd ?? tripEnd,
+      });
+      setIsDirty(false);
+    },
+    [places, segments, criteria, tripStart, tripEnd],
+  );
+  // ref 비교는 렌더 중이 아니라 effect 안에서만 한다 (렌더 중 ref.current 읽기는 금지되어 있다).
+  useEffect(() => {
+    setIsDirty(
+      snapshotOf({ places, segments, criteria, tripStart, tripEnd }) !== cleanSnapshotRef.current,
+    );
+  }, [places, segments, criteria, tripStart, tripEnd]);
+
+  // 저장 안 된 변경사항이 있으면 새로고침/탭 닫기 시 브라우저 기본 확인창을 띄운다.
+  // (방문지가 하나도 없으면 애초에 저장할 내용이 없으므로 물어보지 않는다 — saveCurrentRoute 와 기준을 맞춘다.)
+  useEffect(() => {
+    const canEditNow = role === 'creator' || role === 'editor';
+    const hasSaveableContent = places.length > 0 || Boolean(scheduleId);
+    if (!isDirty || !canEditNow || !hasSaveableContent) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty, role, places.length, scheduleId]);
   const [members, setMembers] = useState<Member[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [myEditRequestPending, setMyEditRequestPending] = useState(false);
@@ -468,8 +524,15 @@ export function PlannerClient() {
         detail.editRequests.map((r) => ({ id: r.id, nickname: r.nickname, time: r.createdAt })),
       );
       setMyEditRequestPending(detail.myEditRequestPending);
+      markClean({
+        places: detail.schedule.places,
+        segments: detail.schedule.segments,
+        criteria: detail.schedule.criteria,
+        tripStart: detail.schedule.tripStart || '',
+        tripEnd: detail.schedule.tripEnd || '',
+      });
     },
-    [],
+    [markClean],
   );
 
   // ---- 초대 링크로 들어온 경우: 로그인 상태면 바로 참여, 아니면 로그인 후 이어서 참여 ----
@@ -500,6 +563,13 @@ export function PlannerClient() {
             setTripEnd(schedule.tripEnd || '');
             setScheduleId(schedule.id);
             setRole('viewer');
+            markClean({
+              places: schedule.places,
+              segments: schedule.segments,
+              criteria: schedule.criteria,
+              tripStart: schedule.tripStart || '',
+              tripEnd: schedule.tripEnd || '',
+            });
           });
           return;
         }
@@ -549,10 +619,14 @@ export function PlannerClient() {
     }
     const qStart = searchParams.get('tripStart');
     const qEnd = searchParams.get('tripEnd');
+    const resolvedTripStart = qStart || '';
+    const resolvedTripEnd = qEnd || qStart || '';
     if (qStart || qEnd) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTripStart(qStart || '');
-      setTripEnd(qEnd || qStart || '');
+      setTripStart(resolvedTripStart);
+      setTripEnd(resolvedTripEnd);
+      // "새 일정 만들기" 날짜 모달 없이 URL로 바로 날짜가 정해진 경우라, 이 시점을 기준으로 삼는다.
+      markClean({ tripStart: resolvedTripStart, tripEnd: resolvedTripEnd });
     }
     if (isNewRoute && !hasTripDateParam) setNewTripDateModalOpen(true);
 
@@ -563,6 +637,8 @@ export function PlannerClient() {
         setSegments(handoff.segments);
         setRouteSegmentsReady(handoff.segments.length > 0);
         nextIdRef.current = nextIdAfter(handoff.places);
+        // AI가 만들어준 동선은 아직 저장 전이므로 dirty로 유지한다(markClean 호출 안 함) —
+        // 이대로 나가면 방금 만든 내용을 잃을 수 있으니 저장 확인을 받는 게 맞다.
       }
     }
 
@@ -589,6 +665,7 @@ export function PlannerClient() {
       } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
+      else if (leaveConfirmOpen) setLeaveConfirmOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -606,6 +683,7 @@ export function PlannerClient() {
     noVariableModalOpen,
     addPlaceModalOpen,
     multiDayOriginModalOpen,
+    leaveConfirmOpen,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -684,13 +762,13 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
-    // 출발지 선택 흐름에서 들어온 추가라면, 방금 추가한 곳을 출발지로 바로 고를 수 있도록
-    // 출발지 선택 팝업으로 돌아간다 — 그래야 이 방문지도 다른 방문지와 똑같이 출발지가 될 수 있다.
+    // 출발지 선택 흐름에서 들어온 추가라면, 목록 선택 팝업으로 되돌아가지 않고 방금 추가한
+    // 곳을 출발지로 바로 확정하는 팝업("출발지를 OOO로 설정하시겠습니까?")으로 곧장 이어간다 —
+    // 경로 계산 버튼을 다시 누르거나 목록에서 또 골라야 하는 단계를 없앤다.
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       setOriginChoiceId(added.id);
-      setOriginListExpanded(false);
-      setOriginSelectOpen(true);
+      setOriginConfirmOpen(true);
     }
   };
 
@@ -1100,8 +1178,8 @@ export function PlannerClient() {
   };
 
   // ---- 저장 / 내 일정 ----
-  const saveCurrentRoute = async () => {
-    if (places.length === 0 && !scheduleId) return;
+  const saveCurrentRoute = async (): Promise<boolean> => {
+    if (places.length === 0 && !scheduleId) return false;
     // 처음 저장할 때는 제목을 설정한 여행 기간으로 만든다. 이미 저장된 일정을 업데이트할 때는
     // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
     const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
@@ -1119,13 +1197,15 @@ export function PlannerClient() {
       : await createSchedule(input);
     if (!saved) {
       showToast('저장하지 못했어요. 다시 시도해주세요.');
-      return;
+      return false;
     }
     if (!scheduleId) setScheduleId(saved.id);
     lastTitleRef.current = saved.title;
     setSaveLabel('저장됨');
     logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
     setTimeout(() => setSaveLabel('저장'), 1500);
+    markClean();
+    return true;
   };
 
   const saveOrRemoveAction = async () => {
@@ -1144,6 +1224,30 @@ export function PlannerClient() {
     }
     await saveCurrentRoute();
     showToast('내 일정에 저장했어요');
+  };
+
+  /** 저장 안 된 변경사항이 있는 상태로 페이지를 나가려 할 때 가로챈다. */
+  const guardLeave = (href: string, e: React.MouseEvent) => {
+    const canEditNow = role === 'creator' || role === 'editor';
+    const hasSaveableContent = places.length > 0 || Boolean(scheduleId);
+    if (!isDirty || !canEditNow || !hasSaveableContent) return;
+    e.preventDefault();
+    setLeaveTargetHref(href);
+    setLeaveConfirmOpen(true);
+  };
+  const leaveWithoutSaving = () => {
+    setLeaveConfirmOpen(false);
+    markClean();
+    router.push(leaveTargetHref);
+  };
+  const saveAndLeave = async () => {
+    const wasExisting = Boolean(scheduleId);
+    const ok = await saveCurrentRoute();
+    setLeaveConfirmOpen(false);
+    if (ok) {
+      showToast(wasExisting ? '수정한 내용을 저장했어요' : '내 일정에 저장했어요');
+      router.push(leaveTargetHref);
+    }
   };
 
   // ---- 권한 / 초대 ----
@@ -1883,7 +1987,7 @@ export function PlannerClient() {
           <>
             <div className={styles.panelHeader}>
               <div className={styles.panelHeaderTop}>
-                <Link href="/" className={styles.panelLogo}>
+                <Link href="/" className={styles.panelLogo} onClick={(e) => guardLeave('/', e)}>
                   p<span className={styles.panelLogoColon}>:</span>nder
                 </Link>
                 <div className={styles.panelHeaderActions}>
@@ -2602,7 +2706,14 @@ export function PlannerClient() {
           </label>
         </div>
         <div className={styles.modalActionsEnd}>
-          <Button size="sm" onClick={() => setNewTripDateModalOpen(false)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNewTripDateModalOpen(false);
+              // 날짜만 고른 초기 설정 단계라, 아직 "저장 안 된 변경사항"으로 치지 않는다.
+              markClean();
+            }}
+          >
             시작하기
           </Button>
         </div>
@@ -3168,6 +3279,27 @@ export function PlannerClient() {
             }}
           >
             그냥 진행하기
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 저장 안 된 변경사항 확인 */}
+      <Modal
+        open={leaveConfirmOpen}
+        title={scheduleId ? '수정내용을 저장하시겠습니까?' : '저장하시겠습니까?'}
+        onClose={() => setLeaveConfirmOpen(false)}
+      >
+        <p className={styles.modalDesc}>
+          {scheduleId
+            ? '변경한 내용이 아직 저장되지 않았어요. 저장하면 이 일정만 수정돼요.'
+            : '변경한 내용이 아직 저장되지 않았어요. 저장하면 내 일정에 새로 추가돼요.'}
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={leaveWithoutSaving}>
+            저장 안 함
+          </Button>
+          <Button size="sm" onClick={saveAndLeave}>
+            저장
           </Button>
         </div>
       </Modal>
