@@ -1623,7 +1623,10 @@ export function PlannerClient() {
 
   /** 지목된 기존 방문지만 이름/주소/좌표를 바꾸고, 그 자리(순서/일차/체류시간 등)는 그대로 둔다. */
   const applyRecommendedReplace = async (rec: RecommendedPlace) => {
-    const geo = await geocodePlace(rec.address ? `${rec.name} ${rec.address}` : rec.name);
+    // 이름+주소 힌트를 합친 쿼리가 실패하면 장소명만으로 한 번 더 시도한다(advanceRecommendedQueue
+    // 와 같은 이유).
+    let geo = rec.address ? await geocodePlace(`${rec.name} ${rec.address}`) : null;
+    if (!geo) geo = await geocodePlace(rec.name);
     let replacedName: string | null = null;
     setPlaces((prev) => {
       const idx = prev.findIndex((p) => p.name === rec.replaces);
@@ -1667,12 +1670,17 @@ export function PlannerClient() {
       return;
     }
 
-    const query = rec.address ? `${rec.name} ${rec.address}` : rec.name;
+    // AI가 준 이름+주소 힌트를 그대로 합친 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
+    // 잦다(주소 힌트가 부정확하거나 너무 구체적일 때) — 실패하면 장소명만으로 한 번 더 시도한다.
+    const queries = rec.address ? [`${rec.name} ${rec.address}`, rec.name] : [rec.name];
     let doc: KakaoPlaceDoc | undefined;
-    try {
-      doc = (await searchKeyword(query)).documents?.[0];
-    } catch (err) {
-      console.error('advanceRecommendedQueue: searchKeyword failed:', err);
+    for (const query of queries) {
+      try {
+        doc = (await searchKeyword(query)).documents?.[0];
+      } catch (err) {
+        console.error('advanceRecommendedQueue: searchKeyword failed:', err);
+      }
+      if (doc) break;
     }
     if (!doc) {
       showToast(`"${rec.name}"의 위치를 찾지 못해 추가하지 못했어요`);
