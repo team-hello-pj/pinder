@@ -790,10 +790,9 @@ export function CommunityClient() {
                   type="button"
                   className={styles.trendingItem}
                   onClick={() => {
+                    // 검색창에 채워만 두고, 실제 검색은 검색 버튼/Enter(runSearch)를 눌러야 실행된다.
                     const keyword = t.name.split(' ')[0];
                     setSearchInput(keyword);
-                    setSearchQuery(keyword);
-                    setVisibleCount(PAGE_STEP);
                   }}
                 >
                   <span
@@ -826,9 +825,8 @@ export function CommunityClient() {
                   type="button"
                   className={styles.cloudTag}
                   onClick={() => {
+                    // 검색창에 채워만 두고, 실제 검색은 검색 버튼/Enter(runSearch)를 눌러야 실행된다.
                     setSearchInput(tag);
-                    setSearchQuery(tag);
-                    setVisibleCount(PAGE_STEP);
                   }}
                 >
                   #{tag}
