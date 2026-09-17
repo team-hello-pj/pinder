@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { MODE_MAP } from '@/constants';
 import { searchKeyword } from '@/lib/kakao/client';
@@ -61,6 +61,8 @@ export interface AiGenerateWizardProps {
   open: boolean;
   tripStart: string;
   tripEnd: string;
+  /** 여행지 탐색에서 특정 여행지를 고르고 들어온 경우 — 지역 선택 단계를 건너뛰고 이 값으로 바로 시작한다. */
+  initialRegion?: string;
   onClose: () => void;
   onConfirm: (places: Place[], segments: TransportMode[]) => void;
 }
@@ -69,11 +71,13 @@ export function AiGenerateWizard({
   open,
   tripStart,
   tripEnd,
+  initialRegion,
   onClose,
   onConfirm,
 }: AiGenerateWizardProps) {
-  const [step, setStep] = useState(0);
-  const [region, setRegion] = useState<string | null>(null);
+  const firstStep = initialRegion ? 1 : 0;
+  const [step, setStep] = useState(firstStep);
+  const [region, setRegion] = useState<string | null>(initialRegion ?? null);
   const [customRegion, setCustomRegion] = useState('');
   const [regionError, setRegionError] = useState<string | null>(null);
   const [validatingRegion, setValidatingRegion] = useState(false);
@@ -87,11 +91,31 @@ export function AiGenerateWizard({
   const [resultPlaces, setResultPlaces] = useState<ResultPlace[] | null>(null);
   const [resultSegments, setResultSegments] = useState<TransportMode[]>([]);
 
+  // 이 컴포넌트는 항상 마운트돼 있고 open prop만 바뀌므로(useState 초기값은 처음 마운트될 때
+  // 한 번만 쓰인다), 열릴 때마다 그 시점의 initialRegion 을 반영해 처음부터 다시 시작한다.
+  useEffect(() => {
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 열릴 때 폼 상태를 초기화한다
+    setStep(initialRegion ? 1 : 0);
+    setRegion(initialRegion ?? null);
+    setCustomRegion('');
+    setRegionError(null);
+    setValidatingRegion(false);
+    setStyle(null);
+    setInterests([]);
+    setCompanion(null);
+    setTransportMode(null);
+    setGenerating(false);
+    setError(null);
+    setResultPlaces(null);
+    setResultSegments([]);
+  }, [open, initialRegion]);
+
   if (!open) return null;
 
   const resetForClose = () => {
-    setStep(0);
-    setRegion(null);
+    setStep(firstStep);
+    setRegion(initialRegion ?? null);
     setCustomRegion('');
     setRegionError(null);
     setValidatingRegion(false);
@@ -128,20 +152,27 @@ export function AiGenerateWizard({
 
       const resolved: ResultPlace[] = [];
       for (const p of aiPlaces) {
-        const query = p.addressHint
-          ? `${effectiveRegion} ${p.addressHint} ${p.name}`
-          : `${effectiveRegion} ${p.name}`;
+        // 지역명+주소힌트+이름을 다 붙인 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
+        // 잦다(직접 검색해서 추가하는 일반 흐름은 사용자가 이미 검색 결과 중에서 고르므로 이
+        // 문제가 없다). 그러면 좌표가 없는 채로 저장돼 지도에 핀이 안 뜨고, 그 핀이 차지해야
+        // 할 순번도 비어버린다 — 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다.
+        const queries = p.addressHint
+          ? [`${effectiveRegion} ${p.addressHint} ${p.name}`, `${effectiveRegion} ${p.name}`, p.name]
+          : [`${effectiveRegion} ${p.name}`, p.name];
         let x: number | null = null;
         let y: number | null = null;
-        try {
-          const data = await searchKeyword(query);
-          const doc = data.documents?.[0];
-          if (doc) {
-            x = Number(doc.x);
-            y = Number(doc.y);
+        for (const query of queries) {
+          try {
+            const data = await searchKeyword(query);
+            const doc = data.documents?.[0];
+            if (doc) {
+              x = Number(doc.x);
+              y = Number(doc.y);
+              break;
+            }
+          } catch {
+            // 이 쿼리는 실패했으니 다음 후보 쿼리로 넘어간다.
           }
-        } catch {
-          // 지오코딩 실패는 무시하고 좌표 없이 진행한다 (기존 방문지 추가 흐름과 동일한 정책).
         }
         resolved.push({
           id: resolved.length + 1,
@@ -217,7 +248,7 @@ export function AiGenerateWizard({
   };
 
   const goBack = () => {
-    if (step === 0) {
+    if (step === firstStep) {
       resetForClose();
       return;
     }
@@ -383,7 +414,9 @@ export function AiGenerateWizard({
             {step === 1 ? (
               <>
                 <h2 className={styles.aiWizardTitle}>어떤 스타일의 여행을 원하세요?</h2>
-                <p className={styles.aiWizardSubtitle}>하나를 선택해주세요</p>
+                <p className={styles.aiWizardSubtitle}>
+                  {initialRegion ? `${initialRegion} 여행 · ` : ''}하나를 선택해주세요
+                </p>
                 <div className={styles.aiWizardGrid2}>
                   {STYLES.map((s) => (
                     <button
