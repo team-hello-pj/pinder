@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ROUTES } from '@/constants';
-import { avatarColorFor } from '@/lib/avatar';
 import { fmtRange } from '@/lib/calendar';
 import {
   deleteSchedule,
@@ -13,7 +12,7 @@ import {
   type ScheduleSummary,
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
-import { Button, DateRangeCalendar, Modal } from '@/components/ui';
+import { AuthorAvatar, Button, DateRangeCalendar, Modal } from '@/components/ui';
 
 import { NewTripFlow, type NewTripFlowHandle } from './NewTripFlow';
 import styles from './my-routes.module.css';
@@ -28,7 +27,8 @@ function todayStr(): string {
 /** legacy/My Routes.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function MyRoutesClient() {
   const router = useRouter();
-  const { isLoggedIn, isLoading: sessionLoading } = useSession();
+  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
+  const myName = user?.nickname || user?.name || '';
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -315,18 +315,29 @@ export function MyRoutesClient() {
 
                   {route.members && route.members.length > 0 ? (
                     <div className={styles.members}>
-                      {route.members.map((m) => (
-                        <span key={m.nickname} className={styles.member}>
-                          <span
-                            className={styles.memberAvatar}
-                            style={{ background: avatarColorFor(m.nickname) }}
-                          >
-                            {m.isOwner ? <span className={styles.ownerCrown}>👑</span> : null}
-                            {m.nickname.slice(0, 1)}
+                      {route.members.map((m) => {
+                        const isMe = m.nickname === myName;
+                        return (
+                          <span key={m.nickname} className={styles.member}>
+                            <span className={styles.memberAvatar}>
+                              {m.isOwner ? <span className={styles.ownerCrown}>👑</span> : null}
+                              <AuthorAvatar
+                                name={m.nickname}
+                                avatarUrl={isMe ? (user?.avatarUrl ?? null) : null}
+                                isMine={isMe}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  borderRadius: '50%',
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                }}
+                              />
+                            </span>
+                            <span>{m.nickname}</span>
                           </span>
-                          <span>{m.nickname}</span>
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : null}
 
