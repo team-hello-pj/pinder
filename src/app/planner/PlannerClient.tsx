@@ -76,6 +76,15 @@ function nextIdAfter(places: Place[]): number {
 }
 
 /**
+ * 팝업(네이티브 <dialog>) 하나를 닫으면서 곧바로 다른 팝업을 여는 코드가 여러 곳에 있는데,
+ * 같은 렌더링 틱에서 열고 닫으면 두 다이얼로그가 한 프레임 동안 동시에 열려 보일 수 있다.
+ * 닫는 쪽 효과가 먼저 반영되도록 다음 팝업 열기를 한 틱 미룬다.
+ */
+function openNextModal(open: () => void) {
+  setTimeout(open, 0);
+}
+
+/**
  * 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
  * 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣을 위치를 찾는다 (해당 일차가 아직 없으면 끝에 붙인다).
  */
@@ -753,7 +762,7 @@ export function PlannerClient() {
       else if (categoryModalOpen) setCategoryModalOpen(false);
       else if (addConfirmOpen) {
         setAddConfirmOpen(false);
-        if (returnToOriginPickerAfterAdd) setAddPlaceModalOpen(true);
+        if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
       } else if (situationModalOpen) setSituationModalOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
@@ -762,7 +771,7 @@ export function PlannerClient() {
         setAddPlaceModalOpen(false);
         if (returnToOriginPickerAfterAdd) {
           setReturnToOriginPickerAfterAdd(false);
-          setOriginSelectOpen(true);
+          openNextModal(() => setOriginSelectOpen(true));
         }
       } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
@@ -847,20 +856,22 @@ export function PlannerClient() {
     setPendingSelectedDoc(doc);
     setPendingName(doc.place_name);
     setPendingAddress(doc.road_address_name || doc.address_name);
-    setAddConfirmOpen(true);
+    // 방문지 추가 팝업(addPlaceModalOpen)에서 결과를 고른 경우처럼, 다른 팝업을 막 닫은
+    // 직후에 호출될 수 있어 실제로 닫힌 뒤에 열리도록 미룬다.
+    openNextModal(() => setAddConfirmOpen(true));
   };
 
   /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로
    * 돌아간다 — 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
-    if (returnToOriginPickerAfterAdd) setAddPlaceModalOpen(true);
+    if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
   const cancelAddPlaceModal = () => {
     setAddPlaceModalOpen(false);
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
-      setOriginSelectOpen(true);
+      openNextModal(() => setOriginSelectOpen(true));
     }
   };
 
@@ -874,12 +885,13 @@ export function PlannerClient() {
     setPendingName('');
     // 출발지 선택 흐름에서 들어온 추가라면, 경로 계산 버튼을 다시 누르지 않아도 되도록 출발지
     // 선택 목록 팝업을 자동으로 다시 띄운다. 방금 추가한 곳을 선택된 상태로 두면(목록에서도
-    // 맨 앞에 오도록 정렬) 바로 "선택"만 눌러도 된다.
+    // 맨 앞에 오도록 정렬) 바로 "선택"만 눌러도 된다. addConfirmOpen 팝업이 실제로 닫힌 뒤에
+    // 열어야 두 팝업이 동시에 보이는 일이 없다.
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       setOriginChoiceId(added.id);
       setOriginListExpanded(true);
-      setOriginSelectOpen(true);
+      openNextModal(() => setOriginSelectOpen(true));
     }
   };
 
@@ -1139,7 +1151,9 @@ export function PlannerClient() {
     setSituationSub(null);
     setSituationSeverity(null);
     setSituationFreeText('');
-    setSituationModalOpen(true);
+    // 다른 팝업(변수 없음 확인, 일차 선택 등)을 막 닫은 직후 호출될 수 있어 그 팝업이
+    // 실제로 닫힌 뒤에 열리도록 미룬다.
+    openNextModal(() => setSituationModalOpen(true));
   };
 
   const applySituationRuleBased = () => {
@@ -1235,7 +1249,9 @@ export function PlannerClient() {
     setMapSearchQuery('');
     setMapSearchResults([]);
     setMapSearchError(null);
-    setAddPlaceModalOpen(true);
+    // 이 팝업을 열기 직전에 다른 팝업(출발지 선택 등)을 닫는 경우가 많아서, 그 팝업이
+    // 실제로 닫힌 뒤에 열어야 두 팝업이 동시에 보이지 않는다.
+    openNextModal(() => setAddPlaceModalOpen(true));
   };
   const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
@@ -1989,7 +2005,8 @@ export function PlannerClient() {
   const proceedAfterOrigin = (origin: number) => {
     if (!currentVariableInput()) {
       setPendingRouteOrigin(origin);
-      setNoVariableModalOpen(true);
+      // 출발지 확정 팝업을 막 닫은 직후 호출될 수 있어(finalizeOrigin) 실제로 닫힌 뒤에 연다.
+      openNextModal(() => setNoVariableModalOpen(true));
       return;
     }
     void runOptimalRoute(origin);
@@ -2091,7 +2108,7 @@ export function PlannerClient() {
   const confirmOriginChoice = () => {
     if (originChoiceId == null) return;
     setOriginSelectOpen(false);
-    setOriginConfirmOpen(true);
+    openNextModal(() => setOriginConfirmOpen(true));
   };
 
   const finalizeOrigin = () => {
