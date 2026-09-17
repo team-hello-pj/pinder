@@ -160,8 +160,7 @@ export function CommunityClient() {
     return true;
   };
   // 커뮤니티 탭에 처음 들어왔을 때도(특정 동작을 누르기 전이라도) 비로그인 상태면 바로 안내
-  // 모달을 띄운다. 게시글 열람은 계속 비회원도 가능하므로 닫으면(X/ESC) 그냥 둘러볼 수 있게
-  // 두고 홈으로 돌려보내진 않는다 — requireLogin() 이 쓰는 것과 같은 모달을 그대로 재사용한다.
+  // 모달을 띄운다 — requireLogin() 이 쓰는 것과 같은 모달을 그대로 재사용한다.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭에 들어왔을 때 한 번만 확인한다
     if (!sessionLoading && !isLoggedIn) setAuthGateOpen(true);
@@ -1087,11 +1086,14 @@ export function CommunityClient() {
       </Modal>
 
       {/* 비회원 안내 — 좋아요/북마크/글쓰기/댓글 등 로그인이 필요한 동작을 시도하면 뜬다.
-          게시글 열람 자체는 비회원도 가능하므로 페이지 전체를 막지는 않는다. */}
+          닫으면(X/ESC) 홈으로 돌려보낸다. */}
       <Modal
         open={authGateOpen}
         title="회원만 이용할 수 있어요"
-        onClose={() => setAuthGateOpen(false)}
+        onClose={() => {
+          setAuthGateOpen(false);
+          router.push('/');
+        }}
       >
         <p className={styles.deleteDesc}>
           로그인하면 커뮤니티의 다양한 기능을
