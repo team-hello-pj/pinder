@@ -501,14 +501,16 @@ export function PlannerClient() {
     const bounds = new kakao.maps.LatLngBounds();
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
-      const marker = new kakao.maps.Marker({ position: pos, map });
       const pinColor = routeColorForDay(p.day ?? 0);
+      // 기본 카카오 마커(빨간 물방울) 대신, 핀이 찍히는 자리 자체를 그 일차 색으로 채운
+      // 동그라미로 표시한다 — 숫자 배지를 따로 위에 띄우지 않고 하나로 합치고, 테두리(흰
+      // 링)도 없앤다.
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px);box-shadow:0 0 0 2px rgba(255,255,255,0.85)">${orderByPlaceId.get(p.id)}</div>`,
+        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
-      kakaoMarkersRef.current.push(marker, overlay);
+      kakaoMarkersRef.current.push(overlay);
       bounds.extend(pos);
     });
     map.setBounds(bounds);
