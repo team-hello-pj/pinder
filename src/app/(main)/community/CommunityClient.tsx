@@ -567,7 +567,7 @@ export function CommunityClient() {
               {!isLoggedIn
                 ? '로그인이 필요한 페이지예요.'
                 : q
-                  ? '검색 결과가 없어요'
+                  ? '검색 결과가 없어요.'
                   : '아직 게시물이 없어요'}
             </p>
           ) : null}
