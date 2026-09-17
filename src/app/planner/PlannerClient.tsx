@@ -502,12 +502,14 @@ export function PlannerClient() {
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
       const pinColor = routeColorForDay(p.day ?? 0);
-      // 기본 카카오 마커(빨간 물방울) 대신, 핀이 찍히는 자리 자체를 그 일차 색으로 채운
-      // 동그라미로 표시한다 — 숫자 배지를 따로 위에 띄우지 않고 하나로 합치고, 테두리(흰
-      // 링)도 없앤다.
+      // 기본 카카오 마커(빨간 물방울)의 물방울 모양(뾰족한 끝까지)은 그대로 두고, 색만
+      // 그 일차 색으로 칠한다 — 숫자는 그 안에 테두리 없이 흰 글씨로 넣는다. 뾰족한 끝이
+      // 실제 좌표를 가리키도록 xAnchor/yAnchor 로 앵커를 물방울 끝에 맞춘다.
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${orderByPlaceId.get(p.id)}</div>`,
+        xAnchor: 0.5,
+        yAnchor: 1,
+        content: `<svg width="26" height="26" viewBox="0 0 24 24" style="display:block"><path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.5 8.5 15.5 8.5 15.5s8.5-9 8.5-15.5C20.5 3.81 16.69 0 12 0z" fill="${pinColor}"/><text x="12" y="9" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="#fff" font-family="sans-serif">${orderByPlaceId.get(p.id)}</text></svg>`,
       });
       overlay.setMap(map);
       kakaoMarkersRef.current.push(overlay);
