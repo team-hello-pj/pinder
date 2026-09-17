@@ -297,18 +297,28 @@ export function CommunityClient() {
     }
     setPhotoError(null);
     setComposerStatus('loading');
-    const next = await createPost({
-      place,
-      region: draftRegion,
-      caption,
-      tags,
-      images: draftImages,
-    });
-    setPosts(next);
-    setSortMode('latest');
-    setComposerStatus('idle');
-    setComposerOpen(false);
-    showToast('게시물 업로드가 완료되었어요');
+    try {
+      const next = await createPost({
+        place,
+        region: draftRegion,
+        caption,
+        tags,
+        images: draftImages,
+      });
+      setPosts(next);
+      setSortMode('latest');
+      setComposerOpen(false);
+      showToast('게시물 업로드가 완료되었어요');
+    } catch (err) {
+      // createPost 가 실패해도 그냥 넘어가면(기존에는 여기서 던진 적이 없었다) 모달이 닫히고
+      // "업로드가 완료되었어요" 토스트가 뜨는데 실제로는 게시물이 저장되지 않은 상태였다 —
+      // 실패 메시지를 그대로 보여주고 모달을 열어 둔 채로 다시 시도할 수 있게 한다.
+      setPhotoError(
+        err instanceof Error ? err.message : '게시물을 올리지 못했어요. 잠시 후 다시 시도해주세요.',
+      );
+    } finally {
+      setComposerStatus('idle');
+    }
   };
 
   // ---- 목록 필터/정렬 ----
