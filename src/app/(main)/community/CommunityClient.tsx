@@ -12,6 +12,8 @@ import {
   deleteReply as apiDeleteReply,
   listPosts,
   listTrendingPlaces,
+  MAX_POST_IMAGES,
+  resizePostImageFile,
   togglePostBookmark,
   togglePostLike,
   toggleCommentLike as apiToggleCommentLike,
@@ -37,6 +39,13 @@ const INLINE_COMMENT_THRESHOLD = 4;
 /** 답글까지 합친 총 댓글 수 (목록 카드/댓글 수 배지에 표시하는 값). */
 function totalCommentCount(post: PostView): number {
   return post.comments.reduce((sum, c) => sum + 1 + c.replies.length, 0);
+}
+
+/** 게시물 사진 — 실제 첨부 사진이 있으면 그걸 보여주고, 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다. */
+function PostPhoto({ images, label }: { images: string[]; label: string }) {
+  if (images.length === 0) return <PlaceholderImage label={label} />;
+  // eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님
+  return <img src={images[0]} alt={label} className={styles.postPhotoImg} />;
 }
 
 /** 댓글 상세 팝업 상단의 작성자 글(제목). 3줄을 넘으면 "전체 보기/접기"로 잘라 보여준다. */
@@ -82,6 +91,13 @@ export function CommunityClient() {
   const [draftPlace, setDraftPlace] = useState('');
   const [draftCaption, setDraftCaption] = useState('');
   const [draftRegion, setDraftRegion] = useState(REGIONS[1]);
+  const [draftImages, setDraftImages] = useState<string[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [composerStatus, setComposerStatus] = useState<'idle' | 'loading'>('idle');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
 
   const [selectedRegion, setSelectedRegion] = useState('전체');
   const [sortMode, setSortMode] = useState<SortMode>('popular');
@@ -218,6 +234,8 @@ export function CommunityClient() {
     setDraftPlace('');
     setDraftCaption('');
     setDraftRegion(REGIONS[1]);
+    setDraftImages([]);
+    setPhotoError(null);
   };
   const openEditComposer = (id: string) => {
     const post = posts.find((p) => p.id === id);
@@ -227,18 +245,50 @@ export function CommunityClient() {
     setDraftPlace(post.place);
     setDraftCaption(post.caption);
     setDraftRegion(post.region);
+    setPhotoError(null);
+  };
+  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).slice(0, MAX_POST_IMAGES - draftImages.length);
+    e.target.value = '';
+    if (files.length === 0) return;
+    const resized = await Promise.all(files.map(resizePostImageFile));
+    setDraftImages((prev) => [...prev, ...resized]);
+    setPhotoError(null);
+  };
+  const removeDraftImage = (index: number) => {
+    setDraftImages((prev) => prev.filter((_, i) => i !== index));
+  };
+  const showToast = (message: string) => {
+    setToastMsg(message);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2400);
   };
   const saveComposer = async () => {
     const place = draftPlace.trim();
     const caption = draftCaption.trim();
     if (!place || !caption) return;
     const tags = Array.from(caption.matchAll(/#(\S+)/g)).map((m) => m[1]);
-    const next = editingId
-      ? await updatePost(editingId, { place, region: draftRegion, caption, tags })
-      : await createPost({ place, region: draftRegion, caption, tags });
+
+    if (editingId) {
+      const next = await updatePost(editingId, { place, region: draftRegion, caption, tags });
+      setPosts(next);
+      setComposerOpen(false);
+      setEditingId(null);
+      return;
+    }
+
+    if (draftImages.length === 0) {
+      setPhotoError('사진을 1장 이상 첨부해주세요.');
+      return;
+    }
+    setPhotoError(null);
+    setComposerStatus('loading');
+    const next = await createPost({ place, region: draftRegion, caption, tags, images: draftImages });
     setPosts(next);
+    setSortMode('latest');
+    setComposerStatus('idle');
     setComposerOpen(false);
-    setEditingId(null);
+    showToast('게시물 업로드가 완료되었어요');
   };
 
   // ---- 목록 필터/정렬 ----
@@ -466,7 +516,7 @@ export function CommunityClient() {
                   className={styles.gridCell}
                   onClick={() => setProfileAuthor(post.author)}
                 >
-                  <PlaceholderImage label={`${post.place} 사진`} />
+                  <PostPhoto images={post.images} label={`${post.place} 사진`} />
                 </button>
               ))}
             </div>
@@ -531,7 +581,7 @@ export function CommunityClient() {
                     </div>
 
                     <div className={styles.postImage}>
-                      <PlaceholderImage label={`${post.place} 사진`} />
+                      <PostPhoto images={post.images} label={`${post.place} 사진`} />
                     </div>
 
                     <div className={styles.postBody}>
@@ -759,9 +809,50 @@ export function CommunityClient() {
         title={editingId ? '후기 수정' : '여행 후기 쓰기'}
         onClose={() => setComposerOpen(false)}
       >
-        <div className={styles.composerPhoto}>
-          <PlaceholderImage label="사진을 추가해주세요" />
-        </div>
+        {editingId ? (
+          <div className={styles.composerPhoto}>
+            <PlaceholderImage label="사진을 추가해주세요" />
+          </div>
+        ) : (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>사진</span>
+            <div className={styles.composerPhotoPicker}>
+              {draftImages.map((src, i) => (
+                <div key={i} className={styles.composerPhotoThumb}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- data URL 미리보기, next/image 최적화 대상 아님 */}
+                  <img src={src} alt="" className={styles.composerPhotoThumbImg} />
+                  <button
+                    type="button"
+                    className={styles.composerPhotoRemoveBtn}
+                    onClick={() => removeDraftImage(i)}
+                    aria-label="사진 삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {draftImages.length < MAX_POST_IMAGES ? (
+                <button
+                  type="button"
+                  className={styles.composerPhotoAddBtn}
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  <span className={styles.composerPhotoAddIcon}>+</span>
+                  <span>사진 추가</span>
+                </button>
+              ) : null}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className={styles.hiddenFileInput}
+                onChange={onPickImages}
+              />
+            </div>
+            {photoError ? <p className={styles.photoError}>{photoError}</p> : null}
+          </div>
+        )}
         <div className={styles.field}>
           <span className={styles.fieldLabel}>여행지</span>
           <input
@@ -800,11 +891,16 @@ export function CommunityClient() {
           ) : null}
         </div>
         <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setComposerOpen(false)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setComposerOpen(false)}
+            disabled={composerStatus === 'loading'}
+          >
             취소
           </Button>
-          <Button size="sm" onClick={saveComposer}>
-            게시
+          <Button size="sm" onClick={saveComposer} disabled={composerStatus === 'loading'}>
+            {composerStatus === 'loading' ? '게시물을 올리고 있어요' : '게시'}
           </Button>
         </div>
       </Modal>
@@ -814,7 +910,7 @@ export function CommunityClient() {
         <div className={styles.commentModalOverlay} onClick={() => setCommentModalId(null)}>
           <div className={styles.commentModalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.commentModalPhoto}>
-              <PlaceholderImage label={`${commentModalPost.place} 사진`} />
+              <PostPhoto images={commentModalPost.images} label={`${commentModalPost.place} 사진`} />
             </div>
             <div className={styles.commentModalRight}>
               <div className={styles.commentModalHead}>
@@ -955,6 +1051,24 @@ export function CommunityClient() {
           </Button>
         </div>
       </Modal>
+
+      {toastVisible ? (
+        <div className={styles.toast}>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#7BCB93"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          {toastMsg}
+        </div>
+      ) : null}
     </div>
   );
 }

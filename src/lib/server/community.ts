@@ -40,6 +40,7 @@ export interface PostView {
   region: string;
   caption: string;
   tags: string[];
+  images: string[];
   timestamp: number;
   liked: boolean;
   likeCount: number;
@@ -60,6 +61,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
       region: posts.region,
       caption: posts.caption,
       tags: posts.tags,
+      images: posts.images,
       createdAt: posts.createdAt,
     })
     .from(posts)
@@ -184,6 +186,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
     region: p.region,
     caption: p.caption,
     tags: p.tags as string[],
+    images: (p.images as string[] | null) ?? [],
     timestamp: p.createdAt.getTime(),
     liked: likedPostIdsByViewer.has(p.id),
     likeCount: likeCountByPost.get(p.id) ?? 0,

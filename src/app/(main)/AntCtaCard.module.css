@@ -233,6 +233,7 @@
   text-decoration: none;
   background: var(--pd-brand);
   color: #163b25;
+  border: none;
   border-radius: var(--pd-radius-pill);
   padding: 14px 28px;
   font-size: 15px;

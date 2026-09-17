@@ -125,6 +125,8 @@ export const posts = pgTable('posts', {
   region: text('region').notNull(),
   caption: text('caption').notNull(),
   tags: jsonb('tags').notNull(),
+  /** 리사이즈된 data URL 문자열 배열 — avatarUrl 과 같은 방식으로 별도 스토리지 없이 저장한다. */
+  images: jsonb('images').notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

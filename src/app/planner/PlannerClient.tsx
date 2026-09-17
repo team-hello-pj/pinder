@@ -95,6 +95,11 @@ export function PlannerClient() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [nextId, setNextId] = useState(1);
   const [segments, setSegments] = useState<TransportMode[]>([]);
+  // 방문지가 추가/삭제/순서변경 되면 구간(이동수단)이 어느 방문지 사이 것인지 알 수 없게 된다 —
+  // 기존 구간 배열은 위치 기반이라 순서가 바뀌면 엉뚱한 구간에 매칭되어 밀리거나 겹쳐 보였다.
+  // 그래서 방문지 목록이 바뀔 때마다 구간 표시를 숨기고, "경로 계산"을 다시 눌러야
+  // 새로 계산된 구간이 나타나게 한다.
+  const [routeSegmentsReady, setRouteSegmentsReady] = useState(false);
   const [criteria, setCriteriaState] = useState<RouteCriteria>('time');
   const [routeCache, setRouteCache] = useState<Record<string, CacheEntry>>({});
   const [routeSearching, setRouteSearching] = useState(false);
@@ -382,6 +387,7 @@ export function PlannerClient() {
       lastTitleRef.current = detail.schedule.title;
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
+      setRouteSegmentsReady(detail.schedule.segments.length > 0);
       setCriteriaState(detail.schedule.criteria);
       setTripStart(detail.schedule.tripStart || '');
       setTripEnd(detail.schedule.tripEnd || '');
@@ -419,6 +425,7 @@ export function PlannerClient() {
             }
             setPlaces(schedule.places);
             setSegments(schedule.segments);
+            setRouteSegmentsReady(schedule.segments.length > 0);
             setCriteriaState(schedule.criteria);
             setTripStart(schedule.tripStart || '');
             setTripEnd(schedule.tripEnd || '');
@@ -485,6 +492,7 @@ export function PlannerClient() {
       if (handoff) {
         setPlaces(handoff.places);
         setSegments(handoff.segments);
+        setRouteSegmentsReady(handoff.segments.length > 0);
         setNextId(handoff.places.length + 1);
       }
     }
@@ -538,31 +546,30 @@ export function PlannerClient() {
   const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string) => {
     const day = selectedDay ?? 0;
     const name = nameOverride?.trim() || doc.place_name;
-    setPlaces((prev) => {
-      const next: Place[] = [
-        ...prev,
-        {
-          id: nextId,
-          name,
-          category: doc.category_group_name || '미분류',
-          address: doc.road_address_name || doc.address_name,
-          roadAddress: doc.road_address_name,
-          jibunAddress: doc.address_name,
-          placeId: doc.id,
-          x: Number(doc.x),
-          y: Number(doc.y),
-          duration: 15,
-          hours: 'unknown',
-          hoursLabel: '영업시간 확인 필요',
-          visitTime: '',
-          packItems: '',
-          weather: 'sunny',
-          day,
-        },
-      ];
-      setSegments((segs) => resizeSegments(next, segs));
-      return next;
-    });
+    const newPlace: Place = {
+      id: nextId,
+      name,
+      category: doc.category_group_name || '미분류',
+      address: doc.road_address_name || doc.address_name,
+      roadAddress: doc.road_address_name,
+      jibunAddress: doc.address_name,
+      placeId: doc.id,
+      x: Number(doc.x),
+      y: Number(doc.y),
+      duration: 15,
+      hours: 'unknown',
+      hoursLabel: '영업시간 확인 필요',
+      visitTime: '',
+      packItems: '',
+      weather: 'sunny',
+      day,
+    };
+    const next = [...places, newPlace];
+    setPlaces(next);
+    setSegments(resizeSegments(next, segments));
+    // 방문지를 새로 추가하면 아직 이 방문지를 반영한 경로가 계산되지 않은 상태이므로
+    // 이동수단 표시는 숨기고, "경로 계산"을 눌러야 다시 나타나게 한다.
+    setRouteSegmentsReady(false);
     setNextId((n) => n + 1);
     setNewAddress('');
     setPendingSelectedDoc(null);
@@ -592,11 +599,11 @@ export function PlannerClient() {
 
   const deletePlace = (id: number) => {
     const place = places.find((p) => p.id === id);
-    setPlaces((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      setSegments((segs) => resizeSegments(next, segs));
-      return next;
-    });
+    const next = places.filter((p) => p.id !== id);
+    setPlaces(next);
+    setSegments(resizeSegments(next, segments));
+    // 방문지를 삭제하면 남은 방문지 사이의 인접 관계가 바뀌므로 이동수단 표시를 숨긴다.
+    setRouteSegmentsReady(false);
     if (place) logActivity(`${place.name}을(를) 삭제했습니다`);
     // 출발지로 지정했던 방문지를 삭제하면 다음 경로 계산에서 출발지를 다시 고를 수 있도록 초기화한다.
     if (id === originId) {
@@ -660,6 +667,7 @@ export function PlannerClient() {
       const count = places.length;
       setPlaces([]);
       setSegments([]);
+      setRouteSegmentsReady(false);
       logActivity(`방문지 ${count}곳을 모두 삭제했습니다 (초기화)`);
     } else if (deleteTargetId === 'ORIGINAL_ROUTE') {
       if (scheduleId) {
@@ -737,13 +745,14 @@ export function PlannerClient() {
   const onDrop = (idx: number) => {
     const wasDragging = dragIndex !== null && dragIndex !== idx;
     if (dragIndex === null || dragIndex === idx) return;
-    setPlaces((prev) => {
-      const arr = [...prev];
-      const [moved] = arr.splice(dragIndex, 1);
-      arr.splice(idx, 0, moved);
-      setSegments((segs) => resizeSegments(arr, segs));
-      return arr;
-    });
+    const arr = [...places];
+    const [moved] = arr.splice(dragIndex, 1);
+    arr.splice(idx, 0, moved);
+    setPlaces(arr);
+    setSegments(resizeSegments(arr, segments));
+    // 방문지 순서를 스위치하면 구간(이동수단)이 어느 방문지 사이 것인지 더 이상 유효하지 않으므로
+    // 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
+    setRouteSegmentsReady(false);
     setDragIndex(null);
     setRouteCache({});
     if (wasDragging) logActivity('방문 순서를 변경했습니다');
@@ -845,6 +854,7 @@ export function PlannerClient() {
       );
       setPlaces(result.places);
       setSegments(result.segments);
+      setRouteSegmentsReady(true);
       setLoading(false);
       const varLabel = SITUATION_VARS.find((v) => v.id === situationVar)?.label ?? situationVar;
       const sevLabel = SEVERITY_LEVELS.find((s) => s.id === situationSeverity)?.label ?? '';
@@ -879,6 +889,7 @@ export function PlannerClient() {
       if (newPlaces.length === places.length) {
         setPlaces(newPlaces);
         setSegments(newSegments);
+        setRouteSegmentsReady(true);
         setRouteCache({});
       }
       logActivity(`AI 상황 반영: "${text}" → ${result.note || '동선을 재구성했습니다'}`);
@@ -1138,34 +1149,33 @@ export function PlannerClient() {
     if (!recs.length || addingRecommended) return;
     setAddingRecommended(true);
     let added = 0;
+    let currentPlaces = places;
     for (const rec of recs) {
       const query = rec.address ? `${rec.name} ${rec.address}` : rec.name;
       const geo = await geocodePlace(query);
       const placeId = nextId + added;
-      setPlaces((prev) => {
-        const next: Place[] = [
-          ...prev,
-          {
-            id: placeId,
-            name: rec.name,
-            category: '미분류',
-            address: rec.address || rec.name,
-            duration: 15,
-            hours: 'unknown',
-            hoursLabel: '영업시간 확인 필요',
-            visitTime: '',
-            packItems: '',
-            weather: 'sunny',
-            day: selectedDay ?? 0,
-            x: geo?.x ?? null,
-            y: geo?.y ?? null,
-          },
-        ];
-        setSegments((segs) => resizeSegments(next, segs));
-        return next;
-      });
+      const newPlace: Place = {
+        id: placeId,
+        name: rec.name,
+        category: '미분류',
+        address: rec.address || rec.name,
+        duration: 15,
+        hours: 'unknown',
+        hoursLabel: '영업시간 확인 필요',
+        visitTime: '',
+        packItems: '',
+        weather: 'sunny',
+        day: selectedDay ?? 0,
+        x: geo?.x ?? null,
+        y: geo?.y ?? null,
+      };
+      currentPlaces = [...currentPlaces, newPlace];
+      setPlaces(currentPlaces);
+      setSegments(resizeSegments(currentPlaces, segments));
       added += 1;
     }
+    // 방문지가 새로 추가됐으므로 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
+    setRouteSegmentsReady(false);
     setNextId((n) => n + added);
     setRouteCache({});
     logActivity(`AI 추천 장소 ${added}곳을 동선에 추가했습니다`);
@@ -1348,6 +1358,7 @@ export function PlannerClient() {
       const next = sourcePlaces.map((p) => (scopeIds.has(p.id) ? orderedScoped[cursor++] : p));
       setPlaces(next);
       setSegments((segs) => resizeSegments(next, segs));
+      setRouteSegmentsReady(false);
     },
     [],
   );
@@ -1503,6 +1514,8 @@ export function PlannerClient() {
           scopeIds,
         );
         await searchAllRoutes();
+        // 경로 계산이 끝났으므로 이동수단을 다시 표시한다.
+        setRouteSegmentsReady(true);
         showToast(reusable ? '이전 계산 결과를 사용했어요' : '최적 경로 계산이 완료됐어요');
       } catch (err) {
         console.error('runOptimalRoute failed:', err);
@@ -1554,6 +1567,7 @@ export function PlannerClient() {
     for (let idx = 0; idx < segments.length; idx++) {
       for (const mode of MODE_ORDER) fetchSegmentRouteForModeWithCriteria(idx, mode, c);
     }
+    if (routeOptimization) setRouteSegmentsReady(true);
   };
 
   // 일차별로 경로를 따로 계산하므로, 출발지도 지금 보고 있는 일차의 방문지 중에서만 고른다.
@@ -1822,6 +1836,9 @@ export function PlannerClient() {
                       />
                     );
                   }
+                  // 경로가 재계산되기 전까지는 이동수단(구간)을 숨겨서, 방문지 순서가 바뀌었는데도
+                  // 예전 구간 정보가 잘못 매칭되어 보이는 문제를 막는다.
+                  if (!routeSegmentsReady) return null;
                   const seg = enrichedSegments[item.index];
                   if (!seg) return null;
                   return (
@@ -2664,11 +2681,20 @@ export function PlannerClient() {
             </div>
           ) : null}
         </div>
-        <div className={styles.modalActions} style={{ marginTop: 16, justifyContent: 'space-between' }}>
+        <div
+          className={styles.modalActions}
+          style={{ marginTop: 16, justifyContent: 'space-between' }}
+        >
           <button
             type="button"
             className={styles.hint}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
             onClick={() => {
               setOriginSelectOpen(false);
               openSearchMode();
