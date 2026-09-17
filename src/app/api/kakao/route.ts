@@ -16,7 +16,7 @@ import {
 
 export const runtime = 'nodejs';
 
-type Action = 'geocode' | 'keyword' | 'car' | 'walk' | 'transit' | 'bike';
+type Action = 'geocode' | 'reverseGeocode' | 'keyword' | 'car' | 'walk' | 'transit' | 'bike';
 
 interface KakaoRequestBody {
   action?: Action;
@@ -53,6 +53,23 @@ export async function POST(request: Request) {
           console.error('kakao geocode error', r.status, r.data);
           return NextResponse.json(
             { error: '주소를 찾지 못했습니다.', detail: r.data },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json(r.data);
+      }
+
+      case 'reverseGeocode': {
+        // "현재 위치를 출발지로 설정" — 브라우저 Geolocation 좌표를 사람이 읽을 수 있는
+        // 주소로 바꾼다(좌표 자체는 이미 있으니 여기서는 표시용 주소만 구한다).
+        const r = await kakaoGet(`${LOCAL_BASE}/v2/local/geo/coord2address.json`, {
+          x: params.x,
+          y: params.y,
+        });
+        if (!r.ok) {
+          console.error('kakao reverseGeocode error', r.status, r.data);
+          return NextResponse.json(
+            { error: '현재 위치의 주소를 찾지 못했습니다.', detail: r.data },
             { status: 502 },
           );
         }
