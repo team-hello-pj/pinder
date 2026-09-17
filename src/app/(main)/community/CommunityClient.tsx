@@ -81,7 +81,7 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
-  const { isLoggedIn, user } = useSession();
+  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
   const [posts, setPosts] = useState<PostView[]>([]);
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
@@ -159,6 +159,13 @@ export function CommunityClient() {
     }
     return true;
   };
+  // 커뮤니티 탭에 처음 들어왔을 때도(특정 동작을 누르기 전이라도) 비로그인 상태면 바로 안내
+  // 모달을 띄운다. 게시글 열람은 계속 비회원도 가능하므로 닫으면(X/ESC) 그냥 둘러볼 수 있게
+  // 두고 홈으로 돌려보내진 않는다 — requireLogin() 이 쓰는 것과 같은 모달을 그대로 재사용한다.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭에 들어왔을 때 한 번만 확인한다
+    if (!sessionLoading && !isLoggedIn) setAuthGateOpen(true);
+  }, [sessionLoading, isLoggedIn]);
 
   // ---- 좋아요 / 북마크 ----
   const toggleLike = (id: string) => {
