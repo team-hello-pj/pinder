@@ -995,7 +995,11 @@ export function PlannerClient() {
         }));
         return;
       }
-      if (routeCache[key]) return;
+      // 실패로 캐시된 항목은 "이미 조회함"으로 치지 않는다 — 그러면 한 번 실패한 구간은
+      // "경로 검색"을 다시 눌러도 영원히 재시도가 안 된다(특히 도보/대중교통/자전거처럼
+      // 요청이 몰리면 실패하기 쉬운 이동수단에서 계속 재현됐다).
+      const existing = routeCache[key];
+      if (existing && !('failed' in existing)) return;
       try {
         const data = await fetchRouteLeg(mode, {
           originX: a.x,
