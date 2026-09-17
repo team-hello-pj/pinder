@@ -20,7 +20,19 @@
 
 .topBar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+}
+
+.homeBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .brandBlock {
@@ -178,11 +190,44 @@
   gap: 8px;
 }
 
-.googleSlot {
+.googleBtnWrap {
+  position: relative;
   width: 100%;
+  max-width: 320px;
+}
+
+.googleBtnVisual {
   display: flex;
+  align-items: center;
   justify-content: center;
-  min-height: 44px;
+  gap: 10px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.googleGIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* 실제 클릭을 받는 구글 버튼(iframe) — 위 googleBtnVisual 과 정확히 같은 자리·크기에
+   거의 투명하게 겹쳐서, 보이는 건 우리 디자인이지만 클릭은 진짜 구글 버튼이 처리한다. */
+.googleSlotOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  opacity: 0.001;
 }
 
 .googleNoticeError {

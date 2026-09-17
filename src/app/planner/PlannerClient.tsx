@@ -2896,8 +2896,8 @@ export function PlannerClient() {
         )}
       </div>
 
-      {/* AI FAB */}
-      {!aiOpen ? (
+      {/* AI FAB — 뷰어(편집 권한 없음)는 동선을 바꿀 수 없으니 동선 수정용 AI 도우미도 필요 없다. */}
+      {!aiOpen && !isViewerRole ? (
         <button type="button" className={styles.aiFab} onClick={() => setAiOpen(true)}>
           ✨ AI 도우미
         </button>

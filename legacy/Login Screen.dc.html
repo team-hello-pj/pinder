@@ -33,7 +33,10 @@
 <div class="pd-fade pd-login-wrap" style="width:100%;min-height:100vh;display:flex;justify-content:center;background:{{ c.bg }};color:{{ c.text }};box-sizing:border-box;padding:48px 16px">
   <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:32px;animation:fadeUp .4s ease">
 
-    <div style="display:flex;justify-content:flex-end">
+    <div style="display:flex;justify-content:space-between">
+      <a href="./main(home).dc.html" title="홈으로" style="width:36px;height:36px;border-radius:10px;border:1px solid {{ c.border }};display:flex;align-items:center;justify-content:center;color:{{ c.text }};text-decoration:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"></path></svg>
+      </a>
       <div onClick="{{ toggleTheme }}" class="pd-icon-btn" title="테마 전환" style="cursor:pointer;width:36px;height:36px;border-radius:10px;border:1px solid {{ c.border }};display:flex;align-items:center;justify-content:center;font-size:15px">
         <sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}">☀</sc-if>
         <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="./uploads/moon-icon.png" alt="" style="width:15px;height:15px;object-fit:contain"></sc-if>
@@ -87,7 +90,7 @@
       <div style="flex:1;height:1px;background:{{ c.border }}"></div>
     </div>
 
-    <div id="google-login-btn-slot" style="width:100%;display:flex;justify-content:center;min-height:44px"></div>
+    <div id="google-login-btn-slot" style="width:100%;display:flex;justify-content:center;min-height:44px;filter:{{ googleBtnFilter }}"></div>
 
     <sc-if value="{{ googleError }}" hint-placeholder-val="{{ false }}">
       <div style="font-size:12px;color:#D9534F;text-align:center">{{ googleError }}</div>
@@ -129,6 +132,9 @@ class Component extends DCLogic {
   toggleTheme = () => this.setState(s => {
     const next = s.theme === 'light' ? 'dark' : 'light';
     try { localStorage.setItem('pd-theme', next); } catch (e) {}
+    const slot = document.getElementById('google-login-btn-slot');
+    if (slot) { slot.dataset.rendered = ''; slot.innerHTML = ''; }
+    setTimeout(this.ensureGoogleButtonRendered, 0);
     return { theme: next };
   });
 
@@ -150,7 +156,7 @@ class Component extends DCLogic {
         client_id: this.GOOGLE_CLIENT_ID,
         callback: this.onGoogleAuthSuccess,
       });
-      window.google.accounts.id.renderButton(slot, { type: 'standard', theme: 'outline', size: 'large', width: 320 });
+      window.google.accounts.id.renderButton(slot, { type: 'standard', theme: this.state.theme === 'dark' ? 'filled_black' : 'outline', size: 'large', width: 320 });
       slot.dataset.rendered = '1';
     } catch (err) {
       console.error('Google 로그인 버튼 렌더링에 실패했습니다:', err);
@@ -228,6 +234,7 @@ class Component extends DCLogic {
       onPasswordChange: this.onPasswordChange,
       handleSubmit: this.handleSubmit,
       googleError: this.state.googleError,
+      googleBtnFilter: this.state.theme === 'dark' ? 'brightness(1.6) contrast(0.9)' : 'none',
       stopPropagation: this.stopPropagation,
       googleUser: this.state.googleUser,
     };

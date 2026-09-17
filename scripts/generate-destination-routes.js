@@ -5,9 +5,18 @@
 // 20개(팀 공용)라 여행지 하나당 여러 번 부르는 걸 피한다.)
 //
 // "이 여행지로 일정 짜기"는 이렇게 미리 만들어 둔 동선만 쓰고, 클릭할 때마다 다시 생성하지 않는다.
+// routes 에 담긴 기간이 하나뿐이면(--days=1 로 만든 경우) 화면에서 며칠인지 묻지 않고 바로
+// 그 기간으로 시작한다 — 예: 드라이브 코스는 당일치기만 만들어서 그렇게 동작하게 한다.
 //
 // 사용법: node --env-file=.env.local scripts/generate-destination-routes.js [여행지 이름...]
-//   인자 없이 실행하면 destinations 테이블의 모든 행을 대상으로 한다.
+//   [--days=1|2|3] 그 기간까지만 생성해서 routes 를 통째로 교체(기본은 3 — 당일치기/1박2일/
+//     2박3일 세 가지를 다 만들어서 저장).
+//   [--style=<값>] (기본 "알차게")
+//   [--interests=a,b,c] (기본은 각 여행지의 태그)
+//   [--use-desc] 관심사에 태그뿐 아니라 각 여행지의 desc(미리 적어둔 소개 문구)도 함께
+//     넣어서, 그 소개에 맞는 장소가 나오도록 유도한다.
+//   [--transport=car|walk|transit|bike] (기본 "transit")
+//   인자로 여행지 이름을 안 주면 destinations 테이블의 모든 행을 대상으로 한다.
 //   Gemini 호출은 로컬 dev 서버(localhost:3000, GEMINI_API_KEY 필요)를 쓰고, 지오코딩은
 //   배포된 프로덕션의 Kakao 프록시를 쓴다(로컬 .env.local 에는 KAKAO 키가 없을 수 있어서다 —
 //   로컬에 KAKAO_REST_API_KEY 가 있다면 GEOCODE_BASE 를 http://localhost:3000 으로 바꿔도 된다).
@@ -20,14 +29,29 @@ const { Pool } = require('@neondatabase/serverless');
 const GENERATE_BASE = 'http://localhost:3000';
 const GEOCODE_BASE = 'https://pinder-one.vercel.app';
 
-const STYLE = '알차게';
-const COMPANION = '혼자';
-const TRANSPORT = 'transit';
-const TRIP_DAYS = 3;
-const TRIP_START = '2026-06-01';
-const TRIP_END = '2026-06-03';
+const args = process.argv.slice(2);
+const flags = {};
+const targetNames = [];
+for (const arg of args) {
+  if (arg.startsWith('--')) {
+    const m = /^--([^=]+)=(.*)$/.exec(arg);
+    if (m) flags[m[1]] = m[2];
+    else flags[arg.slice(2)] = true;
+  } else {
+    targetNames.push(arg);
+  }
+}
 
-const targetNames = process.argv.slice(2);
+const STYLE = flags.style || '알차게';
+const TRANSPORT = flags.transport || 'transit';
+const COMPANION = '혼자';
+const TRIP_DAYS = flags.days ? Number(flags.days) : 3;
+const TRIP_START = '2026-06-01';
+const TRIP_END = new Date(new Date(TRIP_START).getTime() + (TRIP_DAYS - 1) * 86400000)
+  .toISOString()
+  .slice(0, 10);
+const INTERESTS_OVERRIDE = flags.interests ? flags.interests.split(',') : null;
+const USE_DESC = Boolean(flags['use-desc']);
 
 async function generatePlaces(region, interests) {
   const res = await fetch(`${GENERATE_BASE}/api/route-generate`, {
@@ -81,8 +105,9 @@ function buildVariant(fullPlaces, days) {
   return { places, segments };
 }
 
-async function buildRoutes(region, tags) {
-  const aiPlaces = await generatePlaces(region, tags);
+async function buildRoutes(region, tags, desc) {
+  const interests = INTERESTS_OVERRIDE || (USE_DESC ? [...tags, desc] : tags);
+  const aiPlaces = await generatePlaces(region, interests);
   const fullPlaces = [];
   for (const p of aiPlaces) {
     const { x, y } = await geocode(region, p.name, p.addressHint);
@@ -104,25 +129,25 @@ async function buildRoutes(region, tags) {
   }
   fullPlaces.sort((a, b) => a.day - b.day);
 
-  return {
-    1: buildVariant(fullPlaces, 1),
-    2: buildVariant(fullPlaces, 2),
-    3: buildVariant(fullPlaces, TRIP_DAYS),
-  };
+  // --days=1 처럼 그 기간까지만 만들라고 하면, routes 는 그 하나만 담아 통째로 교체한다
+  // (더 긴 기간 옵션 자체가 없어져서 화면에서도 며칠인지 묻지 않고 바로 시작한다).
+  const routes = {};
+  for (let len = 1; len <= TRIP_DAYS; len++) routes[len] = buildVariant(fullPlaces, len);
+  return routes;
 }
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const { rows } = await pool.query(
-    'select id, name, region, tags from destinations order by section_order, item_order',
+    'select id, name, region, tags, "desc" from destinations order by section_order, item_order',
   );
   const targets = targetNames.length ? rows.filter((r) => targetNames.includes(r.name)) : rows;
 
   for (const dest of targets) {
     console.log(`\n=== ${dest.name} (${dest.region}) ===`);
     try {
-      const routes = await buildRoutes(dest.name, dest.tags);
-      for (const len of [1, 2, 3]) {
+      const routes = await buildRoutes(dest.name, dest.tags, dest.desc);
+      for (let len = 1; len <= TRIP_DAYS; len++) {
         const { places } = routes[len];
         console.log(`  ${len}일: ${places.map((p) => p.name).join(', ')}`);
       }

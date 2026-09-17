@@ -51,6 +51,7 @@ export async function renderGoogleLoginButton(
   onSuccess: (user: AuthUser) => void,
   onError: (message: string) => void,
   onNeedsSignup?: (info: { email: string; name: string }) => void,
+  theme: 'light' | 'dark' = 'light',
 ): Promise<void> {
   if (!sdkPromise) sdkPromise = loadGsiScript();
   try {
@@ -93,9 +94,13 @@ export async function renderGoogleLoginButton(
     });
     window.google.accounts.id.renderButton(container, {
       type: 'standard',
-      theme: 'outline',
+      // 구글 자체 버튼 테마 중 다크 배경에 맞는 건 filled_black 뿐이라 다크모드일 때만 바꾼다.
+      theme: theme === 'dark' ? 'filled_black' : 'outline',
       size: 'large',
-      width: 320,
+      // width 를 고정값(320)으로 넘기면 구글이 그 너비 그대로 iframe 캔버스를 잡아버리는데,
+      // 실제 버튼 자체는 그보다 좁게(약 230px) 그려져서 남는 캔버스 영역이 흰 배경으로 남는다.
+      // 라이트모드에서는 페이지 배경도 흰색이라 안 보였을 뿐, 다크모드에서는 그 여백이 버튼
+      // 주위에 흰 박스처럼 두드러져 보인다 — width 를 넘기지 않고 버튼 실제 크기에 맞춘다.
     });
   } catch (err) {
     sdkPromise = null;

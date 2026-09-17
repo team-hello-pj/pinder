@@ -1446,6 +1446,12 @@
   background: var(--pd-danger-bg);
 }
 
+/* 배경/글자색은 --pd-danger(-bg) 가 이미 다크모드 값을 갖고 있어 자동으로 바뀌지만, 테두리색은
+   라이트모드 전용 고정값(#F3C9C9)이라 다크 배경 위에서 밝은 분홍 테두리가 튀어 보인다. */
+:global([data-theme='dark']) .deleteOriginalBtn {
+  border-color: rgba(178, 12, 12, 0.35);
+}
+
 .situationBtn,
 .actionBtn,
 .requestEditBtn {
