@@ -84,6 +84,15 @@ function isRouteCommandMessage(text: string): boolean {
   return ROUTE_COMMAND_PATTERN.test(text);
 }
 
+/** "2일차" 같은 표현에서 몇 일차인지 뽑아낸다 (0-based로 반환, 없으면 null). */
+const DAY_NUMBER_PATTERN = /(\d+)\s*일\s*차/;
+function extractDayNumber(text: string): number | null {
+  const m = text.match(DAY_NUMBER_PATTERN);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 1 ? n - 1 : null;
+}
+
 /** legacy/Route Planner App.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function PlannerClient() {
   const router = useRouter();
@@ -222,6 +231,8 @@ export function PlannerClient() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [addingRecommended, setAddingRecommended] = useState(false);
+  // "몇 일차에 추가할까요?" 라고 되물은 뒤, 사용자가 일차를 답할 때까지 들고 있는 추천 장소들.
+  const [pendingAddPlaces, setPendingAddPlaces] = useState<RecommendedPlace[] | null>(null);
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([
     {
       role: 'ai',
@@ -1177,18 +1188,39 @@ export function PlannerClient() {
     setAiLoading(true);
     try {
       const res = await askAssistant(text, history, buildRouteContext());
-      setAiMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: res.reply,
-          suggestions: buildSuggestionChips(res.suggestions),
-          recommendedPlaces: res.recommendedPlaces,
-        },
-      ]);
-      // 사용자가 채팅으로 직접 "추가해줘"/"수정해줘"라고 명령한 경우에만 바로 동선에 반영한다.
-      if (res.recommendedPlaces.length && isRouteCommandMessage(text)) {
-        void addRecommendedPlaces(res.recommendedPlaces);
+      const explicitDay = extractDayNumber(text);
+      const tripDayCountNow = tripDayCount(tripStart, tripEnd);
+
+      if (pendingAddPlaces && explicitDay !== null && explicitDay < tripDayCountNow) {
+        // "몇 일차에 추가할까요?"에 대한 답 — 새로 받은 응답과 별개로, 들고 있던 추천을 그 일차에 반영한다.
+        setAiMessages((prev) => [
+          ...prev,
+          { role: 'ai', text: res.reply, suggestions: buildSuggestionChips(res.suggestions) },
+        ]);
+        void addRecommendedPlaces(pendingAddPlaces, explicitDay);
+        setPendingAddPlaces(null);
+      } else {
+        setAiMessages((prev) => [
+          ...prev,
+          {
+            role: 'ai',
+            text: res.reply,
+            suggestions: buildSuggestionChips(res.suggestions),
+            recommendedPlaces: res.recommendedPlaces,
+          },
+        ]);
+        // 사용자가 채팅으로 직접 "추가해줘"/"수정해줘"라고 명령한 경우에만 바로 동선에 반영한다.
+        if (res.recommendedPlaces.length && isRouteCommandMessage(text)) {
+          const isPureAddition = res.recommendedPlaces.every((p) => !p.replaces);
+          if (isPureAddition && tripDayCountNow > 1 && explicitDay === null) {
+            // 순수 추가인데 몇 일차인지 모른다 — 물어보고 답을 기다린다.
+            setPendingAddPlaces(res.recommendedPlaces);
+            setAiMessages((prev) => [...prev, { role: 'ai', text: '몇 일차에 추가할까요?' }]);
+          } else {
+            setPendingAddPlaces(null);
+            void addRecommendedPlaces(res.recommendedPlaces, explicitDay ?? undefined);
+          }
+        }
       }
     } catch (err) {
       console.error('sendAiMessage failed:', err);
@@ -1201,7 +1233,7 @@ export function PlannerClient() {
     }
   };
 
-  const addRecommendedPlaces = async (recs: RecommendedPlace[]) => {
+  const addRecommendedPlaces = async (recs: RecommendedPlace[], dayOverride?: number) => {
     if (!recs.length || addingRecommended) return;
     setAddingRecommended(true);
 
@@ -1242,7 +1274,7 @@ export function PlannerClient() {
           visitTime: '',
           packItems: '',
           weather: 'sunny',
-          day: selectedDay ?? 0,
+          day: dayOverride ?? selectedDay ?? 0,
           x,
           y,
         });
@@ -1260,9 +1292,12 @@ export function PlannerClient() {
     const parts: string[] = [];
     if (replaced) parts.push(`${replaced}곳 교체`);
     if (added) parts.push(`${added}곳 추가`);
+    const dayLabel = dayOverride != null ? `${dayOverride + 1}일차에 ` : '';
     const summary = parts.join(', ') || '변경 없음';
-    logActivity(`AI 추천으로 동선을 수정했습니다 (${summary}) — 방문 순서 번호가 갱신됐어요`);
-    showToast(`동선을 수정했어요 (${summary})`);
+    logActivity(
+      `AI 추천으로 ${dayLabel}동선을 수정했습니다 (${summary}) — 방문 순서 번호가 갱신됐어요`,
+    );
+    showToast(`${dayLabel}동선을 수정했어요 (${summary})`);
     setAddingRecommended(false);
   };
 
