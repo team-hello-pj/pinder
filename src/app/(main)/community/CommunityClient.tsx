@@ -284,7 +284,13 @@ export function CommunityClient() {
     }
     setPhotoError(null);
     setComposerStatus('loading');
-    const next = await createPost({ place, region: draftRegion, caption, tags, images: draftImages });
+    const next = await createPost({
+      place,
+      region: draftRegion,
+      caption,
+      tags,
+      images: draftImages,
+    });
     setPosts(next);
     setSortMode('latest');
     setComposerStatus('idle');
@@ -926,7 +932,10 @@ export function CommunityClient() {
         <div className={styles.commentModalOverlay} onClick={() => setCommentModalId(null)}>
           <div className={styles.commentModalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.commentModalPhoto}>
-              <PostPhoto images={commentModalPost.images} label={`${commentModalPost.place} 사진`} />
+              <PostPhoto
+                images={commentModalPost.images}
+                label={`${commentModalPost.place} 사진`}
+              />
             </div>
             <div className={styles.commentModalRight}>
               <div className={styles.commentModalHead}>
