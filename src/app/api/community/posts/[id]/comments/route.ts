@@ -31,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       'comment',
       `${session.nickname ?? session.name}님이 「${post.place}」에 댓글을 남겼어요.`,
       'communityComment',
+      { relatedId: id },
     );
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -13,7 +13,6 @@ import {
   listPosts,
   listTrendingPlaces,
   MAX_POST_IMAGES,
-  resizePostImageFile,
   togglePostBookmark,
   togglePostLike,
   toggleCommentLike as apiToggleCommentLike,
@@ -23,7 +22,14 @@ import {
 } from '@/lib/community';
 import { formatRelativeTime } from '@/lib/format';
 import { useSession } from '@/components/providers/SessionProvider';
-import { AuthorAvatar, Button, HighlightedCaption, Modal, PlaceholderImage } from '@/components/ui';
+import {
+  AuthorAvatar,
+  Button,
+  HighlightedCaption,
+  ImageCropModal,
+  Modal,
+  PlaceholderImage,
+} from '@/components/ui';
 
 import { CommentThread } from './CommentThread';
 import { POPULAR_TAGS, REGIONS } from './data';
@@ -43,6 +49,8 @@ function totalCommentCount(post: PostView): number {
 /**
  * 게시물 사진 — 여러 장이면 좌우 화살표로 한 장씩 넘겨보고, 몇 번째/전체 장수를 보여준다.
  * 실제 첨부 사진이 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다.
+ * 우클릭 저장/드래그 저장/모바일 길게 눌러 저장을 막는다 — 완벽히 막을 수는 없지만
+ * (스크린샷 등은 어차피 못 막는다) 실수로 쉽게 저장되는 건 줄인다.
  * interactive=false 면(그리드 썸네일처럼 이미 버튼 안에 들어가는 경우) 화살표 없이 장수만 표시한다
  * — 버튼 안에 버튼을 중첩할 수 없기 때문.
  */
@@ -75,7 +83,14 @@ function PostPhoto({
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님 */}
-      <img src={images[clampedIndex]} alt={label} className={styles.postPhotoImg} />
+      <img
+        src={images[clampedIndex]}
+        alt={label}
+        className={styles.postPhotoImg}
+        draggable={false}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+      />
       {hasMultiple ? (
         <>
           {interactive && clampedIndex > 0 ? (
@@ -140,6 +155,8 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const appliedPostParamRef = useRef(false);
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
   const [posts, setPosts] = useState<PostView[]>([]);
@@ -154,6 +171,10 @@ export function CommunityClient() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [composerStatus, setComposerStatus] = useState<'idle' | 'loading'>('idle');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // 사진을 여러 장 고르면 하나씩 순서대로 4:3 위치 조정 팝업을 띄운다 — 아직 자르지 않고
+  // 대기 중인 나머지 파일들과, 지금 자르는 중인 파일의 미리보기 URL을 들고 있는다.
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -195,6 +216,18 @@ export function CommunityClient() {
       cancelled = true;
     };
   }, []);
+
+  // 알림에서 "/community?post=<id>" 로 들어온 경우, 게시물 목록이 로드되면 해당 게시물의
+  // 상세(댓글) 모달을 자동으로 연다. 대상 게시물을 못 찾으면(삭제됨 등) 조용히 무시한다.
+  useEffect(() => {
+    if (appliedPostParamRef.current) return;
+    const postId = searchParams.get('post');
+    if (!postId) return;
+    if (!posts.some((p) => p.id === postId)) return;
+    appliedPostParamRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 게시물이 로드된 뒤 한 번만 연다
+    setCommentModalId(postId);
+  }, [posts, searchParams]);
 
   useEffect(() => {
     if (!commentModalId) return;
@@ -309,6 +342,11 @@ export function CommunityClient() {
     setDraftRegion(REGIONS[1]);
     setDraftImages([]);
     setPhotoError(null);
+    setCropQueue([]);
+    setCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
   const openEditComposer = (id: string) => {
     const post = posts.find((p) => p.id === id);
@@ -320,7 +358,21 @@ export function CommunityClient() {
     setDraftRegion(post.region);
     setPhotoError(null);
   };
-  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** 큐에 남은 파일이 있으면 그중 첫 장을 자르기 팝업에 띄운다. 없으면 팝업을 닫는다. */
+  const advanceCropQueue = (queue: File[]) => {
+    setCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (!queue.length) {
+      setCropQueue([]);
+      return;
+    }
+    const [next, ...rest] = queue;
+    setCropQueue(rest);
+    setCropSrc(URL.createObjectURL(next));
+  };
+  const onPickImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
     e.target.value = '';
     if (picked.length === 0) return;
@@ -334,30 +386,21 @@ export function CommunityClient() {
     const files = imagesOnly.slice(0, remainingSlots);
     const overflowCount = imagesOnly.length - files.length;
 
-    if (files.length === 0) {
-      if (rejectedCount > 0) setPhotoError('사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).');
-      return;
-    }
-
-    const settled = await Promise.allSettled(files.map(resizePostImageFile));
-    const resized = settled.filter(
-      (r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled',
-    ).map((r) => r.value);
-    const failedCount = settled.length - resized.length;
-
-    setDraftImages((prev) => [...prev, ...resized]);
-
-    if (rejectedCount > 0 || overflowCount > 0 || failedCount > 0) {
-      setPhotoError(
-        rejectedCount > 0
-          ? '사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).'
-          : overflowCount > 0
-            ? `사진은 최대 ${MAX_POST_IMAGES}장까지만 첨부할 수 있어요.`
-            : '일부 사진을 처리하지 못했어요. 다시 시도해주세요.',
-      );
+    if (rejectedCount > 0) {
+      setPhotoError('사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).');
+    } else if (overflowCount > 0) {
+      setPhotoError(`사진은 최대 ${MAX_POST_IMAGES}장까지만 첨부할 수 있어요.`);
     } else {
       setPhotoError(null);
     }
+
+    if (files.length === 0) return;
+    advanceCropQueue(files);
+  };
+  const cancelCrop = () => advanceCropQueue(cropQueue);
+  const confirmCrop = (dataUrl: string) => {
+    setDraftImages((prev) => [...prev, dataUrl]);
+    advanceCropQueue(cropQueue);
   };
   const removeDraftImage = (index: number) => {
     setDraftImages((prev) => prev.filter((_, i) => i !== index));
@@ -1038,6 +1081,9 @@ export function CommunityClient() {
           </Button>
         </div>
       </Modal>
+
+      {/* 사진 위치 조정(4:3 크롭) — 여러 장을 골랐으면 한 장씩 순서대로 뜬다. */}
+      <ImageCropModal open={cropSrc != null} imageSrc={cropSrc} onCancel={cancelCrop} onConfirm={confirmCrop} />
 
       {/* 댓글 상세: 좌측 사진 / 우측 댓글창 2단 구조 */}
       {commentModalPost ? (

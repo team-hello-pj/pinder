@@ -46,7 +46,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       'schedule',
       `${session.nickname ?? session.name}님이 설정한 「${schedule.title}」에 편집 권한을 수락하시겠습니까?`,
       'schedule',
-      { scheduleId: id, requestId: reqRow.id },
+      { relatedId: id, requestId: reqRow.id },
     );
   }
 

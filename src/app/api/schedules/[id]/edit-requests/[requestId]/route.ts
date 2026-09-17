@@ -59,6 +59,7 @@ export async function POST(
         ? `「${schedule.title}」 편집 권한 요청이 승인됐어요.`
         : `「${schedule.title}」 편집 권한 요청이 거절됐어요.`,
       'schedule',
+      { relatedId: id },
     );
   }
 

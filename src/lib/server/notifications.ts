@@ -32,14 +32,17 @@ async function getPrefs(userId: string): Promise<Record<string, boolean>> {
 
 /**
  * prefKey 가 꺼져 있으면 알림을 만들지 않는다.
- * related 를 넘기면 알림벨에서 바로 승인/거절할 수 있는 액션형 알림이 된다.
+ * related 를 넘기면 알림벨에서 바로 승인/거절할 수 있는 액션형 알림이 되고(requestId 포함 시),
+ * 클릭했을 때 원래 위치로 이동할 수 있는 연결 정보로도 쓰인다. relatedId 는 DB 컬럼명은
+ * 그대로 relatedScheduleId 를 쓰지만(스키마 변경 없이 재사용), 일정 알림이면 일정 id를,
+ * 커뮤니티 알림이면 게시물 id를 담는 범용 "연결 대상 id" 로 쓴다.
  */
 export async function createNotification(
   userId: string,
   type: NotificationType,
   text: string,
   prefKey: keyof typeof DEFAULT_NOTIFICATION_PREFS,
-  related?: { scheduleId: string; requestId: string },
+  related?: { relatedId: string; requestId?: string },
 ): Promise<void> {
   const prefs = await getPrefs(userId);
   if (prefs[prefKey] === false) return;
@@ -47,7 +50,7 @@ export async function createNotification(
     userId,
     type,
     text,
-    relatedScheduleId: related?.scheduleId,
+    relatedScheduleId: related?.relatedId,
     relatedRequestId: related?.requestId,
   });
 }
@@ -102,7 +105,7 @@ export async function listNotifications(userId: string): Promise<NotificationVie
       text: `내일 출발하는 일정이 있어요: ${s.title}`,
       read: true, // 저장되지 않는 실시간 알림이라 읽음 상태를 따로 관리하지 않는다.
       createdAt: Date.now(),
-      relatedScheduleId: null,
+      relatedScheduleId: s.id,
       relatedRequestId: null,
     });
   }

@@ -1,0 +1,52 @@
+.desc {
+  font-size: 12.5px;
+  color: var(--pd-text-sub);
+  margin: 0 0 10px;
+}
+
+.frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--pd-chip-bg);
+  margin: 0 auto 14px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.frame:active {
+  cursor: grabbing;
+}
+
+.dragImg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.zoomRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.zoomIcon {
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  flex-shrink: 0;
+}
+
+.zoomSlider {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
