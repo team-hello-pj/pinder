@@ -1,6 +1,7 @@
 'use client';
 
 import type { CommentView } from '@/lib/community';
+import { AuthorAvatar } from '@/components/ui';
 
 import styles from './community.module.css';
 
@@ -38,6 +39,12 @@ export function CommentThread({
       {comments.map((cmt) => (
         <div key={cmt.id} className={styles.commentBlock}>
           <div className={styles.commentRow}>
+            <AuthorAvatar
+              name={cmt.author}
+              avatarUrl={cmt.authorAvatarUrl}
+              isMine={cmt.isMine}
+              className={styles.commentAvatar}
+            />
             <div className={styles.commentText}>
               <b>{cmt.author}</b> {cmt.text}
             </div>
@@ -69,6 +76,12 @@ export function CommentThread({
 
           {cmt.replies.map((rep) => (
             <div key={rep.id} className={styles.replyRow}>
+              <AuthorAvatar
+                name={rep.author}
+                avatarUrl={rep.authorAvatarUrl}
+                isMine={rep.isMine}
+                className={styles.replyAvatar}
+              />
               <div className={styles.replyText}>
                 <b>{rep.author}</b> {rep.text}
               </div>

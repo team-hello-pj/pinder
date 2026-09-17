@@ -40,11 +40,71 @@ function totalCommentCount(post: PostView): number {
   return post.comments.reduce((sum, c) => sum + 1 + c.replies.length, 0);
 }
 
-/** 게시물 사진 — 실제 첨부 사진이 있으면 그걸 보여주고, 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다. */
-function PostPhoto({ images, label }: { images: string[]; label: string }) {
+/**
+ * 게시물 사진 — 여러 장이면 좌우 화살표로 한 장씩 넘겨보고, 몇 번째/전체 장수를 보여준다.
+ * 실제 첨부 사진이 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다.
+ * interactive=false 면(그리드 썸네일처럼 이미 버튼 안에 들어가는 경우) 화살표 없이 장수만 표시한다
+ * — 버튼 안에 버튼을 중첩할 수 없기 때문.
+ */
+function PostPhoto({
+  images,
+  label,
+  interactive = true,
+}: {
+  images: string[];
+  label: string;
+  interactive?: boolean;
+}) {
+  const [index, setIndex] = useState(0);
   if (images.length === 0) return <PlaceholderImage label={label} />;
-  // eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님
-  return <img src={images[0]} alt={label} className={styles.postPhotoImg} />;
+
+  const clampedIndex = Math.min(index, images.length - 1);
+  const hasMultiple = images.length > 1;
+
+  const goPrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIndex((i) => Math.max(0, i - 1));
+  };
+  const goNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIndex((i) => Math.min(images.length - 1, i + 1));
+  };
+
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님 */}
+      <img src={images[clampedIndex]} alt={label} className={styles.postPhotoImg} />
+      {hasMultiple ? (
+        <>
+          {interactive && clampedIndex > 0 ? (
+            <button
+              type="button"
+              className={`${styles.postPhotoNavBtn} ${styles.postPhotoNavPrev}`}
+              onClick={goPrev}
+              aria-label="이전 사진"
+            >
+              ‹
+            </button>
+          ) : null}
+          {interactive && clampedIndex < images.length - 1 ? (
+            <button
+              type="button"
+              className={`${styles.postPhotoNavBtn} ${styles.postPhotoNavNext}`}
+              onClick={goNext}
+              aria-label="다음 사진"
+            >
+              ›
+            </button>
+          ) : null}
+          <span className={styles.postPhotoCounter}>
+            {clampedIndex + 1}/{images.length}
+          </span>
+        </>
+      ) : null}
+    </>
+  );
 }
 
 /** 댓글 상세 팝업 상단의 작성자 글(제목). 3줄을 넘으면 "전체 보기/접기"로 잘라 보여준다. */
@@ -261,12 +321,43 @@ export function CommunityClient() {
     setPhotoError(null);
   };
   const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).slice(0, MAX_POST_IMAGES - draftImages.length);
+    const picked = Array.from(e.target.files ?? []);
     e.target.value = '';
-    if (files.length === 0) return;
-    const resized = await Promise.all(files.map(resizePostImageFile));
+    if (picked.length === 0) return;
+
+    // accept="image/*" 는 파일 선택창에서의 힌트일 뿐이라 드래그앤드롭 등으로는 우회될 수
+    // 있다 — 영상 등 이미지가 아닌 파일은 여기서 한 번 더 걸러낸다.
+    const imagesOnly = picked.filter((f) => f.type.startsWith('image/'));
+    const rejectedCount = picked.length - imagesOnly.length;
+
+    const remainingSlots = MAX_POST_IMAGES - draftImages.length;
+    const files = imagesOnly.slice(0, remainingSlots);
+    const overflowCount = imagesOnly.length - files.length;
+
+    if (files.length === 0) {
+      if (rejectedCount > 0) setPhotoError('사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).');
+      return;
+    }
+
+    const settled = await Promise.allSettled(files.map(resizePostImageFile));
+    const resized = settled.filter(
+      (r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled',
+    ).map((r) => r.value);
+    const failedCount = settled.length - resized.length;
+
     setDraftImages((prev) => [...prev, ...resized]);
-    setPhotoError(null);
+
+    if (rejectedCount > 0 || overflowCount > 0 || failedCount > 0) {
+      setPhotoError(
+        rejectedCount > 0
+          ? '사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).'
+          : overflowCount > 0
+            ? `사진은 최대 ${MAX_POST_IMAGES}장까지만 첨부할 수 있어요.`
+            : '일부 사진을 처리하지 못했어요. 다시 시도해주세요.',
+      );
+    } else {
+      setPhotoError(null);
+    }
   };
   const removeDraftImage = (index: number) => {
     setDraftImages((prev) => prev.filter((_, i) => i !== index));
@@ -575,7 +666,7 @@ export function CommunityClient() {
                   className={styles.gridCell}
                   onClick={() => setProfileAuthor(post.author)}
                 >
-                  <PostPhoto images={post.images} label={`${post.place} 사진`} />
+                  <PostPhoto images={post.images} label={`${post.place} 사진`} interactive={false} />
                 </button>
               ))}
             </div>
