@@ -128,20 +128,27 @@ export function AiGenerateWizard({
 
       const resolved: ResultPlace[] = [];
       for (const p of aiPlaces) {
-        const query = p.addressHint
-          ? `${effectiveRegion} ${p.addressHint} ${p.name}`
-          : `${effectiveRegion} ${p.name}`;
+        // 지역명+주소힌트+이름을 다 붙인 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
+        // 잦다(직접 검색해서 추가하는 일반 흐름은 사용자가 이미 검색 결과 중에서 고르므로 이
+        // 문제가 없다). 그러면 좌표가 없는 채로 저장돼 지도에 핀이 안 뜨고, 그 핀이 차지해야
+        // 할 순번도 비어버린다 — 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다.
+        const queries = p.addressHint
+          ? [`${effectiveRegion} ${p.addressHint} ${p.name}`, `${effectiveRegion} ${p.name}`, p.name]
+          : [`${effectiveRegion} ${p.name}`, p.name];
         let x: number | null = null;
         let y: number | null = null;
-        try {
-          const data = await searchKeyword(query);
-          const doc = data.documents?.[0];
-          if (doc) {
-            x = Number(doc.x);
-            y = Number(doc.y);
+        for (const query of queries) {
+          try {
+            const data = await searchKeyword(query);
+            const doc = data.documents?.[0];
+            if (doc) {
+              x = Number(doc.x);
+              y = Number(doc.y);
+              break;
+            }
+          } catch {
+            // 이 쿼리는 실패했으니 다음 후보 쿼리로 넘어간다.
           }
-        } catch {
-          // 지오코딩 실패는 무시하고 좌표 없이 진행한다 (기존 방문지 추가 흐름과 동일한 정책).
         }
         resolved.push({
           id: resolved.length + 1,
