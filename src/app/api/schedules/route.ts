@@ -23,7 +23,7 @@ export async function GET() {
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 
-  const list = await listSchedulesForUser(session.id, session.nickname);
+  const list = await listSchedulesForUser(session.id);
   return NextResponse.json({ schedules: list });
 }
 
