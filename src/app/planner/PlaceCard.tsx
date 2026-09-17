@@ -20,12 +20,17 @@ export interface PlaceCardHandlers {
 
 export interface PlaceCardProps {
   place: Place;
+  /** 목록/드래그 위치 계산용 전체 배열 인덱스 기준 순번 (1-base) */
   order: number;
+  /** 화면에 보여줄 순번 — 일차별로 1부터 다시 매긴 값 */
+  displayOrder: number;
   isLast: boolean;
   isDragging: boolean;
   expanded: boolean;
   memoSaved: boolean;
   canEdit: boolean;
+  /** 전체보기에서는 일차 경계를 넘나드는 순서 변경을 막기 위해 드래그 자체를 비활성화한다 */
+  canReorder: boolean;
   handlers: PlaceCardHandlers;
 }
 
@@ -33,25 +38,32 @@ export interface PlaceCardProps {
 export function PlaceCard({
   place,
   order,
+  displayOrder,
   isLast,
   isDragging,
   expanded,
   memoSaved,
   canEdit,
+  canReorder,
   handlers,
 }: PlaceCardProps) {
+  const draggableNow = canEdit && canReorder;
   return (
     <div
-      draggable={canEdit}
-      onDragStart={() => handlers.onDragStart(order - 1)}
-      onDragOver={handlers.onDragOver}
-      onDrop={() => handlers.onDrop(order - 1)}
+      draggable={draggableNow}
+      onDragStart={() => {
+        if (draggableNow) handlers.onDragStart(order - 1);
+      }}
+      onDragOver={draggableNow ? handlers.onDragOver : undefined}
+      onDrop={() => {
+        if (draggableNow) handlers.onDrop(order - 1);
+      }}
       onDragEnd={handlers.onDragEnd}
       className={isDragging ? `${styles.placeCard} ${styles.placeCardDragging}` : styles.placeCard}
-      style={{ cursor: canEdit ? 'grab' : 'default' }}
+      style={{ cursor: draggableNow ? 'grab' : 'default' }}
     >
       <div className={styles.placeOrderCol}>
-        <span className={styles.placeOrderBadge}>{order}</span>
+        <span className={styles.placeOrderBadge}>{displayOrder}</span>
         <span className={styles.placeOrderLine} style={{ opacity: isLast ? 0 : 1 }} />
       </div>
 

@@ -9,6 +9,7 @@ import {
   markAllNotificationsRead,
   type NotificationItem,
 } from '@/lib/notificationBell';
+import { resolveEditRequest } from '@/lib/schedules';
 
 import styles from './NotificationBell.module.css';
 
@@ -87,6 +88,11 @@ export function NotificationBell() {
   const onClearAll = () => {
     clearAllNotifications().then(setNotifications);
   };
+  const onResolveRequest = async (n: NotificationItem, action: 'approve' | 'reject') => {
+    if (!n.relatedScheduleId || !n.relatedRequestId) return;
+    await resolveEditRequest(n.relatedScheduleId, n.relatedRequestId, action);
+    deleteNotification(n.id).then(setNotifications);
+  };
 
   return (
     <div className={styles.wrap}>
@@ -134,7 +140,27 @@ export function NotificationBell() {
                         aria-hidden
                       />
                     </span>
-                    <span className={styles.itemText}>{n.text}</span>
+                    <span className={styles.itemBody}>
+                      <span className={styles.itemText}>{n.text}</span>
+                      {n.relatedScheduleId && n.relatedRequestId ? (
+                        <span className={styles.itemActions}>
+                          <button
+                            type="button"
+                            className={styles.approveBtn}
+                            onClick={() => onResolveRequest(n, 'approve')}
+                          >
+                            승인
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.rejectBtn}
+                            onClick={() => onResolveRequest(n, 'reject')}
+                          >
+                            거절
+                          </button>
+                        </span>
+                      ) : null}
+                    </span>
                     {!n.id.startsWith('trip-start-') ? (
                       <button
                         type="button"

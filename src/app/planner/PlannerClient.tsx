@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CATEGORY_OPTIONS,
   CRITERIA_LABEL,
+  MODE_MAP,
   MODE_ORDER,
   SEVERITY_LEVELS,
   SITUATION_VARS,
@@ -25,6 +26,16 @@ import {
 import { fmtRange } from '@/lib/calendar';
 import { tripDayCount } from '@/lib/format';
 import { applySituationAdjustment, computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
+import {
+  buildRouteSignature,
+  computeDelayCost,
+  haversineKm,
+  solveWeightedOpenPathOrder,
+  sumPathCost,
+  type OptimalRouteResult,
+  type RouteOptimizationState,
+} from '@/lib/route-optimizer';
+import { fetchRouteWeights, type RouteVariableInput } from '@/lib/route-weights';
 import {
   createSchedule,
   deleteSchedule,
@@ -105,7 +116,6 @@ export function PlannerClient() {
 
   // ---- 방문지 입력/편집 ----
   const [newAddress, setNewAddress] = useState('');
-  const [newAddressDay, setNewAddressDay] = useState(0);
   const [pendingSelectedDoc, setPendingSelectedDoc] = useState<KakaoPlaceDoc | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [expandedPlaces, setExpandedPlaces] = useState<Record<number, boolean>>({});
@@ -151,6 +161,15 @@ export function PlannerClient() {
   const [situationSeverity, setSituationSeverity] = useState<string | null>(null);
   const [situationFreeText, setSituationFreeText] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ---- 출발지 선택 / AI 가중치 기반 최적경로 계산 ----
+  const [originId, setOriginId] = useState<number | null>(null);
+  const [routeOptimization, setRouteOptimization] = useState<RouteOptimizationState | null>(null);
+  const [originSelectOpen, setOriginSelectOpen] = useState(false);
+  const [originChoiceId, setOriginChoiceId] = useState<number | null>(null);
+  const [originConfirmOpen, setOriginConfirmOpen] = useState(false);
+  const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
+  const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
 
   // ---- 협업 / 권한 ----
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
@@ -288,13 +307,22 @@ export function PlannerClient() {
     kakaoMarkersRef.current = [];
     const withCoords = places.filter((p) => p.x && p.y);
     if (!withCoords.length) return;
+    // 지도 핀 번호는 전체 순번이 아니라 일차별로 1부터 다시 매긴다.
+    const dayCounters = new Map<number, number>();
+    const orderByPlaceId = new Map<number, number>();
+    places.forEach((p) => {
+      const day = p.day ?? 0;
+      const next = (dayCounters.get(day) ?? 0) + 1;
+      dayCounters.set(day, next);
+      orderByPlaceId.set(p.id, next);
+    });
     const bounds = new kakao.maps.LatLngBounds();
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
       const marker = new kakao.maps.Marker({ position: pos, map });
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${places.indexOf(p) + 1}</div>`,
+        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
       kakaoMarkersRef.current.push(marker, overlay);
@@ -473,6 +501,9 @@ export function PlannerClient() {
       else if (addConfirmOpen) setAddConfirmOpen(false);
       else if (situationModalOpen) setSituationModalOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
+      else if (noVariableModalOpen) setNoVariableModalOpen(false);
+      else if (originConfirmOpen) setOriginConfirmOpen(false);
+      else if (originSelectOpen) setOriginSelectOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -484,6 +515,9 @@ export function PlannerClient() {
     addConfirmOpen,
     situationModalOpen,
     deleteConfirmOpen,
+    originSelectOpen,
+    originConfirmOpen,
+    noVariableModalOpen,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -501,7 +535,7 @@ export function PlannerClient() {
 
   /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
   const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string) => {
-    const day = newAddressDay || 0;
+    const day = selectedDay ?? 0;
     const name = nameOverride?.trim() || doc.place_name;
     setPlaces((prev) => {
       const next: Place[] = [
@@ -787,13 +821,6 @@ export function PlannerClient() {
     }
   };
 
-  const recalcAndSearch = () => {
-    if (loading) return;
-    setLoading(true);
-    setTimeout(() => setLoading(false), 300);
-    searchAllRoutes();
-  };
-
   // ---- 상황 변경 ----
   const openSituationModal = () => {
     setSituationVar(null);
@@ -882,7 +909,7 @@ export function PlannerClient() {
     }
   };
   const openSearchMode = () => {
-    if (searchMode) return;
+    if (searchMode || isAllDaysView) return;
     setSearchMode(true);
     setMapSearchBarCollapsed(false);
     setMapSearchQuery(newAddress);
@@ -1153,6 +1180,8 @@ export function PlannerClient() {
   const dayTabs = hasDayTabs
     ? Array.from({ length: dayCount }, (_, di) => ({ value: di, label: `${di + 1}일차` }))
     : [];
+  /** 전체보기(모든 일차를 한 번에 보는 상태) — 일차 경계가 모호해지는 동작은 모두 막는다. */
+  const isAllDaysView = hasDayTabs && selectedDay === null;
 
   const enrichedSegments = useMemo(
     () =>
@@ -1220,6 +1249,19 @@ export function PlannerClient() {
     [segments, places, getSegmentRouteCache, expandedSegments],
   );
 
+  /** 방문지 순번 배지(지도 핀/목록 모두)는 전체 순번이 아니라 일차별로 1부터 다시 매긴다. */
+  const dayOrderByPlaceId = useMemo(() => {
+    const dayCounters = new Map<number, number>();
+    const orderByPlaceId = new Map<number, number>();
+    places.forEach((p) => {
+      const day = p.day ?? 0;
+      const next = (dayCounters.get(day) ?? 0) + 1;
+      dayCounters.set(day, next);
+      orderByPlaceId.set(p.id, next);
+    });
+    return orderByPlaceId;
+  }, [places]);
+
   const timeline = useMemo(() => {
     const items: (
       | { kind: 'divider'; dayLabel: string }
@@ -1261,6 +1303,258 @@ export function PlannerClient() {
     const sName = encodeURIComponent(prev.name || '출발지');
     const eName = encodeURIComponent(p.name || '도착지');
     return `https://map.kakao.com/link/from/${sName},${prev.y},${prev.x}/to/${eName},${p.y},${p.x}`;
+  };
+
+  // ---- 변수(상황 변경 값 또는 자유 텍스트) → Gemini 에 보낼 형태 ----
+  const currentVariableInput = useCallback((): RouteVariableInput | null => {
+    const freeText = situationFreeText.trim();
+    if (freeText) {
+      return { id: 'freeText', label: '자유 설명', freeText };
+    }
+    if (!situationVar || !situationSeverity) return null;
+    if (situationVar === 'weather' && !situationSub) return null;
+    const varMeta = SITUATION_VARS.find((v) => v.id === situationVar);
+    const sevMeta = SEVERITY_LEVELS.find((s) => s.id === situationSeverity);
+    if (!varMeta || !sevMeta) return null;
+    const subMeta =
+      situationVar === 'weather' ? WEATHER_SUBS.find((w) => w.id === situationSub) : null;
+    return {
+      id: varMeta.id,
+      label: varMeta.label,
+      sub: subMeta ? { id: subMeta.id, label: subMeta.label } : null,
+      severity: { id: sevMeta.id, label: sevMeta.label, weight: sevMeta.weight },
+    };
+  }, [situationFreeText, situationVar, situationSub, situationSeverity]);
+
+  const currentVariableKey = useCallback((): string => {
+    const v = currentVariableInput();
+    if (!v) return 'none';
+    if (v.freeText) return `free:${v.freeText}`;
+    return `${v.id}|${v.sub?.id ?? ''}|${v.severity?.id ?? ''}`;
+  }, [currentVariableInput]);
+
+  // ---- AI 가중치 기반 최적경로 계산 ----
+  const applyOptimizedOrder = useCallback((result: OptimalRouteResult, sourcePlaces: Place[]) => {
+    const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
+    const ordered = result.placeIds.map((id) => byId.get(id)).filter((p): p is Place => Boolean(p));
+    const orderedIds = new Set(ordered.map((p) => p.id));
+    const rest = sourcePlaces.filter((p) => !orderedIds.has(p.id));
+    const next = [...ordered, ...rest];
+    setPlaces(next);
+    setSegments((segs) => resizeSegments(next, segs));
+  }, []);
+
+  const runOptimalRoute = useCallback(
+    async (origin: number) => {
+      const originPlace = places.find((p) => p.id === origin);
+      if (!originPlace) return;
+      if (originPlace.x == null || originPlace.y == null) {
+        showToast('출발지의 좌표 정보가 없어 경로를 계산할 수 없어요');
+        return;
+      }
+
+      const variableKey = currentVariableKey();
+      const signature = buildRouteSignature(origin, places, variableKey);
+      const reusable =
+        routeOptimization && routeOptimization.signature === signature ? routeOptimization : null;
+
+      setLoading(true);
+      try {
+        let stateToApply: RouteOptimizationState;
+
+        if (reusable) {
+          stateToApply = reusable;
+          logActivity('저장된 최적 경로 결과를 사용했습니다');
+        } else {
+          const others = places.filter((p) => p.id !== origin && p.x != null && p.y != null);
+          const nodes = [originPlace, ...others];
+
+          if (nodes.length < 2) {
+            const trivial: OptimalRouteResult = {
+              placeIds: nodes.map((p) => p.id),
+              totalDistanceKm: 0,
+              totalMinutes: 0,
+            };
+            const fallbackWeights = { metricWeight: 1, comfortWeight: 0 };
+            stateToApply = {
+              signature,
+              originId: origin,
+              weights: fallbackWeights,
+              distance: trivial,
+              time: trivial,
+            };
+          } else {
+            const fetchLeg = async (a: Place, b: Place, crit: RouteCriteria): Promise<RouteLeg> => {
+              const key = `car_${a.id}_${b.id}_${crit}`;
+              const existing = routeCache[key];
+              if (existing && !('failed' in existing)) return existing;
+              try {
+                const leg = await fetchRouteLeg('car', {
+                  originX: a.x as number,
+                  originY: a.y as number,
+                  destX: b.x as number,
+                  destY: b.y as number,
+                  priority: crit,
+                });
+                setRouteCache((prev) => ({ ...prev, [key]: leg }));
+                return leg;
+              } catch (err) {
+                console.error('optimal route leg fetch failed:', err);
+                const distanceKm = haversineKm(
+                  { x: a.x as number, y: a.y as number },
+                  { x: b.x as number, y: b.y as number },
+                );
+                const fallback: RouteLeg = {
+                  distanceKm,
+                  minutes: Math.round(distanceKm * MODE_MAP.car.minPerKm),
+                  transfers: null,
+                  pathPoints: [],
+                };
+                setRouteCache((prev) => ({ ...prev, [key]: fallback }));
+                return fallback;
+              }
+            };
+
+            const buildLegMatrix = async (crit: RouteCriteria) => {
+              const size = nodes.length;
+              const matrix: (RouteLeg | null)[][] = Array.from({ length: size }, () =>
+                new Array(size).fill(null),
+              );
+              const tasks: Promise<void>[] = [];
+              for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                  if (i === j) continue;
+                  tasks.push(
+                    fetchLeg(nodes[i], nodes[j], crit).then((leg) => {
+                      matrix[i][j] = leg;
+                    }),
+                  );
+                }
+              }
+              await Promise.all(tasks);
+              return matrix;
+            };
+
+            const toCost = (legMatrix: (RouteLeg | null)[][], field: 'distanceKm' | 'minutes') =>
+              legMatrix.map((row) => row.map((leg) => leg?.[field] ?? 0));
+
+            // 지도 API 실측 데이터(car 경로)와 Gemini 가중치를 동시에 가져온다 — 서로 독립적이라 병렬 호출.
+            const [weights, distLegs, timeLegs] = await Promise.all([
+              fetchRouteWeights(currentVariableInput(), criteria),
+              buildLegMatrix('distance'),
+              buildLegMatrix('time'),
+            ]);
+
+            const distCost = toCost(distLegs, 'distanceKm');
+            const timeCost = toCost(timeLegs, 'minutes');
+            const delayCost = nodes.map((p) => computeDelayCost(p));
+            const distOrderIdx = solveWeightedOpenPathOrder(
+              distCost,
+              delayCost,
+              weights.metricWeight,
+              weights.comfortWeight,
+            );
+            const timeOrderIdx = solveWeightedOpenPathOrder(
+              timeCost,
+              delayCost,
+              weights.metricWeight,
+              weights.comfortWeight,
+            );
+
+            const distanceResult: OptimalRouteResult = {
+              placeIds: distOrderIdx.map((i) => nodes[i].id),
+              totalDistanceKm: sumPathCost(distOrderIdx, distCost),
+              totalMinutes: sumPathCost(distOrderIdx, toCost(distLegs, 'minutes')),
+            };
+            const timeResult: OptimalRouteResult = {
+              placeIds: timeOrderIdx.map((i) => nodes[i].id),
+              totalMinutes: sumPathCost(timeOrderIdx, timeCost),
+              totalDistanceKm: sumPathCost(timeOrderIdx, toCost(timeLegs, 'distanceKm')),
+            };
+
+            stateToApply = {
+              signature,
+              originId: origin,
+              weights,
+              distance: distanceResult,
+              time: timeResult,
+            };
+          }
+          setRouteOptimization(stateToApply);
+          logActivity('AI가 변수를 반영해 최적 경로를 계산했습니다');
+        }
+
+        applyOptimizedOrder(
+          criteria === 'distance' ? stateToApply.distance : stateToApply.time,
+          places,
+        );
+        await searchAllRoutes();
+        showToast(reusable ? '이전 계산 결과를 사용했어요' : '최적 경로 계산이 완료됐어요');
+      } catch (err) {
+        console.error('runOptimalRoute failed:', err);
+        showToast('최적 경로 계산 중 오류가 발생했어요');
+      } finally {
+        setLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- routeCache/searchAllRoutes 는 최신 값을 함수 내부에서 직접 읽는다
+    [
+      places,
+      routeOptimization,
+      criteria,
+      applyOptimizedOrder,
+      showToast,
+      logActivity,
+      currentVariableKey,
+      currentVariableInput,
+    ],
+  );
+
+  const proceedAfterOrigin = (origin: number) => {
+    if (!currentVariableInput()) {
+      setPendingRouteOrigin(origin);
+      setNoVariableModalOpen(true);
+      return;
+    }
+    void runOptimalRoute(origin);
+  };
+
+  const handleRouteCalcClick = () => {
+    if (loading || places.length === 0) return;
+    if (hasDayTabs && selectedDay === null) return;
+    if (places.length === 1) {
+      setOriginId(places[0].id);
+      proceedAfterOrigin(places[0].id);
+      return;
+    }
+    const defaultChoice =
+      originId != null && places.some((p) => p.id === originId) ? originId : places[0].id;
+    setOriginChoiceId(defaultChoice);
+    setOriginSelectOpen(true);
+  };
+
+  const confirmOriginChoice = () => {
+    if (originChoiceId == null) return;
+    setOriginSelectOpen(false);
+    setOriginConfirmOpen(true);
+  };
+
+  const finalizeOrigin = (addToDestinationList: boolean) => {
+    if (originChoiceId == null) return;
+    const chosenId = originChoiceId;
+    setOriginConfirmOpen(false);
+    if (addToDestinationList) {
+      setPlaces((prev) => {
+        if (prev.some((p) => p.id === chosenId)) return prev;
+        const chosen = places.find((p) => p.id === chosenId);
+        if (!chosen) return prev;
+        const next = [...prev, chosen];
+        setSegments((segs) => resizeSegments(next, segs));
+        return next;
+      });
+    }
+    setOriginId(chosenId);
+    proceedAfterOrigin(chosenId);
   };
 
   return (
@@ -1420,7 +1714,9 @@ export function PlannerClient() {
                 ) : null}
               </div>
               <div className={styles.listHeaderRight}>
-                {canEdit ? <span className={styles.hint}>드래그로 순서 변경</span> : null}
+                {canEdit && !isAllDaysView ? (
+                  <span className={styles.hint}>드래그로 순서 변경</span>
+                ) : null}
                 {places.length > 0 && canEdit ? (
                   <button type="button" className={styles.clearAllBtn} onClick={clearAllPlaces}>
                     전체 삭제
@@ -1432,7 +1728,12 @@ export function PlannerClient() {
             {places.length === 0 ? (
               <div className={styles.emptyState}>
                 {canEdit ? (
-                  <button type="button" className={styles.emptyAddBtn} onClick={openSearchMode}>
+                  <button
+                    type="button"
+                    className={styles.emptyAddBtn}
+                    onClick={openSearchMode}
+                    disabled={isAllDaysView}
+                  >
                     ＋
                   </button>
                 ) : null}
@@ -1462,11 +1763,13 @@ export function PlannerClient() {
                         key={item.place.id}
                         place={item.place}
                         order={item.index + 1}
+                        displayOrder={dayOrderByPlaceId.get(item.place.id) ?? item.index + 1}
                         isLast={item.index === places.length - 1}
                         isDragging={dragIndex === item.index}
                         expanded={Boolean(expandedPlaces[item.place.id])}
                         memoSaved={Boolean(savedMemoIds[item.place.id])}
                         canEdit={canEdit}
+                        canReorder={!isAllDaysView}
                         handlers={{
                           onDragStart,
                           onDragOver,
@@ -1509,19 +1812,6 @@ export function PlannerClient() {
             {/* 주소 추가 */}
             <div className={styles.addBar}>
               <div className={styles.addBarRow}>
-                {hasDayTabs ? (
-                  <select
-                    value={String(Math.min(newAddressDay, dayCount - 1))}
-                    onChange={(e) => setNewAddressDay(Number(e.target.value))}
-                    className={styles.daySelectSmall}
-                  >
-                    {dayTabs.map((dt) => (
-                      <option key={dt.value} value={dt.value}>
-                        {dt.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
                 {canEdit ? (
                   <>
                     <input
@@ -1534,18 +1824,29 @@ export function PlannerClient() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
+                          if (isAllDaysView) return;
                           openSearchMode();
                           runMapSearch();
                         }
                       }}
-                      onFocus={openSearchMode}
-                      placeholder="주소를 검색하여 추가하기"
+                      onFocus={() => {
+                        if (isAllDaysView) return;
+                        openSearchMode();
+                      }}
+                      placeholder={
+                        isAllDaysView
+                          ? '전체보기에서는 추가할 수 없어요. 일차를 선택해주세요.'
+                          : '주소를 검색하여 추가하기'
+                      }
+                      disabled={isAllDaysView}
                       className={styles.addInput}
                     />
                     <button
                       type="button"
                       className={styles.addBtn}
+                      disabled={isAllDaysView}
                       onClick={() => {
+                        if (isAllDaysView) return;
                         openSearchMode();
                         runMapSearch();
                       }}
@@ -1844,9 +2145,9 @@ export function PlannerClient() {
                     type="button"
                     className={styles.situationBtn}
                     onClick={openSituationModal}
-                    disabled={hasDayTabs && selectedDay === null}
+                    disabled={isAllDaysView}
                     title={
-                      hasDayTabs && selectedDay === null
+                      isAllDaysView
                         ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
                         : undefined
                     }
@@ -1879,10 +2180,10 @@ export function PlannerClient() {
                 {canEdit ? (
                   <Button
                     size="md"
-                    onClick={recalcAndSearch}
-                    disabled={loading || (hasDayTabs && selectedDay === null)}
+                    onClick={handleRouteCalcClick}
+                    disabled={loading || isAllDaysView}
                     title={
-                      hasDayTabs && selectedDay === null
+                      isAllDaysView
                         ? '전체보기에서는 사용할 수 없어요. 일차를 선택해주세요.'
                         : undefined
                     }
@@ -2271,6 +2572,88 @@ export function PlannerClient() {
             }
           >
             {situationFreeText.trim() ? 'AI로 동선 재구성' : '동선 재계산'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 출발지 선택 */}
+      <Modal
+        open={originSelectOpen}
+        title="출발지를 선택해주세요"
+        onClose={() => setOriginSelectOpen(false)}
+      >
+        <div className={styles.situationList}>
+          {places.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={
+                originChoiceId === p.id
+                  ? `${styles.situationOption} ${styles.situationOptionActive}`
+                  : styles.situationOption
+              }
+              onClick={() => setOriginChoiceId(p.id)}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button variant="secondary" size="sm" onClick={() => setOriginSelectOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={confirmOriginChoice} disabled={originChoiceId == null}>
+            선택
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 출발지 확정 확인 */}
+      <Modal
+        open={originConfirmOpen}
+        title="출발지 확인"
+        onClose={() => setOriginConfirmOpen(false)}
+      >
+        <p className={styles.modalDesc}>
+          출발지를 <strong>{places.find((p) => p.id === originChoiceId)?.name ?? ''}</strong>
+          (으)로 설정하시겠습니까?
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => finalizeOrigin(true)}>
+            출발지를 방문지 목록에 추가
+          </Button>
+          <Button size="sm" onClick={() => finalizeOrigin(false)}>
+            예
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 변수 없음 확인 */}
+      <Modal
+        open={noVariableModalOpen}
+        title="변수 추가가 안됐어요"
+        onClose={() => setNoVariableModalOpen(false)}
+      >
+        <p className={styles.modalDesc}>변수를 추가하시겠습니까?</p>
+        <div className={styles.modalActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNoVariableModalOpen(false);
+              openSituationModal();
+            }}
+          >
+            변수 추가하기
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNoVariableModalOpen(false);
+              if (pendingRouteOrigin != null) void runOptimalRoute(pendingRouteOrigin);
+            }}
+          >
+            그냥 진행하기
           </Button>
         </div>
       </Modal>
