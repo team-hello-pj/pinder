@@ -2007,9 +2007,13 @@
     border-color: var(--pd-border);
   }
 
-  /* 주소 검색 화면(입력 패널)에 AI 도우미 FAB 가 겹쳐 보이던 것을 모바일에서만 숨긴다. */
+  /* .aiFab 은 position:fixed 라 방문지 입력 화면/지도 화면 어느 쪽이 보이든 항상 뷰포트
+     우측 하단에 고정된다 — 입력 화면의 하단 주소 추가 바(.addBar), 지도 화면의 하단 요약바
+     (.summaryBar), 그 위에 쌓이는 현재 위치 버튼(.currentLocationBtn, bottom:128px)과
+     겹치지 않도록 모바일에서는 bottom 값만 더 크게 올린다. 그 외 색상/크기/z-index/클릭
+     동작은 PC와 동일하게 유지한다. */
   .aiFab {
-    display: none;
+    bottom: 180px;
   }
 
   /* 검색창을 열면(.searchInput 이 autoFocus 로 바로 포커스됨) 모바일 브라우저(특히 iOS
