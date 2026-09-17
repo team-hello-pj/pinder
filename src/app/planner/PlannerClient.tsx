@@ -74,15 +74,15 @@ function nextIdAfter(places: Place[]): number {
   return places.reduce((max, p) => Math.max(max, p.id), 0) + 1;
 }
 
-const ADD_TO_ROUTE_SUGGESTION = '동선에 추가할까요?';
+const MODIFY_ROUTE_SUGGESTION = '동선을 수정해줘';
 
 function buildSuggestionChips(
   suggestions: string[],
   recommendedPlaces: RecommendedPlace[],
 ): string[] {
   const base = suggestions.filter(Boolean).slice(0, 3);
-  if (recommendedPlaces.length && !base.includes(ADD_TO_ROUTE_SUGGESTION)) {
-    return [...base, ADD_TO_ROUTE_SUGGESTION];
+  if (recommendedPlaces.length && !base.includes(MODIFY_ROUTE_SUGGESTION)) {
+    return [...base, MODIFY_ROUTE_SUGGESTION];
   }
   return base;
 }
@@ -1170,38 +1170,68 @@ export function PlannerClient() {
   const addRecommendedPlaces = async (recs: RecommendedPlace[]) => {
     if (!recs.length || addingRecommended) return;
     setAddingRecommended(true);
-    let added = 0;
-    let currentPlaces = places;
+
+    // 먼저 전부 지오코딩부터 끝낸다 (경로 배열은 아래에서 한 번에 반영).
+    const resolved: { rec: RecommendedPlace; x: number | null; y: number | null }[] = [];
     for (const rec of recs) {
       const query = rec.address ? `${rec.name} ${rec.address}` : rec.name;
       const geo = await geocodePlace(query);
-      const placeId = nextId + added;
-      const newPlace: Place = {
-        id: placeId,
-        name: rec.name,
-        category: '미분류',
-        address: rec.address || rec.name,
-        duration: 15,
-        hours: 'unknown',
-        hoursLabel: '영업시간 확인 필요',
-        visitTime: '',
-        packItems: '',
-        weather: 'sunny',
-        day: selectedDay ?? 0,
-        x: geo?.x ?? null,
-        y: geo?.y ?? null,
-      };
-      currentPlaces = [...currentPlaces, newPlace];
-      setPlaces(currentPlaces);
-      setSegments(resizeSegments(currentPlaces, segments));
-      added += 1;
+      resolved.push({ rec, x: geo?.x ?? null, y: geo?.y ?? null });
     }
-    // 방문지가 새로 추가됐으므로 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
-    setRouteSegmentsReady(false);
-    setNextId((n) => n + added);
+
+    const nextPlaces = [...places];
+    const additions: Place[] = [];
+    let newId = nextId;
+    let replaced = 0;
+    let added = 0;
+
+    for (const { rec, x, y } of resolved) {
+      const targetIdx = rec.replaces ? nextPlaces.findIndex((p) => p.name === rec.replaces) : -1;
+      if (targetIdx !== -1) {
+        // 지목된 기존 방문지만 바꾸고, 그 자리(순서/일차/체류시간 등)는 그대로 둔다.
+        nextPlaces[targetIdx] = {
+          ...nextPlaces[targetIdx],
+          name: rec.name,
+          address: rec.address || rec.name,
+          x,
+          y,
+        };
+        replaced += 1;
+      } else {
+        additions.push({
+          id: newId,
+          name: rec.name,
+          category: '미분류',
+          address: rec.address || rec.name,
+          duration: 15,
+          hours: 'unknown',
+          hoursLabel: '영업시간 확인 필요',
+          visitTime: '',
+          packItems: '',
+          weather: 'sunny',
+          day: selectedDay ?? 0,
+          x,
+          y,
+        });
+        newId += 1;
+        added += 1;
+      }
+    }
+
+    const finalPlaces = [...nextPlaces, ...additions];
+    setPlaces(finalPlaces);
+    setSegments(resizeSegments(finalPlaces, segments));
+    // 방문지가 새로 추가됐으면 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
+    if (added > 0) setRouteSegmentsReady(false);
+    setNextId(newId);
     setRouteCache({});
-    logActivity(`AI 추천 장소 ${added}곳을 동선에 추가했습니다`);
-    showToast(`${added}곳을 동선에 추가했어요`);
+
+    const parts: string[] = [];
+    if (replaced) parts.push(`${replaced}곳 교체`);
+    if (added) parts.push(`${added}곳 추가`);
+    const summary = parts.join(', ') || '변경 없음';
+    logActivity(`AI 추천으로 동선을 수정했습니다 (${summary}) — 방문 순서 번호가 갱신됐어요`);
+    showToast(`동선을 수정했어요 (${summary})`);
     setAddingRecommended(false);
   };
 
@@ -2150,9 +2180,9 @@ export function PlannerClient() {
                               key={s}
                               type="button"
                               className={styles.aiSuggestionChip}
-                              disabled={s === ADD_TO_ROUTE_SUGGESTION && addingRecommended}
+                              disabled={s === MODIFY_ROUTE_SUGGESTION && addingRecommended}
                               onClick={() =>
-                                s === ADD_TO_ROUTE_SUGGESTION && msg.recommendedPlaces?.length
+                                s === MODIFY_ROUTE_SUGGESTION && msg.recommendedPlaces?.length
                                   ? addRecommendedPlaces(msg.recommendedPlaces)
                                   : sendAiMessage(s)
                               }
