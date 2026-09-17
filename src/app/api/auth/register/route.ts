@@ -103,5 +103,6 @@ export async function POST(request: Request) {
 
   await createSessionCookie(user);
   await sendWelcomeEmail(user.email, user.name);
-  return NextResponse.json({ ok: true, user });
+  // avatarUrl(data URL)은 세션 쿠키에는 넣지 않고(용량 때문에) 응답에만 붙여서 돌려준다.
+  return NextResponse.json({ ok: true, user: { ...user, avatarUrl: avatarUrl ?? null } });
 }

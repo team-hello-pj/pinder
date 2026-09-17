@@ -850,10 +850,12 @@
   gap: 8px;
 }
 
+/* 실제 게시물 사진 표시 비율(4:3, .composerPhoto/.postImage 등)과 맞춘다 — 미리보기가
+   1:1 정사각형이면 실제 올라갈 때 어떻게 잘리는지 미리 가늠하기 어려웠다. */
 .composerPhotoThumb {
   position: relative;
-  width: 84px;
-  height: 84px;
+  width: 96px;
+  height: 72px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--pd-chip-bg);
@@ -885,8 +887,8 @@
 }
 
 .composerPhotoAddBtn {
-  width: 84px;
-  height: 84px;
+  width: 96px;
+  height: 72px;
   border-radius: 10px;
   border: 1px dashed var(--pd-border);
   background: none;

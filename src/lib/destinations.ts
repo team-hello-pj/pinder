@@ -15,6 +15,7 @@ export interface Destination {
   desc: string;
   tags: string[];
   imageUrl: string | null;
+  imagePosition: string | null;
   hasRoute: boolean;
   availableTripLengths: DestinationTripLength[];
 }

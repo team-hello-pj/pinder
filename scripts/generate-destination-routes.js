@@ -81,11 +81,32 @@ async function searchKeyword(query) {
   return res.json();
 }
 
-/** 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다 (AiGenerateWizard 의 재시도 전략과 동일). */
+/** "A 및 B", "A & B", "A (B)" 같은 합성 이름은 Kakao 검색에서 잘 안 잡혀서, 조각으로 나눠 다시 시도한다. */
+function simplifiedCandidates(name) {
+  const candidates = new Set();
+  const parenMatch = name.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    candidates.add(parenMatch[1].trim());
+    candidates.add(parenMatch[2].trim());
+  }
+  for (const sep of [' 및 ', ' & ', ' 및', '&']) {
+    if (name.includes(sep)) name.split(sep).forEach((p) => p.trim() && candidates.add(p.trim()));
+  }
+  candidates.delete(name);
+  return Array.from(candidates);
+}
+
+/**
+ * 조합 쿼리가 실패하면 장소명만으로, 그래도 실패하면 합성된 이름을 조각내어 한 번 더 시도한다
+ * (AiGenerateWizard 의 재시도 전략에, 합성 이름 분해 재시도를 더한 것).
+ */
 async function geocode(region, name, addressHint) {
-  const queries = addressHint
-    ? [`${region} ${addressHint} ${name}`, `${region} ${name}`, name]
-    : [`${region} ${name}`, name];
+  const queries = [
+    ...(addressHint
+      ? [`${region} ${addressHint} ${name}`, `${region} ${name}`, name]
+      : [`${region} ${name}`, name]),
+    ...simplifiedCandidates(name).flatMap((c) => [`${region} ${c}`, c]),
+  ];
   for (const query of queries) {
     try {
       const data = await searchKeyword(query);
@@ -149,7 +170,9 @@ async function main() {
       const routes = await buildRoutes(dest.name, dest.tags, dest.desc);
       for (let len = 1; len <= TRIP_DAYS; len++) {
         const { places } = routes[len];
-        console.log(`  ${len}일: ${places.map((p) => p.name).join(', ')}`);
+        console.log(
+          `  ${len}일: ${places.map((p) => `${p.name}${p.x == null ? '(좌표없음)' : ''}`).join(', ')}`,
+        );
       }
       await pool.query('update destinations set routes = $1::jsonb where id = $2', [
         JSON.stringify(routes),

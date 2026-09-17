@@ -24,6 +24,8 @@ export interface DestinationView {
   tags: string[];
   /** 카드에 보여줄 사진 경로. 없으면 화면에서 자리표시자를 보여준다. */
   imageUrl: string | null;
+  /** 사진이 세로로 길 때 카드 안에서 보여줄 위치(CSS object-position). 없으면 "center". */
+  imagePosition: string | null;
   /** 우리 AI 동선 생성 기능으로 미리 만들어 둔 동선이 있는지 — "이 여행지로 일정 짜기" 노출 여부. */
   hasRoute: boolean;
   /**
@@ -68,6 +70,7 @@ export async function listExploreSections(): Promise<ExploreSectionView[]> {
       desc: row.desc,
       tags: row.tags as string[],
       imageUrl: row.imageUrl,
+      imagePosition: row.imagePosition,
       hasRoute: availableTripLengths.length > 0,
       availableTripLengths,
     });

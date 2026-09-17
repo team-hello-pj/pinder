@@ -3,7 +3,8 @@
 import { useState } from 'react';
 
 import { MODE_MAP } from '@/constants';
-import { searchKeyword } from '@/lib/kakao/client';
+import { runWithConcurrencyLimit } from '@/lib/concurrency';
+import { fetchRouteLeg, searchKeyword } from '@/lib/kakao/client';
 import { requestAiRouteGeneration } from '@/lib/route-generate';
 import type { Place, TransportMode } from '@/types';
 
@@ -117,6 +118,9 @@ export function AiGenerateWizard({
     setGenerating(true);
     setError(null);
     try {
+      // "다시 추천받기"로 재생성하는 경우, 방금 받았던 장소는 이번엔 빼고 추천받도록 알려준다
+      // — 안 그러면 낮은 다양성 때문에 거의 같은 결과가 다시 나오기 쉽다.
+      const excludeNames = resultPlaces?.map((p) => p.name);
       const { places: aiPlaces } = await requestAiRouteGeneration({
         region: effectiveRegion,
         style,
@@ -124,6 +128,8 @@ export function AiGenerateWizard({
         companion,
         tripStart,
         tripEnd,
+        transportMode,
+        excludeNames,
       });
 
       const resolved: ResultPlace[] = [];
@@ -174,18 +180,37 @@ export function AiGenerateWizard({
       // 날짜별로 묶이도록 정렬한다 (같은 날짜 안에서의 순서는 AI가 준 순서를 그대로 유지).
       resolved.sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
 
-      for (let i = 0; i < resolved.length - 1; i++) {
-        const a = resolved[i];
+      // 구간 이동시간/거리는 직선거리 추정이 아니라 실제 카카오 길찾기 결과를 쓴다 — 안 그러면
+      // "총 이동시간/거리"가 실제와 크게 다를 수 있다. 여러 구간을 한 번에 다 쏘면 카카오 API
+      // 요청 속도 제한에 걸릴 수 있어 동시 요청 수를 제한한다.
+      const legTasks = resolved.slice(0, -1).map((a, i) => async () => {
         const b = resolved[i + 1];
-        if (a.day === b.day && a.x != null && a.y != null && b.x != null && b.y != null) {
+        if (a.day !== b.day || a.x == null || a.y == null || b.x == null || b.y == null) {
+          a.legDistanceKm = null;
+          a.legMinutes = null;
+          return;
+        }
+        try {
+          const leg = await fetchRouteLeg(transportMode, {
+            originX: a.x,
+            originY: a.y,
+            destX: b.x,
+            destY: b.y,
+            priority: 'time',
+          });
+          a.legDistanceKm = leg.distanceKm;
+          a.legMinutes = Math.round(leg.minutes);
+        } catch (err) {
+          console.error(
+            'AiGenerateWizard: fetchRouteLeg failed, falling back to straight-line estimate:',
+            err,
+          );
           const distanceKm = haversineKm({ x: a.x, y: a.y }, { x: b.x, y: b.y });
           a.legDistanceKm = distanceKm;
           a.legMinutes = Math.round(distanceKm * MODE_MAP[transportMode].minPerKm);
-        } else {
-          a.legDistanceKm = null;
-          a.legMinutes = null;
         }
-      }
+      });
+      await runWithConcurrencyLimit(legTasks, 4);
 
       setResultPlaces(resolved);
       setResultSegments(new Array(Math.max(0, resolved.length - 1)).fill(transportMode));

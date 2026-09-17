@@ -1,5 +1,7 @@
 'use client';
 
+import type { TransportMode } from '@/types';
+
 export interface AiGeneratedPlace {
   name: string;
   category: string;
@@ -16,6 +18,9 @@ export interface RouteGenerateInput {
   companion: string;
   tripStart: string;
   tripEnd: string;
+  transportMode: TransportMode;
+  /** "다시 추천받기"로 재생성할 때, 방금 받았던 장소 이름들 — 이번엔 이걸 피해서 추천받는다. */
+  excludeNames?: string[];
 }
 
 export interface RouteGenerateResult {

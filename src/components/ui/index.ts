@@ -1,3 +1,5 @@
+export { AuthorAvatar } from './AuthorAvatar';
+export type { AuthorAvatarProps } from './AuthorAvatar';
 export { Button } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Card } from './Card';
@@ -6,6 +8,8 @@ export { DateRangeCalendar } from './DateRangeCalendar';
 export type { DateRangeCalendarProps } from './DateRangeCalendar';
 export { HighlightedCaption } from './HighlightedCaption';
 export type { HighlightedCaptionProps } from './HighlightedCaption';
+export { ImageCropModal } from './ImageCropModal';
+export type { ImageCropModalProps } from './ImageCropModal';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export { PlaceholderImage } from './PlaceholderImage';

@@ -54,7 +54,8 @@ export async function POST(request: Request) {
       name: account.name,
     };
     await createSessionCookie(user);
-    return NextResponse.json({ ok: true, user });
+    // avatarUrl(data URL)은 세션 쿠키에는 넣지 않고(용량 때문에) 응답에만 붙여서 돌려준다.
+    return NextResponse.json({ ok: true, user: { ...user, avatarUrl: account.avatarUrl ?? null } });
   }
 
   // 처음 구글로 로그인한 경우: 계정을 바로 만들지 않고, 이메일 인증만 완료된 상태로

@@ -5,6 +5,7 @@
 export interface ReplyView {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   text: string;
   liked: boolean;
   likeCount: number;
@@ -14,6 +15,7 @@ export interface ReplyView {
 export interface CommentView {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   text: string;
   liked: boolean;
   likeCount: number;
@@ -24,6 +26,7 @@ export interface CommentView {
 export interface PostView {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   place: string;
   region: string;
   caption: string;
