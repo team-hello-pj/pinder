@@ -1961,4 +1961,13 @@
   .aiFab {
     display: none;
   }
+
+  /* 검색창을 열면(.searchInput 이 autoFocus 로 바로 포커스됨) 모바일 브라우저(특히 iOS
+     Safari)가 글자가 안 보인다고 판단해 페이지 전체를 확대해버리는 문제가 있다 — 포커스 시
+     자동 확대는 input 의 font-size 가 16px 미만일 때만 발생하므로, 16px 로 올려서 원천 차단한다.
+     이 확대는 실제 브라우저 뷰포트 배율이 바뀌는 것이라 어떤 요소에 overflow:hidden 을 걸어도
+     막을 수 없고, 확대가 풀릴 때까지 화면 오른쪽이 잘려 보이는 원인이었다. */
+  .searchInput {
+    font-size: 16px;
+  }
 }
