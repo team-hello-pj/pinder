@@ -1913,7 +1913,7 @@ export function PlannerClient() {
                 {timeline.map((item, i) => {
                   if (item.kind === 'divider') {
                     return (
-                      <div key={i} className={styles.dayDivider}>
+                      <div key={`divider-${i}`} className={styles.dayDivider}>
                         <span>{item.dayLabel}</span>
                         <span className={styles.dayDividerLine} />
                       </div>
@@ -1955,7 +1955,7 @@ export function PlannerClient() {
                   if (!seg) return null;
                   return (
                     <SegmentConnector
-                      key={i}
+                      key={`segment-${i}`}
                       mode={seg.mode}
                       totalMinutes={seg.totalMinutes}
                       totalDistanceKm={seg.totalDistanceKm}
