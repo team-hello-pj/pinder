@@ -656,13 +656,13 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
-    // 출발지 선택 흐름에서 들어온 추가라면, 방금 추가한 곳을 출발지로 바로 고를 수 있도록
-    // 출발지 선택 팝업으로 돌아간다 — 그래야 이 방문지도 다른 방문지와 똑같이 출발지가 될 수 있다.
+    // 출발지 선택 흐름에서 들어온 추가라면, 목록 선택 팝업으로 되돌아가지 않고 방금 추가한
+    // 곳을 출발지로 바로 확정하는 팝업("출발지를 OOO로 설정하시겠습니까?")으로 곧장 이어간다 —
+    // 경로 계산 버튼을 다시 누르거나 목록에서 또 골라야 하는 단계를 없앤다.
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       setOriginChoiceId(added.id);
-      setOriginListExpanded(false);
-      setOriginSelectOpen(true);
+      setOriginConfirmOpen(true);
     }
   };
 
