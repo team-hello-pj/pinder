@@ -248,6 +248,13 @@
   color: #fff;
 }
 
+/* 라이트모드처럼 검정 배경을 다크모드에도 그대로 쓰면 어두운 카드 배경 위에서 선택된
+   항목이 거의 안 보인다 — 다크모드에서는 반대로 밝은 배경 + 어두운 글자로 뒤집는다. */
+:global([data-theme='dark']) .segmentedItemActive {
+  background: #fff;
+  color: #171719;
+}
+
 .modeChipRow {
   display: flex;
   gap: 6px;
@@ -298,6 +305,14 @@
   border-radius: 8px;
   border: 1px solid var(--pd-border);
   background: var(--pd-chip-bg);
+  color: var(--pd-text);
+}
+
+/* 네이티브 <select> 를 펼쳤을 때 나오는 옵션 목록은 브라우저가 그리는 부분이라 select
+   자체의 배경/글자색만으로는 안 바뀌고, 다크모드에서도 계속 흰 배경으로 나온다 —
+   option 에도 직접 배경/글자색을 지정해야 펼친 목록도 다크모드를 따라간다. */
+.daySelect option {
+  background-color: var(--pd-card-bg);
   color: var(--pd-text);
 }
 
@@ -697,7 +712,11 @@
 .segmentChip-car {
   background: var(--pd-chip-bg);
   color: var(--pd-text-sub);
-  border-color: var(--pd-border);
+  /* 도보/대중교통/자전거는 border-color 를 각자 배경색과 똑같이 맞춰 채워진 색 자체가
+     테두리처럼 보이는데, 자동차만 중립색(--pd-border)을 그대로 쓰다 보니 배경(--pd-chip-bg)과
+     거의 구분이 안 돼 윤곽선이 없는 것처럼 보였다. 다른 셋처럼 뚜렷하게 보이도록 더 진한
+     색으로 맞춘다. */
+  border-color: var(--pd-text-sub);
 }
 
 .segmentChip-walk {

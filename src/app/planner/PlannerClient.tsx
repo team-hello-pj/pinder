@@ -570,23 +570,23 @@ export function PlannerClient() {
     // 구간 하나가 실패해도 나머지 구간은 그대로 그린다 (전체를 한 선으로 합치지 않고
     // 실제 데이터가 있는 구간마다 따로따로 그려서 부분 실패에도 지도에 경로가 표시되게 한다).
     for (let idx = 0; idx < segments.length; idx++) {
+      const fromDay = places[idx]?.day ?? 0;
+      const toDay = places[idx + 1]?.day ?? 0;
+      // 하루의 마지막 방문지와 다음 날 첫 방문지는 실제로 이어지는 경로가 아니므로, 전체보기
+      // 여부와 상관없이 항상 건너뛴다.
+      if (fromDay !== toDay) continue;
       // 특정 일차를 선택 중이면 지도에도 그 일차 안에서 이어지는 구간만 그린다
-      // (전체보기일 때는 모든 구간을 그대로 그린다).
-      if (selectedDay !== null) {
-        const fromDay = places[idx]?.day ?? 0;
-        const toDay = places[idx + 1]?.day ?? 0;
-        if (fromDay !== selectedDay || toDay !== selectedDay) continue;
-      }
+      // (전체보기일 때는 같은 날끼리 이어지는 구간을 전부 그린다).
+      if (selectedDay !== null && (fromDay !== selectedDay || toDay !== selectedDay)) continue;
       const cache = getSegmentRouteCache(idx);
       if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
       const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
       if (path.length < 2) continue;
-      const segmentDay = places[idx]?.day ?? 0;
       const line = new kakao.maps.Polyline({
         map,
         path,
         strokeWeight: 4,
-        strokeColor: routeColorForDay(segmentDay),
+        strokeColor: routeColorForDay(fromDay),
         strokeOpacity: 0.85,
         strokeStyle: 'solid',
       });
@@ -879,12 +879,22 @@ export function PlannerClient() {
     openNextModal(() => setAddConfirmOpen(true));
   };
 
-  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로
-   * 돌아간다 — 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
+  // 네이티브 <dialog> 는 .close() 가 어떤 이유로 호출되든(취소 버튼뿐 아니라 검색 결과를
+  // 골라 다음 단계로 넘어갈 때도) close 이벤트를 그대로 발생시킨다. Modal 의 onClose prop은
+  // 그 close 이벤트에 그대로 연결돼 있어서, "취소"의 되돌아가기 로직을 onClose 에 두면
+  // 정상적으로 다음 단계로 넘어갈 때도 매번 잘못 실행돼 버린다(예: 검색 결과를 고르자마자
+  // 출발지 선택 팝업이 떠버림). 그래서 되돌아가기 로직은 "취소" 버튼 전용으로만 쓰고,
+  // Modal 의 onClose 에는 부작용 없는 순수 닫기 함수를 연결한다.
+  const closeAddConfirm = () => setAddConfirmOpen(false);
+  const closeAddPlaceModal = () => setAddPlaceModalOpen(false);
+
+  /** "취소" 버튼 전용. 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로 돌아간다 —
+   * 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
+  /** "취소" 버튼 전용(위와 같은 이유). */
   const cancelAddPlaceModal = () => {
     setAddPlaceModalOpen(false);
     if (returnToOriginPickerAfterAdd) {
@@ -1126,6 +1136,9 @@ export function PlannerClient() {
     async (idx: number, mode: TransportMode, crit: RouteCriteria) => {
       const a = places[idx];
       const b = places[idx + 1];
+      // 일차가 다른 방문지끼리는 애초에 하나의 경로가 아니다 — 하루 마지막 방문지에서 다음
+      // 날 첫 방문지로 이어붙여 경로를 조회하면 안 되므로, 조회 자체를 건너뛴다.
+      if (a && b && (a.day ?? 0) !== (b.day ?? 0)) return;
       const key = `${mode}_${a?.id}_${b?.id}_${crit}`;
       if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) {
         setRouteCache((prev) => ({
@@ -1767,13 +1780,13 @@ export function PlannerClient() {
         lastDay = day;
       }
       items.push({ kind: 'place', place: p, index: i });
-      // 특정 일차만 보고 있을 때는, 다음 방문지가 다른 일차로 넘어가는 구간(그 일차의 마지막
-      // 방문지 뒤에 붙는 연결선)은 보여주지 않는다 — 화면엔 그 다음 방문지가 안 보이는데
-      // 구간만 매달려 나오는 문제가 있었다.
+      // 하루의 마지막 방문지와 다음 날 첫 방문지는 실제로 이어지는 이동이 아니므로, 전체보기
+      // 여부와 상관없이 그 사이 구간은 절대 보여주지 않는다(예전엔 전체보기에서만 이 구간까지
+      // 보여줘서 1일차 마지막 곳과 2일차 첫 곳이 마치 하나의 경로로 이어진 것처럼 보였다).
       const nextPlace = places[i + 1];
       const nextDay = nextPlace ? Math.min(nextPlace.day ?? 0, dayCount - 1) : null;
       const segmentInView =
-        selectedDay === null || (day === selectedDay && nextDay === selectedDay);
+        day === nextDay && (selectedDay === null || day === selectedDay);
       if (i < enrichedSegments.length && segmentInView) {
         items.push({ kind: 'segment', index: i });
       }
@@ -1790,13 +1803,15 @@ export function PlannerClient() {
     [places, isDayScoped, selectedDay],
   );
   const visibleEnrichedSegments = useMemo(() => {
-    if (!isDayScoped) return enrichedSegments;
     return enrichedSegments.filter((_, idx) => {
       const fromP = places[idx];
       const toP = places[idx + 1];
       const fromDay = Math.min(fromP?.day ?? 0, dayCount - 1);
       const toDay = toP ? Math.min(toP.day ?? 0, dayCount - 1) : null;
-      return fromDay === selectedDay && toDay === selectedDay;
+      // 하루 마지막 방문지 → 다음 날 첫 방문지 구간은 실제 이동이 아니므로 전체보기에서도
+      // 합계에서 항상 제외한다.
+      if (fromDay !== toDay) return false;
+      return !isDayScoped || fromDay === selectedDay;
     });
   }, [enrichedSegments, places, isDayScoped, selectedDay, dayCount]);
   const totalDistance = visibleEnrichedSegments.reduce((sum, s) => sum + s.totalDistanceKm, 0);
@@ -2398,6 +2413,7 @@ export function PlannerClient() {
                         place={item.place}
                         order={item.index + 1}
                         displayOrder={dayOrderByPlaceId.get(item.place.id) ?? item.index + 1}
+                        dayColor={routeColorForDay(item.place.day ?? 0)}
                         isLast={item.index === places.length - 1}
                         isDragging={dragIndex === item.index}
                         expanded={Boolean(expandedPlaces[item.place.id])}
@@ -3138,7 +3154,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 확인 */}
-      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={cancelAddConfirm}>
+      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={closeAddConfirm}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>장소명</span>
           <input
@@ -3162,7 +3178,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 (출발지 선택 팝업에서 "출발지가 방문지 목록에 없어요"로 진입) */}
-      <Modal open={addPlaceModalOpen} title="방문지 추가" onClose={cancelAddPlaceModal}>
+      <Modal open={addPlaceModalOpen} title="방문지 추가" onClose={closeAddPlaceModal}>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={mapSearchQuery}
