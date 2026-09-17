@@ -231,6 +231,9 @@ export function ExploreClient() {
                           className={styles.cardPhoto}
                           src={dest.imageUrl}
                           alt={`${dest.name} 사진`}
+                          style={
+                            dest.imagePosition ? { objectPosition: dest.imagePosition } : undefined
+                          }
                         />
                       ) : (
                         <PlaceholderImage label={`${dest.name} 사진`} />

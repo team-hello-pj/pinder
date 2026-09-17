@@ -1,3 +1,5 @@
+export { AuthorAvatar } from './AuthorAvatar';
+export type { AuthorAvatarProps } from './AuthorAvatar';
 export { Button } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Card } from './Card';

@@ -21,10 +21,9 @@ import {
   updatePost,
   type PostView,
 } from '@/lib/community';
-import { avatarColorFor } from '@/lib/avatar';
 import { formatRelativeTime } from '@/lib/format';
 import { useSession } from '@/components/providers/SessionProvider';
-import { Button, HighlightedCaption, Modal, PlaceholderImage } from '@/components/ui';
+import { AuthorAvatar, Button, HighlightedCaption, Modal, PlaceholderImage } from '@/components/ui';
 
 import { CommentThread } from './CommentThread';
 import { POPULAR_TAGS, REGIONS } from './data';
@@ -510,19 +509,14 @@ export function CommunityClient() {
               >
                 ←
               </button>
-              <span
+              <AuthorAvatar
+                name={profileAuthor}
+                avatarUrl={
+                  profileAuthor === myAuthorName ? (user?.avatarUrl ?? null) : profilePost?.authorAvatarUrl
+                }
+                isMine={profileAuthor === myAuthorName}
                 className={styles.profileAvatar}
-                style={{
-                  background: avatarColorFor(profileAuthor),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontWeight: 700,
-                }}
-              >
-                {profileAuthor.slice(0, 1)}
-              </span>
+              />
               <div className={styles.profileInfo}>
                 <div className={styles.profileName}>{profileAuthor}</div>
                 <div className={styles.profilePostCount}>게시물 {filtered.length}개</div>
@@ -601,19 +595,12 @@ export function CommunityClient() {
                         className={styles.postAvatarBtn}
                         onClick={() => setProfileAuthor(post.author)}
                       >
-                        <span
+                        <AuthorAvatar
+                          name={post.author}
+                          avatarUrl={post.authorAvatarUrl}
+                          isMine={post.isMine}
                           className={styles.postAvatar}
-                          style={{
-                            background: avatarColorFor(post.author),
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {post.author.slice(0, 1)}
-                        </span>
+                        />
                       </button>
                       <button
                         type="button"
@@ -803,10 +790,9 @@ export function CommunityClient() {
                   type="button"
                   className={styles.trendingItem}
                   onClick={() => {
+                    // 검색창에 채워만 두고, 실제 검색은 검색 버튼/Enter(runSearch)를 눌러야 실행된다.
                     const keyword = t.name.split(' ')[0];
                     setSearchInput(keyword);
-                    setSearchQuery(keyword);
-                    setVisibleCount(PAGE_STEP);
                   }}
                 >
                   <span
@@ -839,9 +825,8 @@ export function CommunityClient() {
                   type="button"
                   className={styles.cloudTag}
                   onClick={() => {
+                    // 검색창에 채워만 두고, 실제 검색은 검색 버튼/Enter(runSearch)를 눌러야 실행된다.
                     setSearchInput(tag);
-                    setSearchQuery(tag);
-                    setVisibleCount(PAGE_STEP);
                   }}
                 >
                   #{tag}
@@ -975,19 +960,12 @@ export function CommunityClient() {
             </div>
             <div className={styles.commentModalRight}>
               <div className={styles.commentModalHead}>
-                <span
+                <AuthorAvatar
+                  name={commentModalPost.author}
+                  avatarUrl={commentModalPost.authorAvatarUrl}
+                  isMine={commentModalPost.isMine}
                   className={styles.postAvatar}
-                  style={{
-                    background: avatarColorFor(commentModalPost.author),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: 700,
-                  }}
-                >
-                  {commentModalPost.author.slice(0, 1)}
-                </span>
+                />
                 <div className={styles.commentModalHeadInfo}>
                   <div className={styles.postAuthor}>{commentModalPost.author}</div>
                   <div className={styles.postMeta}>

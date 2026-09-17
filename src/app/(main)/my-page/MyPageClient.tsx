@@ -104,6 +104,8 @@ export function MyPageClient() {
         return;
       }
       setAvatarUrl(saved);
+      // 커뮤니티/내 일정 등 다른 화면도 같은 세션 상태를 보고 있으니, 새로고침 없이 바로 반영되게 한다.
+      updateUser({ avatarUrl: saved });
     } catch {
       setAvatarError('이미지를 처리하지 못했어요.');
     } finally {
@@ -121,6 +123,7 @@ export function MyPageClient() {
         return;
       }
       setAvatarUrl(null);
+      updateUser({ avatarUrl: null });
     } catch {
       setAvatarError('삭제에 실패했어요. 다시 시도해주세요.');
     } finally {
