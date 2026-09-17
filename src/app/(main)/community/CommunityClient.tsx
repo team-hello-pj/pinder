@@ -47,22 +47,78 @@ function totalCommentCount(post: PostView): number {
 }
 
 /**
- * 게시물 사진 — 실제 첨부 사진이 있으면 그걸 보여주고, 없으면(마이그레이션 이전 글) 기존
- * PlaceholderImage 를 유지한다. 우클릭 저장/드래그 저장/모바일 길게 눌러 저장을 막는다 —
- * 완벽히 막을 수는 없지만(스크린샷 등은 어차피 못 막는다) 실수로 쉽게 저장되는 건 줄인다.
+ * 게시물 사진 — 여러 장이면 좌우 화살표로 한 장씩 넘겨보고, 몇 번째/전체 장수를 보여준다.
+ * 실제 첨부 사진이 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다.
+ * 우클릭 저장/드래그 저장/모바일 길게 눌러 저장을 막는다 — 완벽히 막을 수는 없지만
+ * (스크린샷 등은 어차피 못 막는다) 실수로 쉽게 저장되는 건 줄인다.
+ * interactive=false 면(그리드 썸네일처럼 이미 버튼 안에 들어가는 경우) 화살표 없이 장수만 표시한다
+ * — 버튼 안에 버튼을 중첩할 수 없기 때문.
  */
-function PostPhoto({ images, label }: { images: string[]; label: string }) {
+function PostPhoto({
+  images,
+  label,
+  interactive = true,
+}: {
+  images: string[];
+  label: string;
+  interactive?: boolean;
+}) {
+  const [index, setIndex] = useState(0);
   if (images.length === 0) return <PlaceholderImage label={label} />;
+
+  const clampedIndex = Math.min(index, images.length - 1);
+  const hasMultiple = images.length > 1;
+
+  const goPrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIndex((i) => Math.max(0, i - 1));
+  };
+  const goNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIndex((i) => Math.min(images.length - 1, i + 1));
+  };
+
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님
-    <img
-      src={images[0]}
-      alt={label}
-      className={styles.postPhotoImg}
-      draggable={false}
-      onContextMenu={(e) => e.preventDefault()}
-      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-    />
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님 */}
+      <img
+        src={images[clampedIndex]}
+        alt={label}
+        className={styles.postPhotoImg}
+        draggable={false}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+      />
+      {hasMultiple ? (
+        <>
+          {interactive && clampedIndex > 0 ? (
+            <button
+              type="button"
+              className={`${styles.postPhotoNavBtn} ${styles.postPhotoNavPrev}`}
+              onClick={goPrev}
+              aria-label="이전 사진"
+            >
+              ‹
+            </button>
+          ) : null}
+          {interactive && clampedIndex < images.length - 1 ? (
+            <button
+              type="button"
+              className={`${styles.postPhotoNavBtn} ${styles.postPhotoNavNext}`}
+              onClick={goNext}
+              aria-label="다음 사진"
+            >
+              ›
+            </button>
+          ) : null}
+          <span className={styles.postPhotoCounter}>
+            {clampedIndex + 1}/{images.length}
+          </span>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -317,10 +373,28 @@ export function CommunityClient() {
     setCropSrc(URL.createObjectURL(next));
   };
   const onPickImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).slice(0, MAX_POST_IMAGES - draftImages.length);
+    const picked = Array.from(e.target.files ?? []);
     e.target.value = '';
+    if (picked.length === 0) return;
+
+    // accept="image/*" 는 파일 선택창에서의 힌트일 뿐이라 드래그앤드롭 등으로는 우회될 수
+    // 있다 — 영상 등 이미지가 아닌 파일은 여기서 한 번 더 걸러낸다.
+    const imagesOnly = picked.filter((f) => f.type.startsWith('image/'));
+    const rejectedCount = picked.length - imagesOnly.length;
+
+    const remainingSlots = MAX_POST_IMAGES - draftImages.length;
+    const files = imagesOnly.slice(0, remainingSlots);
+    const overflowCount = imagesOnly.length - files.length;
+
+    if (rejectedCount > 0) {
+      setPhotoError('사진 파일만 첨부할 수 있어요 (영상은 지원하지 않아요).');
+    } else if (overflowCount > 0) {
+      setPhotoError(`사진은 최대 ${MAX_POST_IMAGES}장까지만 첨부할 수 있어요.`);
+    } else {
+      setPhotoError(null);
+    }
+
     if (files.length === 0) return;
-    setPhotoError(null);
     advanceCropQueue(files);
   };
   const cancelCrop = () => advanceCropQueue(cropQueue);
@@ -635,7 +709,7 @@ export function CommunityClient() {
                   className={styles.gridCell}
                   onClick={() => setProfileAuthor(post.author)}
                 >
-                  <PostPhoto images={post.images} label={`${post.place} 사진`} />
+                  <PostPhoto images={post.images} label={`${post.place} 사진`} interactive={false} />
                 </button>
               ))}
             </div>
