@@ -324,6 +324,10 @@ export function PlannerClient() {
   const lastTitleRef = useRef('');
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
+  /** 비회원이 보기전용/편집가능 링크로 들어왔을 때 그 토큰 — 뷰어 실시간 갱신을 그 토큰으로 계속 조회한다. */
+  const inviteTokenRef = useRef<string | null>(null);
+  const lastSeenUpdatedAtRef = useRef<string | null>(null);
 
   // ---- AI 도우미 ----
   const [aiOpen, setAiOpen] = useState(false);
@@ -521,6 +525,8 @@ export function PlannerClient() {
   const applyScheduleDetail = useCallback(
     (detail: NonNullable<Awaited<ReturnType<typeof getSchedule>>>) => {
       lastTitleRef.current = detail.schedule.title;
+      lastSeenUpdatedAtRef.current = detail.schedule.updatedAt;
+      inviteTokenRef.current = null;
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
       setRouteCache(detail.schedule.routeCache ?? {});
@@ -563,39 +569,40 @@ export function PlannerClient() {
 
     if (inviteToken && isInviteRole) {
       if (!isLoggedIn) {
-        if (inviteRole === 'viewer') {
-          // 보기 전용 링크는 로그인 없이 바로 볼 수 있다. 참여 등록은 하지 않는다 — 저장하려면 그때 로그인.
-          getScheduleByViewToken(inviteToken).then((schedule) => {
-            if (!schedule) {
-              showToast('초대 링크가 유효하지 않아요.');
-              return;
-            }
-            setPlaces(schedule.places);
-            setSegments(schedule.segments);
-            setRouteCache(schedule.routeCache ?? {});
-            setRouteSegmentsReady(schedule.segments.length > 0);
-            nextIdRef.current = nextIdAfter(schedule.places);
-            setCriteriaState(schedule.criteria);
-            setTripStart(schedule.tripStart || '');
-            setTripEnd(schedule.tripEnd || '');
-            setScheduleId(schedule.id);
-            setRole('viewer');
-            markClean({
-              places: schedule.places,
-              segments: schedule.segments,
-              criteria: schedule.criteria,
-              tripStart: schedule.tripStart || '',
-              tripEnd: schedule.tripEnd || '',
-            });
-          });
-          return;
+        // 링크가 보기 전용이든 편집 가능이든, 로그인 여부와 상관없이 일단 목록/경로부터 바로 보여준다.
+        // 편집 가능 링크라면, 나중에(다른 계기로든) 로그인했을 때 편집 권한 요청까지 자동으로
+        // 이어지도록 pending 값만 남겨둔다 — 지금 당장 로그인 화면으로 보내지 않는다.
+        if (inviteRole === 'editor') {
+          sessionStorage.setItem(
+            PENDING_INVITE_KEY,
+            JSON.stringify({ token: inviteToken, role: inviteRole }),
+          );
         }
-        // 편집 가능 링크는 로그인부터 해야 한다 — 로그인 후 이어서 참여를 시도한다.
-        sessionStorage.setItem(
-          PENDING_INVITE_KEY,
-          JSON.stringify({ token: inviteToken, role: inviteRole }),
-        );
-        router.push('/login');
+        inviteTokenRef.current = inviteToken;
+        getScheduleByViewToken(inviteToken).then((schedule) => {
+          if (!schedule) {
+            showToast('초대 링크가 유효하지 않아요.');
+            return;
+          }
+          lastSeenUpdatedAtRef.current = schedule.updatedAt;
+          setPlaces(schedule.places);
+          setSegments(schedule.segments);
+          setRouteCache(schedule.routeCache ?? {});
+          setRouteSegmentsReady(schedule.segments.length > 0);
+          nextIdRef.current = nextIdAfter(schedule.places);
+          setCriteriaState(schedule.criteria);
+          setTripStart(schedule.tripStart || '');
+          setTripEnd(schedule.tripEnd || '');
+          setScheduleId(schedule.id);
+          setRole('viewer');
+          markClean({
+            places: schedule.places,
+            segments: schedule.segments,
+            criteria: schedule.criteria,
+            tripStart: schedule.tripStart || '',
+            tripEnd: schedule.tripEnd || '',
+          });
+        });
         return;
       }
       joinSchedule(inviteToken, inviteRole).then((result) => {
@@ -662,6 +669,41 @@ export function PlannerClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 로그인 상태가 확정될 때 한 번만 실행
   }, [sessionLoading, isLoggedIn]);
 
+  // ---- 뷰어 실시간 갱신 ----
+  // 뷰어는 편집을 못 하니(canEdit=false) 항상 제작자/편집자의 최신 내용을 그대로 봐야 한다 —
+  // 편집 권한 요청의 수락/거절 여부와 무관하게, 로그인 여부와도 무관하게 주기적으로 다시 불러온다.
+  useEffect(() => {
+    if (role !== 'viewer' || !scheduleId) return;
+    let cancelled = false;
+    const poll = async () => {
+      const schedule = inviteTokenRef.current
+        ? await getScheduleByViewToken(inviteTokenRef.current)
+        : (await getSchedule(scheduleId))?.schedule || null;
+      if (cancelled || !schedule || schedule.updatedAt === lastSeenUpdatedAtRef.current) return;
+      lastSeenUpdatedAtRef.current = schedule.updatedAt;
+      setPlaces(schedule.places);
+      setSegments(schedule.segments);
+      setRouteCache(schedule.routeCache ?? {});
+      setRouteSegmentsReady(schedule.segments.length > 0);
+      nextIdRef.current = nextIdAfter(schedule.places);
+      setCriteriaState(schedule.criteria);
+      setTripStart(schedule.tripStart || '');
+      setTripEnd(schedule.tripEnd || '');
+      markClean({
+        places: schedule.places,
+        segments: schedule.segments,
+        criteria: schedule.criteria,
+        tripStart: schedule.tripStart || '',
+        tripEnd: schedule.tripEnd || '',
+      });
+    };
+    const timer = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [role, scheduleId, markClean]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -683,6 +725,7 @@ export function PlannerClient() {
       else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
       else if (leaveConfirmOpen) setLeaveConfirmOpen(false);
+      else if (loginRequiredOpen) setLoginRequiredOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -701,6 +744,7 @@ export function PlannerClient() {
     addPlaceModalOpen,
     multiDayOriginModalOpen,
     leaveConfirmOpen,
+    loginRequiredOpen,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -1235,7 +1279,7 @@ export function PlannerClient() {
 
   const saveOrRemoveAction = async () => {
     if (!isLoggedIn) {
-      router.push('/login');
+      setLoginRequiredOpen(true);
       return;
     }
     if (role === 'viewer') {
@@ -1266,6 +1310,11 @@ export function PlannerClient() {
     router.push(leaveTargetHref);
   };
   const saveAndLeave = async () => {
+    if (!isLoggedIn) {
+      setLeaveConfirmOpen(false);
+      setLoginRequiredOpen(true);
+      return;
+    }
     const wasExisting = Boolean(scheduleId);
     const ok = await saveCurrentRoute();
     setLeaveConfirmOpen(false);
@@ -1329,7 +1378,7 @@ export function PlannerClient() {
   }, [inviteOpen, scheduleId, viewerInviteLink, editorInviteLink]);
   const requestEditPermission = async () => {
     if (!isLoggedIn) {
-      router.push('/login');
+      setLoginRequiredOpen(true);
       return;
     }
     if (!scheduleId) return;
@@ -3316,6 +3365,25 @@ export function PlannerClient() {
           </Button>
           <Button size="sm" onClick={saveAndLeave}>
             저장
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 로그인 필요 안내 */}
+      <Modal
+        open={loginRequiredOpen}
+        title="로그인이 필요해요"
+        onClose={() => setLoginRequiredOpen(false)}
+      >
+        <p className={styles.modalDesc}>
+          로그인하면 내 일정에 저장하거나 편집 권한을 요청할 수 있어요.
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => setLoginRequiredOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={() => router.push('/login')}>
+            로그인/회원가입하기
           </Button>
         </div>
       </Modal>
