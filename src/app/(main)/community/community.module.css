@@ -1129,24 +1129,13 @@
   }
 
   .sortRow {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-  }
-
-  .sortRow > div {
-    min-width: 0;
-  }
-
-  .sortRow > div:first-child {
-    grid-column: 1;
-  }
-
-  .sortRow > div:last-child {
-    grid-column: 3;
-    justify-self: end;
   }
 
   .regionToggle {

@@ -82,6 +82,9 @@
   }
 
   .actions {
+    /* PC에서는 .nav 의 margin-left:auto 가 오른쪽으로 밀어주는데, 모바일은 .nav 가 display:none 이라
+       그 효과가 사라진다 — .actions 자신에게 옮겨서 항상 헤더 오른쪽 끝에 붙도록 한다. */
+    margin-left: auto;
     gap: 14px;
   }
 }
