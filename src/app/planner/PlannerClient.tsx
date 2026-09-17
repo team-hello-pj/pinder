@@ -1284,7 +1284,17 @@ export function PlannerClient() {
     }
   };
   const openSearchMode = () => {
-    if (searchMode || isAllDaysView) return;
+    if (isAllDaysView) return;
+    // 모바일은 방문지 화면과 지도 화면이 같은 자리에 겹쳐진 슬라이드 레이아웃이라, 주소 검색을
+    // 시작할 때마다 지도 화면으로도 함께 전환해야 검색창이 실제로 보인다 — searchMode 가 이미
+    // true 라 아래 가드에서 검색 상태 초기화는 건너뛰더라도, 화면 전환만은 매번 이뤄져야 하므로
+    // 가드보다 앞에 둔다. PC는 두 화면이 이미 나란히 보이므로 그대로 둔다.
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      setPanelCollapsed(true);
+      setMapCollapsed(false);
+      relayoutMapSoon();
+    }
+    if (searchMode) return;
     setSearchMode(true);
     setMapSearchBarCollapsed(false);
     setMapSearchQuery(newAddress);

@@ -248,6 +248,12 @@ export const destinations = pgTable('destinations', {
   badge: text('badge').notNull(),
   desc: text('desc').notNull(),
   tags: jsonb('tags').notNull(),
+  /**
+   * "이 여행지로 일정 짜기"를 누르면 바로 쓰는, 우리 AI 동선 생성 기능으로 미리 만들어 둔
+   * 동선. 아직 안 만든 여행지는 null — 그럴 땐 "이 여행지로 일정 짜기"를 쓸 수 없다.
+   */
+  places: jsonb('places'),
+  segments: jsonb('segments'),
 });
 
 /**
