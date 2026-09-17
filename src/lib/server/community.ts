@@ -17,6 +17,8 @@ import {
 export interface ReplyView {
   id: string;
   author: string;
+  /** 작성자가 마이페이지에 등록한 프로필 사진. 없으면 null(화면에서 이니셜 아바타로 대체). */
+  authorAvatarUrl: string | null;
   text: string;
   liked: boolean;
   likeCount: number;
@@ -26,6 +28,7 @@ export interface ReplyView {
 export interface CommentView {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   text: string;
   liked: boolean;
   likeCount: number;
@@ -36,6 +39,7 @@ export interface CommentView {
 export interface PostView {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   place: string;
   region: string;
   caption: string;
@@ -57,6 +61,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
       authorId: posts.authorId,
       authorNickname: users.nickname,
       authorName: users.name,
+      authorAvatarUrl: users.avatarUrl,
       place: posts.place,
       region: posts.region,
       caption: posts.caption,
@@ -97,6 +102,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
       authorId: postComments.authorId,
       authorNickname: users.nickname,
       authorName: users.name,
+      authorAvatarUrl: users.avatarUrl,
       text: postComments.text,
       createdAt: postComments.createdAt,
     })
@@ -127,6 +133,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
           authorId: postCommentReplies.authorId,
           authorNickname: users.nickname,
           authorName: users.name,
+          authorAvatarUrl: users.avatarUrl,
           text: postCommentReplies.text,
           createdAt: postCommentReplies.createdAt,
         })
@@ -156,6 +163,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
     list.push({
       id: r.id,
       author: r.authorNickname || r.authorName,
+      authorAvatarUrl: r.authorAvatarUrl,
       text: r.text,
       liked: replyLikedByViewer.has(r.id),
       likeCount: replyLikeCount.get(r.id) ?? 0,
@@ -170,6 +178,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
     list.push({
       id: c.id,
       author: c.authorNickname || c.authorName,
+      authorAvatarUrl: c.authorAvatarUrl,
       text: c.text,
       liked: commentLikedByViewer.has(c.id),
       likeCount: commentLikeCount.get(c.id) ?? 0,
@@ -182,6 +191,7 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
   return postRows.map((p) => ({
     id: p.id,
     author: p.authorNickname || p.authorName,
+    authorAvatarUrl: p.authorAvatarUrl,
     place: p.place,
     region: p.region,
     caption: p.caption,

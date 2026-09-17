@@ -11,6 +11,8 @@ export interface AuthUser {
   username: string | null;
   nickname: string | null;
   name: string;
+  /** 마이페이지에서 등록한 프로필 사진(data URL). 세션 쿠키에는 안 들어있어 크기 걱정 없이 쓸 수 있다. */
+  avatarUrl: string | null;
 }
 
 export type AuthResult = { ok: true; user: AuthUser } | { ok: false; message: string };
