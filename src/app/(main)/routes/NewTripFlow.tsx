@@ -19,12 +19,8 @@ function todayStr(): string {
 }
 
 export interface NewTripFlowHandle {
-  /**
-   * 로그인 상태면 "새 일정 만들기" 팝업을, 아니면 로그인 페이지를 띄운다.
-   * `route`를 주면(여행지 탐색에서 미리 만들어둔 동선으로 들어온 경우) 생성 방식 선택과
-   * AI 마법사를 모두 건너뛰고, 날짜만 고르면 그 동선 그대로 플래너로 넘어간다.
-   */
-  open: (preset?: { route: { places: Place[]; segments: TransportMode[] } }) => void;
+  /** 로그인 상태면 "새 일정 만들기" 팝업을, 아니면 로그인 페이지를 띄운다. */
+  open: () => void;
 }
 
 /**
@@ -44,29 +40,15 @@ export const NewTripFlow = forwardRef<NewTripFlowHandle>(function NewTripFlow(_p
   const [newTripEnd, setNewTripEnd] = useState('');
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [presetRoute, setPresetRoute] = useState<{
-    places: Place[];
-    segments: TransportMode[];
-  } | null>(null);
 
   useImperativeHandle(ref, () => ({
-    open: (preset) => {
+    open: () => {
       if (!isLoggedIn) {
         router.push('/login');
         return;
       }
       setNewTripStart(todayStr());
       setNewTripEnd('');
-      setPresetRoute(preset?.route ?? null);
-      if (preset?.route) {
-        // 여행지 탐색에서 미리 만들어둔 동선으로 들어온 경우 — 생성 방식 선택도, AI 마법사도
-        // 건너뛰고 날짜만 고르면 바로 그 동선으로 시작한다.
-        setCreateMode('ai');
-        setCalYear(new Date().getFullYear());
-        setCalMonth(new Date().getMonth());
-        setNewTripOpen(true);
-        return;
-      }
       setModeSelectOpen(true);
     },
   }));
@@ -102,13 +84,6 @@ export const NewTripFlow = forwardRef<NewTripFlowHandle>(function NewTripFlow(_p
   const newTripHref = `/planner?new=1&tripStart=${encodeURIComponent(newTripStart)}&tripEnd=${encodeURIComponent(newTripEnd || newTripStart)}&mode=${createMode}`;
 
   const startNewTrip = () => {
-    if (presetRoute) {
-      // 이미 만들어져 있는 동선이므로 AI 마법사 없이 바로 핸드오프한다.
-      saveAiRouteHandoff(presetRoute);
-      setNewTripOpen(false);
-      router.push(newTripHref);
-      return;
-    }
     if (createMode === 'ai') {
       setNewTripOpen(false);
       setAiWizardOpen(true);

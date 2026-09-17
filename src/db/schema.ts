@@ -250,10 +250,10 @@ export const destinations = pgTable('destinations', {
   tags: jsonb('tags').notNull(),
   /**
    * "이 여행지로 일정 짜기"를 누르면 바로 쓰는, 우리 AI 동선 생성 기능으로 미리 만들어 둔
-   * 동선. 아직 안 만든 여행지는 null — 그럴 땐 "이 여행지로 일정 짜기"를 쓸 수 없다.
+   * 동선 — 당일치기/1박2일/2박3일 세 가지를 `{ "1": {places,segments}, "2": {...}, "3": {...} }`
+   * 형태로 담는다. 아직 안 만든 여행지는 null — 그럴 땐 "이 여행지로 일정 짜기"를 쓸 수 없다.
    */
-  places: jsonb('places'),
-  segments: jsonb('segments'),
+  routes: jsonb('routes'),
 });
 
 /**

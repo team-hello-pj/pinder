@@ -1,6 +1,10 @@
 // destinations 테이블의 각 여행지에 대해 우리 AI 동선 생성 기능(/api/route-generate)으로
-// 방문지 목록을 미리 만들어서 places/segments 컬럼에 저장한다 — "이 여행지로 일정 짜기"는
-// 이렇게 미리 만들어 둔 동선만 쓰고, 클릭할 때마다 다시 생성하지 않는다.
+// 2박3일짜리 방문지 목록을 한 번 생성한 뒤, 그 안에서 1일차/1~2일차/1~3일차를 그대로 잘라내
+// 당일치기·1박2일·2박3일 세 가지 동선을 만들어 routes 컬럼에 저장한다.
+// (기간별로 따로 생성하지 않고 한 번 생성한 결과를 잘라 쓰는 이유: Gemini 하루 호출 한도가
+// 20개(팀 공용)라 여행지 하나당 여러 번 부르는 걸 피한다.)
+//
+// "이 여행지로 일정 짜기"는 이렇게 미리 만들어 둔 동선만 쓰고, 클릭할 때마다 다시 생성하지 않는다.
 //
 // 사용법: node --env-file=.env.local scripts/generate-destination-routes.js [여행지 이름...]
 //   인자 없이 실행하면 destinations 테이블의 모든 행을 대상으로 한다.
@@ -9,8 +13,7 @@
 //   로컬에 KAKAO_REST_API_KEY 가 있다면 GEOCODE_BASE 를 http://localhost:3000 으로 바꿔도 된다).
 //
 // 주의: scripts/seed-destinations.mjs 를 다시 실행하면 destinations 테이블 행 자체가 삭제/재삽입돼
-// 여기서 저장한 places/segments 도 함께 사라진다 — seed 스크립트를 다시 돌렸다면 이 스크립트도
-// 다시 돌려야 한다.
+// 여기서 저장한 routes 도 함께 사라진다 — seed 스크립트를 다시 돌렸다면 이 스크립트도 다시 돌려야 한다.
 
 const { Pool } = require('@neondatabase/serverless');
 
@@ -20,8 +23,9 @@ const GEOCODE_BASE = 'https://pinder-one.vercel.app';
 const STYLE = '알차게';
 const COMPANION = '혼자';
 const TRANSPORT = 'transit';
+const TRIP_DAYS = 3;
 const TRIP_START = '2026-06-01';
-const TRIP_END = '2026-06-01';
+const TRIP_END = '2026-06-03';
 
 const targetNames = process.argv.slice(2);
 
@@ -70,13 +74,20 @@ async function geocode(region, name, addressHint) {
   return { x: null, y: null };
 }
 
-async function buildRoute(region, tags) {
+/** 잘라낸 조각(days개 일차)으로 places/segments 를 다시 번호 매겨 만든다. */
+function buildVariant(fullPlaces, days) {
+  const places = fullPlaces.filter((p) => p.day < days).map((p, i) => ({ ...p, id: i + 1 }));
+  const segments = new Array(Math.max(0, places.length - 1)).fill(TRANSPORT);
+  return { places, segments };
+}
+
+async function buildRoutes(region, tags) {
   const aiPlaces = await generatePlaces(region, tags);
-  const places = [];
+  const fullPlaces = [];
   for (const p of aiPlaces) {
     const { x, y } = await geocode(region, p.name, p.addressHint);
-    places.push({
-      id: places.length + 1,
+    fullPlaces.push({
+      id: fullPlaces.length + 1,
       name: p.name,
       category: p.category || '미분류',
       address: p.addressHint || p.name,
@@ -86,13 +97,18 @@ async function buildRoute(region, tags) {
       visitTime: '',
       packItems: '',
       weather: 'sunny',
-      day: 0,
+      day: Math.max(0, (p.day || 1) - 1),
       x,
       y,
     });
   }
-  const segments = new Array(Math.max(0, places.length - 1)).fill(TRANSPORT);
-  return { places, segments };
+  fullPlaces.sort((a, b) => a.day - b.day);
+
+  return {
+    1: buildVariant(fullPlaces, 1),
+    2: buildVariant(fullPlaces, 2),
+    3: buildVariant(fullPlaces, TRIP_DAYS),
+  };
 }
 
 async function main() {
@@ -105,15 +121,15 @@ async function main() {
   for (const dest of targets) {
     console.log(`\n=== ${dest.name} (${dest.region}) ===`);
     try {
-      const { places, segments } = await buildRoute(dest.name, dest.tags);
-      console.log(
-        `생성된 장소 ${places.length}곳:`,
-        places.map((p) => `${p.name}${p.x == null ? '(좌표없음)' : ''}`).join(', '),
-      );
-      await pool.query(
-        'update destinations set places = $1::jsonb, segments = $2::jsonb where id = $3',
-        [JSON.stringify(places), JSON.stringify(segments), dest.id],
-      );
+      const routes = await buildRoutes(dest.name, dest.tags);
+      for (const len of [1, 2, 3]) {
+        const { places } = routes[len];
+        console.log(`  ${len}일: ${places.map((p) => p.name).join(', ')}`);
+      }
+      await pool.query('update destinations set routes = $1::jsonb where id = $2', [
+        JSON.stringify(routes),
+        dest.id,
+      ]);
       console.log('저장 완료.');
     } catch (err) {
       console.error(`실패: ${err.message}`);
