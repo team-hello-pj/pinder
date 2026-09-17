@@ -27,7 +27,12 @@ export async function POST(request: Request) {
   }
 
   const result = await issueVerificationCode(email);
-  if (!result.ok) return NextResponse.json({ error: result.message }, { status: 502 });
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.message, cooldownRemainingSec: result.cooldownRemainingSec },
+      { status: result.cooldownRemainingSec != null ? 429 : 502 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
