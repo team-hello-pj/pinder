@@ -31,6 +31,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       criteria: row.criteria,
       tripStart: row.tripStart,
       tripEnd: row.tripEnd,
+      routeCache: row.routeCache ?? {},
       customName: Boolean(row.customName),
       updatedAt: row.updatedAt.toISOString(),
     },

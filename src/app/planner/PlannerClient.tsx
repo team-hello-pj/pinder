@@ -523,6 +523,7 @@ export function PlannerClient() {
       lastTitleRef.current = detail.schedule.title;
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
+      setRouteCache(detail.schedule.routeCache ?? {});
       setRouteSegmentsReady(detail.schedule.segments.length > 0);
       // 불러온 방문지들의 id보다 다음 id가 항상 커야, 새로 추가하는 방문지가 기존 id와
       // 겹치지 않는다 (겹치면 리액트 key 충돌로 목록/구간 렌더링이 깨진다).
@@ -571,6 +572,7 @@ export function PlannerClient() {
             }
             setPlaces(schedule.places);
             setSegments(schedule.segments);
+            setRouteCache(schedule.routeCache ?? {});
             setRouteSegmentsReady(schedule.segments.length > 0);
             nextIdRef.current = nextIdAfter(schedule.places);
             setCriteriaState(schedule.criteria);
@@ -1206,6 +1208,9 @@ export function PlannerClient() {
       criteria,
       tripStart: tripStart || '',
       tripEnd: tripEnd || '',
+      // "경로 계산"/"경로 검색"으로 이미 조회해 둔 구간 결과도 같이 저장해서, 다시 불러왔을 때
+      // 재검색 없이 그대로 쓸 수 있게 한다.
+      routeCache,
     };
 
     const saved = scheduleId
