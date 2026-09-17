@@ -3307,23 +3307,6 @@ export function PlannerClient() {
             검색
           </Button>
         </div>
-        <button
-          type="button"
-          className={styles.hint}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            marginTop: 8,
-            cursor: locatingCurrentPosition ? 'default' : 'pointer',
-            textDecoration: 'underline',
-            opacity: locatingCurrentPosition ? 0.6 : 1,
-          }}
-          onClick={useCurrentLocationAsOrigin}
-          disabled={locatingCurrentPosition}
-        >
-          {locatingCurrentPosition ? '현재 위치를 확인하는 중...' : '현재 위치를 출발지로 설정'}
-        </button>
         {mapSearchLoading ? <p className={styles.modalDesc}>검색 중...</p> : null}
         {mapSearchError ? <p className={styles.modalDesc}>{mapSearchError}</p> : null}
         {mapSearchResults.length > 0 ? (
@@ -3349,7 +3332,26 @@ export function PlannerClient() {
             ))}
           </div>
         ) : null}
-        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+        <div
+          className={styles.modalActions}
+          style={{ marginTop: 16, justifyContent: 'space-between' }}
+        >
+          <button
+            type="button"
+            className={styles.hint}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: locatingCurrentPosition ? 'default' : 'pointer',
+              textDecoration: 'underline',
+              opacity: locatingCurrentPosition ? 0.6 : 1,
+            }}
+            onClick={useCurrentLocationAsOrigin}
+            disabled={locatingCurrentPosition}
+          >
+            {locatingCurrentPosition ? '현재 위치를 확인하는 중...' : '현재 위치를 출발지로 설정'}
+          </button>
           <Button variant="secondary" size="sm" onClick={cancelAddPlaceModal}>
             취소
           </Button>
