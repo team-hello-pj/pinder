@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { listExploreSections, type ExploreSection } from '@/lib/destinations';
 import { PlaceholderImage } from '@/components/ui';
 
 import { MAP_REGIONS, SECTION_PAGE_SIZE } from './data';
+import { NewTripFlow, type NewTripFlowHandle } from '../routes/NewTripFlow';
 import styles from './explore.module.css';
 
 /** legacy/Explore Destinations.dc.html 를 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
@@ -15,6 +16,7 @@ export function ExploreClient() {
   // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.legendCollapsed) — PC에서는 항상 펼쳐져 보인다.
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
+  const newTripFlowRef = useRef<NewTripFlowHandle>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,12 +186,13 @@ export function ExploreClient() {
                           </span>
                         ))}
                       </div>
-                      <a
-                        href={`/planner?new=1&destination=${encodeURIComponent(dest.name)}`}
+                      <button
+                        type="button"
                         className={styles.cardLink}
+                        onClick={() => newTripFlowRef.current?.open({ destination: dest.name })}
                       >
                         이 여행지로 일정 짜기 →
-                      </a>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -197,6 +200,8 @@ export function ExploreClient() {
             </section>
           ),
       )}
+
+      <NewTripFlow ref={newTripFlowRef} />
     </div>
   );
 }
