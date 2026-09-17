@@ -1,7 +1,9 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { ROUTES } from '@/constants';
 import { avatarColorFor } from '@/lib/avatar';
 import { fmtRange } from '@/lib/calendar';
 import {
@@ -25,6 +27,7 @@ function todayStr(): string {
 
 /** legacy/My Routes.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function MyRoutesClient() {
+  const router = useRouter();
   const { isLoggedIn, isLoading: sessionLoading } = useSession();
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
@@ -161,6 +164,9 @@ export function MyRoutesClient() {
   if (isLoggedIn && routes === null) return null; // 로그인 상태에서 내 일정 초기 로드 중
 
   const hasRoutes = isLoggedIn && (routes?.length ?? 0) > 0;
+  // 로그인하지 않은 사용자는 뒤에 빈 상태 화면을 그대로 둔 채(레이아웃이 비어 보이지 않도록),
+  // 이 모달로 로그인/회원가입을 안내한다 — 닫으면(X, ESC) 홈으로 돌려보낸다.
+  const authGateOpen = !isLoggedIn;
 
   return (
     <div className={styles.page}>
@@ -397,6 +403,24 @@ export function MyRoutesClient() {
       )}
 
       <NewTripFlow ref={newTripFlowRef} />
+
+      {/* 비회원 안내 — 로그인하지 않았으면 내 일정 기능을 쓸 수 없으니 안내하고 로그인/
+          회원가입으로 보낸다. 닫으면(X, ESC) 홈으로 돌려보낸다. */}
+      <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push(ROUTES.home)}>
+        <p className={styles.deleteDesc}>
+          로그인하면 내 일정의 다양한 기능을
+          <br />
+          이용할 수 있어요.
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => router.push(ROUTES.login)}>
+            로그인
+          </Button>
+          <Button size="sm" onClick={() => router.push(ROUTES.signup)}>
+            회원가입
+          </Button>
+        </div>
+      </Modal>
 
       {/* 삭제 확인 */}
       <Modal
