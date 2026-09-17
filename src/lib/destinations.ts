@@ -14,6 +14,7 @@ export interface Destination {
   badge: string;
   desc: string;
   tags: string[];
+  imageUrl: string | null;
   hasRoute: boolean;
   availableTripLengths: DestinationTripLength[];
 }
