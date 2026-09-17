@@ -159,6 +159,11 @@ export function CommunityClient() {
     return true;
   };
 
+  const openMyProfile = () => {
+    if (!requireLogin()) return;
+    setProfileAuthor(myAuthorName);
+  };
+
   // ---- 좋아요 / 북마크 ----
   const toggleLike = (id: string) => {
     if (!requireLogin()) return;
@@ -359,6 +364,20 @@ export function CommunityClient() {
             <img src="/icons/search-icon.png" alt="" />
           </button>
         </div>
+      </div>
+
+      {/* 1024px 이하에서는 .sideCol(글쓰기/내 프로필 버튼이 있는 우측 사이드바)이 통째로
+          숨겨져 두 버튼을 누를 방법이 없어진다 — 모바일 상단 영역에 같은 버튼을 그대로
+          재사용해 노출한다. PC에서는 CSS로 숨긴다. */}
+      <div className={styles.mobileActions}>
+        <button type="button" className={styles.writeBtn} onClick={openComposer}>
+          여행 후기 쓰기
+          {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+          <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
+        </button>
+        <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
+          내 프로필 보기
+        </button>
       </div>
 
       <div className={styles.row}>
@@ -819,14 +838,7 @@ export function CommunityClient() {
             {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
             <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
           </button>
-          <button
-            type="button"
-            className={styles.myProfileBtn}
-            onClick={() => {
-              if (!requireLogin()) return;
-              setProfileAuthor(myAuthorName);
-            }}
-          >
+          <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
             내 프로필 보기
           </button>
         </div>
