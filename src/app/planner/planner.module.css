@@ -1889,17 +1889,24 @@
     transform: translateX(0);
   }
 
+  /* mapArea 를 독립된 stacking context 로 분리한다 — 이 안의 어떤 자식(검색 오버레이,
+     검색 결과 등)이 앞으로 z-index 를 올리더라도, mapArea 밖으로는 절대 영향을 주지 않고
+     mapArea 안에서는 .mobileExpandPanelBtn 의 z-index 비교가 항상 예측 가능하게 유지된다. */
+  .mapArea {
+    isolation: isolate;
+  }
+
   /* 지도 화면 → 방문지/주소 입력 화면 복귀 버튼.
      검색창 접기 버튼(searchExpandBtn/searchCollapseBtn) 바로 아래에 둔다 — 검색창이
      펼쳐진 상태(높이 48px)를 기준으로 여백을 잡아, 접힌 상태(높이 36px)에서도 겹치지 않는다.
-     검색 결과 목록이 길어져 이 높이까지 내려오는 경우에도 z-index 를 검색 오버레이(20)보다
-     높게 유지해 항상 클릭 가능하도록 한다. */
+     검색 결과 목록/지도 위 다른 오버레이보다 항상 위에 오도록 이 파일에서 쓰는 다른 z-index
+     보다 확실히 높은 값을 준다. */
   .mobileExpandPanelBtn {
     display: flex;
     position: absolute;
     top: 70px;
     left: 14px;
-    z-index: 40;
+    z-index: 70;
     width: 36px;
     height: 36px;
     border-radius: 50%;

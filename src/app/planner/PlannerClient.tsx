@@ -52,7 +52,7 @@ import {
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, Modal } from '@/components/ui';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import type { Place, RouteCriteria, RouteLeg, TransportMode } from '@/types';
+import type { Place, RouteCriteria, RouteLeg, SavedRoute, TransportMode } from '@/types';
 
 import type { EditRequest, Member } from './data';
 import { ModeIcon } from './ModeIcon';
@@ -325,9 +325,15 @@ export function PlannerClient() {
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
-  /** 비회원이 보기전용/편집가능 링크로 들어왔을 때 그 토큰 — 뷰어 실시간 갱신을 그 토큰으로 계속 조회한다. */
+  /** 초대 링크로 들어왔을 때 그 토큰 — 뷰어 실시간 갱신을 그 토큰으로 계속 조회한다. */
   const inviteTokenRef = useRef<string | null>(null);
   const lastSeenUpdatedAtRef = useRef<string | null>(null);
+  /**
+   * 초대 링크로 들어와서 "보기만" 하고 있는 중이면 그 링크의 역할(viewer/editor)을 담아둔다.
+   * "저장"을 눌러야 비로소 실제로 참여(내 일정에 추가/편집 권한 요청)한다 — null 이면 이미
+   * 참여했거나 애초에 링크로 들어온 게 아니라는 뜻.
+   */
+  const [inviteJoinRole, setInviteJoinRole] = useState<'viewer' | 'editor' | null>(null);
 
   // ---- AI 도우미 ----
   const [aiOpen, setAiOpen] = useState(false);
@@ -539,6 +545,7 @@ export function PlannerClient() {
       lastTitleRef.current = detail.schedule.title;
       lastSeenUpdatedAtRef.current = detail.schedule.updatedAt;
       inviteTokenRef.current = null;
+      setInviteJoinRole(null);
       setPlaces(detail.schedule.places);
       setSegments(detail.schedule.segments);
       setRouteCache(detail.schedule.routeCache ?? {});
@@ -569,9 +576,37 @@ export function PlannerClient() {
     [markClean],
   );
 
-  // ---- 초대 링크로 들어온 경우: 로그인 상태면 바로 참여, 아니면 로그인 후 이어서 참여 ----
-  const PENDING_INVITE_KEY = 'pd-pending-invite';
+  /**
+   * 초대 링크로 들어와서 "보기만" 하는 동안 화면에 반영할 내용 — 아직 참여 전이라 members/
+   * editRequests 같은 관리용 정보는 없다(볼 수 있는 건 제작자가 만든 장소/경로 뿐이다).
+   */
+  const applyLinkedScheduleView = useCallback(
+    (schedule: SavedRoute) => {
+      lastSeenUpdatedAtRef.current = schedule.updatedAt;
+      setPlaces(schedule.places);
+      setSegments(schedule.segments);
+      setRouteCache(schedule.routeCache ?? {});
+      setRouteSegmentsReady(schedule.segments.length > 0);
+      nextIdRef.current = nextIdAfter(schedule.places);
+      setCriteriaState(schedule.criteria);
+      setTripStart(schedule.tripStart || '');
+      setTripEnd(schedule.tripEnd || '');
+      setScheduleId(schedule.id);
+      setRole('viewer');
+      markClean({
+        places: schedule.places,
+        segments: schedule.segments,
+        criteria: schedule.criteria,
+        tripStart: schedule.tripStart || '',
+        tripEnd: schedule.tripEnd || '',
+      });
+    },
+    [markClean],
+  );
 
+  // ---- 초대 링크로 들어온 경우: 로그인 여부와 상관없이 일단 보기만 한다 ----
+  // "내 일정"에 실제로 추가되는(제작자에게 편집 권한 요청이 가는) 시점은 사용자가 명시적으로
+  // "저장"을 눌렀을 때뿐이다 (saveOrRemoveAction 의 inviteJoinRole 분기 참고).
   useEffect(() => {
     if (sessionLoading) return;
 
@@ -580,70 +615,17 @@ export function PlannerClient() {
     const isInviteRole = inviteRole === 'editor' || inviteRole === 'viewer';
 
     if (inviteToken && isInviteRole) {
-      if (!isLoggedIn) {
-        // 링크가 보기 전용이든 편집 가능이든, 로그인 여부와 상관없이 일단 목록/경로부터 바로 보여준다.
-        // 편집 가능 링크라면, 나중에(다른 계기로든) 로그인했을 때 편집 권한 요청까지 자동으로
-        // 이어지도록 pending 값만 남겨둔다 — 지금 당장 로그인 화면으로 보내지 않는다.
-        if (inviteRole === 'editor') {
-          sessionStorage.setItem(
-            PENDING_INVITE_KEY,
-            JSON.stringify({ token: inviteToken, role: inviteRole }),
-          );
-        }
-        inviteTokenRef.current = inviteToken;
-        getScheduleByViewToken(inviteToken).then((schedule) => {
-          if (!schedule) {
-            showToast('초대 링크가 유효하지 않아요.');
-            return;
-          }
-          lastSeenUpdatedAtRef.current = schedule.updatedAt;
-          setPlaces(schedule.places);
-          setSegments(schedule.segments);
-          setRouteCache(schedule.routeCache ?? {});
-          setRouteSegmentsReady(schedule.segments.length > 0);
-          nextIdRef.current = nextIdAfter(schedule.places);
-          setCriteriaState(schedule.criteria);
-          setTripStart(schedule.tripStart || '');
-          setTripEnd(schedule.tripEnd || '');
-          setScheduleId(schedule.id);
-          setRole('viewer');
-          markClean({
-            places: schedule.places,
-            segments: schedule.segments,
-            criteria: schedule.criteria,
-            tripStart: schedule.tripStart || '',
-            tripEnd: schedule.tripEnd || '',
-          });
-        });
-        return;
-      }
-      joinSchedule(inviteToken, inviteRole).then((result) => {
-        if (!result) {
+      inviteTokenRef.current = inviteToken;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 상태가 확정될 때 한 번만 실행
+      setInviteJoinRole(inviteRole);
+      getScheduleByViewToken(inviteToken).then((schedule) => {
+        if (!schedule) {
           showToast('초대 링크가 유효하지 않아요.');
           return;
         }
-        router.replace(`/planner?loadRoute=${result.scheduleId}`);
-        if (result.pending) showToast('편집 권한 요청을 보냈어요. 제작자 승인을 기다려주세요.');
+        applyLinkedScheduleView(schedule);
       });
       return;
-    }
-
-    if (isLoggedIn) {
-      const pendingRaw = sessionStorage.getItem(PENDING_INVITE_KEY);
-      if (pendingRaw) {
-        sessionStorage.removeItem(PENDING_INVITE_KEY);
-        try {
-          const pending = JSON.parse(pendingRaw) as { token: string; role: 'editor' | 'viewer' };
-          joinSchedule(pending.token, pending.role).then((result) => {
-            if (!result) return;
-            router.replace(`/planner?loadRoute=${result.scheduleId}`);
-            if (result.pending) showToast('편집 권한 요청을 보냈어요. 제작자 승인을 기다려주세요.');
-          });
-          return;
-        } catch {
-          // 손상된 값이면 무시하고 아래 일반 로드 흐름으로 진행한다.
-        }
-      }
     }
 
     const loadId = searchParams.get('loadRoute');
@@ -658,7 +640,6 @@ export function PlannerClient() {
     const resolvedTripStart = qStart || '';
     const resolvedTripEnd = qEnd || qStart || '';
     if (qStart || qEnd) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTripStart(resolvedTripStart);
       setTripEnd(resolvedTripEnd);
       // "새 일정 만들기" 날짜 모달 없이 URL로 바로 날짜가 정해진 경우라, 이 시점을 기준으로 삼는다.
@@ -688,33 +669,30 @@ export function PlannerClient() {
     if (role !== 'viewer' || !scheduleId) return;
     let cancelled = false;
     const poll = async () => {
-      const schedule = inviteTokenRef.current
-        ? await getScheduleByViewToken(inviteTokenRef.current)
-        : (await getSchedule(scheduleId))?.schedule || null;
-      if (cancelled || !schedule || schedule.updatedAt === lastSeenUpdatedAtRef.current) return;
-      lastSeenUpdatedAtRef.current = schedule.updatedAt;
-      setPlaces(schedule.places);
-      setSegments(schedule.segments);
-      setRouteCache(schedule.routeCache ?? {});
-      setRouteSegmentsReady(schedule.segments.length > 0);
-      nextIdRef.current = nextIdAfter(schedule.places);
-      setCriteriaState(schedule.criteria);
-      setTripStart(schedule.tripStart || '');
-      setTripEnd(schedule.tripEnd || '');
-      markClean({
-        places: schedule.places,
-        segments: schedule.segments,
-        criteria: schedule.criteria,
-        tripStart: schedule.tripStart || '',
-        tripEnd: schedule.tripEnd || '',
-      });
+      // 초대 링크로 아직 참여 전(보기만 하는 중)이면 공개 조회로, 이미 참여했으면 일반 조회로 갱신한다.
+      if (inviteTokenRef.current) {
+        const schedule = await getScheduleByViewToken(inviteTokenRef.current);
+        if (cancelled || !schedule || schedule.updatedAt === lastSeenUpdatedAtRef.current) return;
+        applyLinkedScheduleView(schedule);
+        return;
+      }
+      const detail = await getSchedule(scheduleId);
+      if (cancelled || !detail) return;
+      if (detail.role !== 'viewer') {
+        // 편집 권한 요청이 승인되어 editor 로 올라갔다 — 권한 관련 UI까지 통째로 다시 반영한다.
+        applyScheduleDetail(detail);
+        return;
+      }
+      setMyEditRequestPending(detail.myEditRequestPending);
+      if (detail.schedule.updatedAt === lastSeenUpdatedAtRef.current) return;
+      applyLinkedScheduleView(detail.schedule);
     };
     const timer = setInterval(poll, 5000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [role, scheduleId, markClean]);
+  }, [role, scheduleId, applyLinkedScheduleView, applyScheduleDetail]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1301,6 +1279,27 @@ export function PlannerClient() {
   const saveOrRemoveAction = async () => {
     if (!isLoggedIn) {
       setLoginRequiredOpen(true);
+      return;
+    }
+    // 초대 링크로 들어와 보기만 하던 중이었다면, "저장"은 이제 실제로 참여하는 동작이 된다 —
+    // 보기 전용 링크는 곧바로 내 일정에 추가되고, 편집 가능 링크는 편집 권한 요청이 걸린다
+    // (제작자가 승인하기 전까지는 "승인 대기 중"으로 보인다).
+    if (inviteJoinRole && inviteTokenRef.current) {
+      const result = await joinSchedule(inviteTokenRef.current, inviteJoinRole);
+      if (!result) {
+        showToast('초대 링크가 유효하지 않아요.');
+        return;
+      }
+      inviteTokenRef.current = null;
+      setInviteJoinRole(null);
+      router.replace(`/planner?loadRoute=${result.scheduleId}`);
+      const detail = await getSchedule(result.scheduleId);
+      if (detail) applyScheduleDetail(detail);
+      showToast(
+        result.pending
+          ? '편집 권한을 요청했어요. 제작자 승인을 기다려주세요.'
+          : '내 일정에 추가했어요',
+      );
       return;
     }
     if (role === 'viewer') {
@@ -2690,9 +2689,13 @@ export function PlannerClient() {
                   활동 로그
                 </button>
                 <button type="button" className={styles.actionBtn} onClick={saveOrRemoveAction}>
-                  {isViewerRole && isLoggedIn ? '내 일정에서 제거' : saveLabel}
+                  {inviteJoinRole
+                    ? '저장'
+                    : isViewerRole && isLoggedIn
+                      ? '내 일정에서 제거'
+                      : saveLabel}
                 </button>
-                {role === 'viewer' && !myEditRequestPending ? (
+                {!inviteJoinRole && role === 'viewer' && !myEditRequestPending ? (
                   <button
                     type="button"
                     className={styles.requestEditBtn}
@@ -2701,7 +2704,7 @@ export function PlannerClient() {
                     편집 권한 요청
                   </button>
                 ) : null}
-                {role === 'viewer' && myEditRequestPending ? (
+                {!inviteJoinRole && role === 'viewer' && myEditRequestPending ? (
                   <span className={styles.pendingChip}>● 승인 대기 중</span>
                 ) : null}
                 {canEdit ? (
