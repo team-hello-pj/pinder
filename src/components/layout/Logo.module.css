@@ -71,6 +71,13 @@
   animation: pd-logo-text-push 20s ease-in-out infinite;
 }
 
+/* 움직이는(홈 화면) 로고만 콜론을 더 위로 올린다 — legacy/main(home).dc.html 의 헤더 로고
+   (pd-logo-text2, top:-0.3em)를 그대로 따른 값이다. 정지된 다른 페이지/푸터/로그인 로고는
+   기존 .colon(top:-0.05em)을 그대로 유지한다. */
+.textAnimated .colon {
+  top: -0.3em;
+}
+
 @keyframes pd-logo-ant-push {
   0% {
     transform: translateX(0);
