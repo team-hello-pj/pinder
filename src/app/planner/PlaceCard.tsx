@@ -9,6 +9,7 @@ export interface PlaceCardHandlers {
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (idx: number) => void;
   onDragEnd: () => void;
+  onSelect: (id: number) => void;
   onToggleExpand: (id: number) => void;
   onDeleteClick: (id: number) => void;
   onOpenEdit: (id: number) => void;
@@ -68,19 +69,34 @@ export function PlaceCard({
       </div>
 
       <div className={styles.placeMain}>
-        <div className={styles.placeNameRow}>
-          <span className={styles.placeName}>{place.name}</span>
-          {place.packItems ? (
-            // eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘
-            <img
-              src="/icons/notepad-text.png"
-              alt=""
-              title="메모 있음"
-              className={styles.memoDot}
-            />
-          ) : null}
+        {/* 꾹 눌러 드래그하는 순서 변경과 겹치지 않도록, 이름/주소를 클릭했을 때만 지도 이동을
+            발생시킨다(카드 전체가 아니라) — 드래그 제스처는 여기서 click 이 안 뜨므로 충돌 없다. */}
+        <div
+          className={styles.placeSelectArea}
+          role="button"
+          tabIndex={0}
+          onClick={() => handlers.onSelect(place.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handlers.onSelect(place.id);
+            }
+          }}
+        >
+          <div className={styles.placeNameRow}>
+            <span className={styles.placeName}>{place.name}</span>
+            {place.packItems ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 13px 정적 아이콘
+              <img
+                src="/icons/notepad-text.png"
+                alt=""
+                title="메모 있음"
+                className={styles.memoDot}
+              />
+            ) : null}
+          </div>
+          <div className={styles.placeAddress}>{place.address}</div>
         </div>
-        <div className={styles.placeAddress}>{place.address}</div>
 
         {expanded ? (
           <div className={styles.placeExpanded}>

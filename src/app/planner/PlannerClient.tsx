@@ -473,6 +473,18 @@ export function PlannerClient() {
     if (kakaoReady) syncKakaoMarkers();
   }, [kakaoReady, syncKakaoMarkers]);
 
+  /** 방문지 목록에서 이름/주소를 클릭하면 지도를 그 방문지 핀으로 이동시킨다. */
+  const focusPlaceOnMap = useCallback(
+    (id: number) => {
+      const place = places.find((p) => p.id === id);
+      const kakao = window.kakao;
+      const map = kakaoMapRef.current;
+      if (!place || place.x == null || place.y == null || !map || !kakao) return;
+      map.panTo(new kakao.maps.LatLng(place.y, place.x));
+    },
+    [places],
+  );
+
   const syncKakaoPolyline = useCallback(() => {
     kakaoPolylinesRef.current.forEach((line) => line.setMap(null));
     kakaoPolylinesRef.current = [];
@@ -2251,6 +2263,7 @@ export function PlannerClient() {
                           onDragOver,
                           onDrop,
                           onDragEnd,
+                          onSelect: focusPlaceOnMap,
                           onToggleExpand: togglePlaceExpand,
                           onDeleteClick: onDeleteClick,
                           onOpenEdit: openEditModal,
@@ -3443,6 +3456,7 @@ interface KakaoOverlayLike {
 interface KakaoMapInstance {
   setBounds: (bounds: unknown) => void;
   setCenter: (pos: unknown) => void;
+  panTo: (pos: unknown) => void;
   setLevel: (level: number) => void;
   relayout: () => void;
 }

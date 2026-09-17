@@ -453,6 +453,23 @@
   padding-top: 2px;
 }
 
+.placeSelectArea {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  border-radius: var(--pd-radius-sm);
+}
+
+.placeSelectArea:hover .placeName {
+  text-decoration: underline;
+}
+
+.placeSelectArea:focus-visible {
+  outline: 2px solid var(--pd-brand-accent);
+  outline-offset: 2px;
+}
+
 .placeNameRow {
   display: flex;
   align-items: center;
