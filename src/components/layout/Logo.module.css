@@ -20,6 +20,11 @@
 
 .logo-md {
   font-size: 20px;
+  /* Route Planner 화면 좌측 패널의 자체 로고(.panelLogo)와 완전히 같은 굵기/자간으로
+     맞춘다 — 기본 .logo 는 좀 더 굵고(800) 촘촘한(-0.02em) 값을 쓰는데, 헤더에 쓰이는
+     이 md 크기만 .panelLogo(700 / -0.01em)와 동일하게 덮어써서 두 로고를 일치시킨다. */
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .logo-lg {
