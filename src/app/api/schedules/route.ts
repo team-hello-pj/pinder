@@ -15,6 +15,7 @@ interface CreateBody {
   criteria?: string;
   tripStart?: string;
   tripEnd?: string;
+  routeCache?: unknown;
   customName?: boolean;
 }
 
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       criteria: body.criteria,
       tripStart: body.tripStart ?? '',
       tripEnd: body.tripEnd ?? '',
+      routeCache: body.routeCache ?? null,
       customName: body.customName ? 1 : 0,
     })
     .returning();
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
       criteria: row.criteria,
       tripStart: row.tripStart,
       tripEnd: row.tripEnd,
+      routeCache: row.routeCache ?? {},
       customName: Boolean(row.customName),
       updatedAt: row.updatedAt.toISOString(),
       members: [],

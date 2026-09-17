@@ -28,6 +28,7 @@ export interface ScheduleInput {
   criteria: SavedRoute['criteria'];
   tripStart: string;
   tripEnd: string;
+  routeCache?: SavedRoute['routeCache'];
   customName?: boolean;
 }
 
@@ -57,7 +58,7 @@ export async function getSchedule(id: string): Promise<ScheduleDetail | null> {
   return json<ScheduleDetail>(res);
 }
 
-/** 보기전용 초대 링크로 로그인 없이 일정을 조회한다. */
+/** 초대 링크(보기 전용/편집 가능 모두)로 로그인 없이 일정을 조회한다. */
 export async function getScheduleByViewToken(token: string): Promise<SavedRoute | null> {
   const res = await fetch(`/api/schedules/invite/${token}`);
   if (!res.ok) return null;

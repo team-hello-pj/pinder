@@ -16,6 +16,7 @@ interface UpdateBody {
   criteria?: string;
   tripStart?: string;
   tripEnd?: string;
+  routeCache?: unknown;
   customName?: boolean;
 }
 
@@ -28,6 +29,7 @@ function serialize(row: typeof schedules.$inferSelect) {
     criteria: row.criteria,
     tripStart: row.tripStart,
     tripEnd: row.tripEnd,
+    routeCache: row.routeCache ?? {},
     customName: Boolean(row.customName),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -113,6 +115,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.criteria !== undefined) patch.criteria = body.criteria;
   if (body.tripStart !== undefined) patch.tripStart = body.tripStart;
   if (body.tripEnd !== undefined) patch.tripEnd = body.tripEnd;
+  if (body.routeCache !== undefined) patch.routeCache = body.routeCache;
   if (body.customName !== undefined) patch.customName = body.customName ? 1 : 0;
 
   const [row] = await db.update(schedules).set(patch).where(eq(schedules.id, id)).returning();
