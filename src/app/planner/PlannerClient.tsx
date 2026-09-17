@@ -82,12 +82,11 @@ function nextIdAfter(places: Place[]): number {
  */
 const DAY_ROUTE_COLORS = [
   '#2C8F4A', // 초록 (1일차)
-  '#E67E22', // 주황
-  '#2980B9', // 파랑
   '#C0392B', // 빨강
   '#8E44AD', // 보라
   '#D81B60', // 자홍
   '#16A085', // 청록
+  '#B7950B', // 골드
 ];
 
 function routeColorForDay(day: number): string {
