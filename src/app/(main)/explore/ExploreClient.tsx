@@ -225,7 +225,16 @@ export function ExploreClient() {
                 {section.pagedItems.map((dest) => (
                   <div key={dest.imgId} className={styles.card}>
                     <div className={styles.cardImage}>
-                      <PlaceholderImage label={`${dest.name} 사진`} />
+                      {dest.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- 정적 자산 사진, next/image 최적화 불필요
+                        <img
+                          className={styles.cardPhoto}
+                          src={dest.imageUrl}
+                          alt={`${dest.name} 사진`}
+                        />
+                      ) : (
+                        <PlaceholderImage label={`${dest.name} 사진`} />
+                      )}
                       <span className={styles.cardBadge}>{dest.badge}</span>
                     </div>
                     <div className={styles.cardBody}>

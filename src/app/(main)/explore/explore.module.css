@@ -171,8 +171,8 @@
 
 .sectionHead {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 14px;
@@ -183,6 +183,8 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sectionTitle {
@@ -191,17 +193,24 @@
   font-weight: 700;
   color: var(--pd-text);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sectionSubtitle {
   font-size: 12.5px;
   color: var(--pd-text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 여행지가 늘어나 페이지 넘김이 생겨도, 섹션 제목 아래로 내려가지 않고 항상 제목 옆에 붙어 있는다. */
 .pager {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .pagerBtn {
@@ -251,6 +260,15 @@
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+
+.cardPhoto {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cardBadge {

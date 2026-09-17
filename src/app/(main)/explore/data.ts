@@ -54,4 +54,4 @@ export const MAP_REGIONS: RegionPin[] = REGION_ORDER.map((key) => ({
   ...REGION_COORDS[key],
 }));
 
-export const SECTION_PAGE_SIZE = 6;
+export const SECTION_PAGE_SIZE = 3;

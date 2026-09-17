@@ -13,6 +13,8 @@
 //     2박3일 세 가지를 다 만들어서 저장).
 //   [--style=<값>] (기본 "알차게")
 //   [--interests=a,b,c] (기본은 각 여행지의 태그)
+//   [--use-desc] 관심사에 태그뿐 아니라 각 여행지의 desc(미리 적어둔 소개 문구)도 함께
+//     넣어서, 그 소개에 맞는 장소가 나오도록 유도한다.
 //   [--transport=car|walk|transit|bike] (기본 "transit")
 //   인자로 여행지 이름을 안 주면 destinations 테이블의 모든 행을 대상으로 한다.
 //   Gemini 호출은 로컬 dev 서버(localhost:3000, GEMINI_API_KEY 필요)를 쓰고, 지오코딩은
@@ -31,9 +33,13 @@ const args = process.argv.slice(2);
 const flags = {};
 const targetNames = [];
 for (const arg of args) {
-  const m = /^--([^=]+)=(.*)$/.exec(arg);
-  if (m) flags[m[1]] = m[2];
-  else targetNames.push(arg);
+  if (arg.startsWith('--')) {
+    const m = /^--([^=]+)=(.*)$/.exec(arg);
+    if (m) flags[m[1]] = m[2];
+    else flags[arg.slice(2)] = true;
+  } else {
+    targetNames.push(arg);
+  }
 }
 
 const STYLE = flags.style || '알차게';
@@ -45,6 +51,7 @@ const TRIP_END = new Date(new Date(TRIP_START).getTime() + (TRIP_DAYS - 1) * 864
   .toISOString()
   .slice(0, 10);
 const INTERESTS_OVERRIDE = flags.interests ? flags.interests.split(',') : null;
+const USE_DESC = Boolean(flags['use-desc']);
 
 async function generatePlaces(region, interests) {
   const res = await fetch(`${GENERATE_BASE}/api/route-generate`, {
@@ -98,8 +105,9 @@ function buildVariant(fullPlaces, days) {
   return { places, segments };
 }
 
-async function buildRoutes(region, tags) {
-  const aiPlaces = await generatePlaces(region, INTERESTS_OVERRIDE || tags);
+async function buildRoutes(region, tags, desc) {
+  const interests = INTERESTS_OVERRIDE || (USE_DESC ? [...tags, desc] : tags);
+  const aiPlaces = await generatePlaces(region, interests);
   const fullPlaces = [];
   for (const p of aiPlaces) {
     const { x, y } = await geocode(region, p.name, p.addressHint);
@@ -131,14 +139,14 @@ async function buildRoutes(region, tags) {
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const { rows } = await pool.query(
-    'select id, name, region, tags from destinations order by section_order, item_order',
+    'select id, name, region, tags, "desc" from destinations order by section_order, item_order',
   );
   const targets = targetNames.length ? rows.filter((r) => targetNames.includes(r.name)) : rows;
 
   for (const dest of targets) {
     console.log(`\n=== ${dest.name} (${dest.region}) ===`);
     try {
-      const routes = await buildRoutes(dest.name, dest.tags);
+      const routes = await buildRoutes(dest.name, dest.tags, dest.desc);
       for (let len = 1; len <= TRIP_DAYS; len++) {
         const { places } = routes[len];
         console.log(`  ${len}일: ${places.map((p) => p.name).join(', ')}`);

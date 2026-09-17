@@ -81,7 +81,7 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
-  const { isLoggedIn, user } = useSession();
+  const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
   const [posts, setPosts] = useState<PostView[]>([]);
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
@@ -151,12 +151,24 @@ export function CommunityClient() {
     setVisibleCount(PAGE_STEP);
   };
 
+  const [authGateOpen, setAuthGateOpen] = useState(false);
   const requireLogin = () => {
     if (!isLoggedIn) {
-      router.push('/login');
+      setAuthGateOpen(true);
       return false;
     }
     return true;
+  };
+  // 커뮤니티 탭에 처음 들어왔을 때도(특정 동작을 누르기 전이라도) 비로그인 상태면 바로 안내
+  // 모달을 띄운다 — requireLogin() 이 쓰는 것과 같은 모달을 그대로 재사용한다.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭에 들어왔을 때 한 번만 확인한다
+    if (!sessionLoading && !isLoggedIn) setAuthGateOpen(true);
+  }, [sessionLoading, isLoggedIn]);
+
+  const openMyProfile = () => {
+    if (!requireLogin()) return;
+    setProfileAuthor(myAuthorName);
   };
 
   // ---- 좋아요 / 북마크 ----
@@ -361,6 +373,20 @@ export function CommunityClient() {
         </div>
       </div>
 
+      {/* 1024px 이하에서는 .sideCol(글쓰기/내 프로필 버튼이 있는 우측 사이드바)이 통째로
+          숨겨져 두 버튼을 누를 방법이 없어진다 — 모바일 상단 영역에 같은 버튼을 그대로
+          재사용해 노출한다. PC에서는 CSS로 숨긴다. */}
+      <div className={styles.mobileActions}>
+        <button type="button" className={styles.writeBtn} onClick={openComposer}>
+          여행 후기 쓰기
+          {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
+          <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
+        </button>
+        <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
+          내 프로필 보기
+        </button>
+      </div>
+
       <div className={styles.row}>
         <div
           className={
@@ -527,7 +553,13 @@ export function CommunityClient() {
           ) : null}
 
           {sorted.length === 0 ? (
-            <p className={styles.empty}>{q ? '검색 결과가 없어요' : '아직 게시물이 없어요'}</p>
+            <p className={styles.empty}>
+              {!isLoggedIn
+                ? '로그인이 필요한 페이지예요.'
+                : q
+                  ? '검색 결과가 없어요'
+                  : '아직 게시물이 없어요'}
+            </p>
           ) : null}
 
           {viewMode === 'grid' ? (
@@ -813,14 +845,7 @@ export function CommunityClient() {
             {/* eslint-disable-next-line @next/next/no-img-element -- 고정 정적 아이콘 */}
             <img src="/icons/pencil-line.png" alt="" className={styles.writeBtnIcon} />
           </button>
-          <button
-            type="button"
-            className={styles.myProfileBtn}
-            onClick={() => {
-              if (!requireLogin()) return;
-              setProfileAuthor(myAuthorName);
-            }}
-          >
+          <button type="button" className={styles.myProfileBtn} onClick={openMyProfile}>
             내 프로필 보기
           </button>
         </div>
@@ -1074,6 +1099,31 @@ export function CommunityClient() {
           </Button>
           <Button variant="danger" size="sm" onClick={confirmDeleteComment}>
             삭제
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 비회원 안내 — 좋아요/북마크/글쓰기/댓글 등 로그인이 필요한 동작을 시도하면 뜬다.
+          닫으면(X/ESC) 홈으로 돌려보낸다. */}
+      <Modal
+        open={authGateOpen}
+        title="회원만 이용할 수 있어요"
+        onClose={() => {
+          setAuthGateOpen(false);
+          router.push('/');
+        }}
+      >
+        <p className={styles.deleteDesc}>
+          로그인하면 커뮤니티의 다양한 기능을
+          <br />
+          이용할 수 있어요.
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
+            로그인
+          </Button>
+          <Button size="sm" onClick={() => router.push('/signup')}>
+            회원가입
           </Button>
         </div>
       </Modal>
