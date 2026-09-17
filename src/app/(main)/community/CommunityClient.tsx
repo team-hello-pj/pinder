@@ -151,9 +151,10 @@ export function CommunityClient() {
     setVisibleCount(PAGE_STEP);
   };
 
+  const [authGateOpen, setAuthGateOpen] = useState(false);
   const requireLogin = () => {
     if (!isLoggedIn) {
-      router.push('/login');
+      setAuthGateOpen(true);
       return false;
     }
     return true;
@@ -1074,6 +1075,28 @@ export function CommunityClient() {
           </Button>
           <Button variant="danger" size="sm" onClick={confirmDeleteComment}>
             삭제
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 비회원 안내 — 좋아요/북마크/글쓰기/댓글 등 로그인이 필요한 동작을 시도하면 뜬다.
+          게시글 열람 자체는 비회원도 가능하므로 페이지 전체를 막지는 않는다. */}
+      <Modal
+        open={authGateOpen}
+        title="회원만 이용할 수 있어요"
+        onClose={() => setAuthGateOpen(false)}
+      >
+        <p className={styles.deleteDesc}>
+          로그인하면 커뮤니티의 다양한 기능을
+          <br />
+          이용할 수 있어요.
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => router.push('/login')}>
+            로그인
+          </Button>
+          <Button size="sm" onClick={() => router.push('/signup')}>
+            회원가입
           </Button>
         </div>
       </Modal>
