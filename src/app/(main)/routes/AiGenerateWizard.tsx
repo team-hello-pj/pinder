@@ -117,7 +117,7 @@ export function AiGenerateWizard({
     setGenerating(true);
     setError(null);
     try {
-      const aiPlaces = await requestAiRouteGeneration({
+      const { places: aiPlaces } = await requestAiRouteGeneration({
         region: effectiveRegion,
         style,
         interests,
@@ -154,16 +154,19 @@ export function AiGenerateWizard({
           visitTime: '',
           packItems: '',
           weather: 'sunny',
-          day: 0,
+          day: Math.max(0, (p.day || 1) - 1),
           x,
           y,
         });
       }
 
+      // 날짜별로 묶이도록 정렬한다 (같은 날짜 안에서의 순서는 AI가 준 순서를 그대로 유지).
+      resolved.sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
+
       for (let i = 0; i < resolved.length - 1; i++) {
         const a = resolved[i];
         const b = resolved[i + 1];
-        if (a.x != null && a.y != null && b.x != null && b.y != null) {
+        if (a.day === b.day && a.x != null && a.y != null && b.x != null && b.y != null) {
           const distanceKm = haversineKm({ x: a.x, y: a.y }, { x: b.x, y: b.y });
           a.legDistanceKm = distanceKm;
           a.legMinutes = Math.round(distanceKm * MODE_MAP[transportMode].minPerKm);
@@ -235,6 +238,16 @@ export function AiGenerateWizard({
     ? resultPlaces.reduce((sum, p) => sum + (p.legDistanceKm ?? 0), 0)
     : 0;
 
+  const dayGroups: { day: number; items: ResultPlace[] }[] = [];
+  if (resultPlaces) {
+    for (const p of resultPlaces) {
+      const day = p.day ?? 0;
+      const last = dayGroups[dayGroups.length - 1];
+      if (last && last.day === day) last.items.push(p);
+      else dayGroups.push({ day, items: [p] });
+    }
+  }
+
   return (
     <div className={styles.aiWizardOverlay}>
       <div className={styles.aiWizardHead}>
@@ -271,7 +284,7 @@ export function AiGenerateWizard({
           <div className={styles.aiResultWrap}>
             <h2 className={styles.aiWizardTitle}>AI 추천 일정이 완성됐어요</h2>
             <p className={styles.aiWizardSubtitle}>
-              {companion} · {style} 여행
+              {companion} · {style} 여행 {dayGroups.length > 1 ? `· ${dayGroups.length}일` : ''}
             </p>
             {error ? <p className={styles.warnBox}>{error}</p> : null}
             <div className={styles.aiResultStats}>
@@ -289,23 +302,30 @@ export function AiGenerateWizard({
               </div>
             </div>
             <div className={styles.aiResultList}>
-              {resultPlaces.map((p, i) => (
-                <div key={p.id}>
-                  <div className={styles.aiResultItem}>
-                    <span className={styles.aiResultIndex}>{i + 1}</span>
-                    <div>
-                      <p className={styles.aiResultName}>{p.name}</p>
-                      <p className={styles.aiResultMeta}>
-                        {p.category} · 체류 {p.duration}분
-                      </p>
-                    </div>
-                  </div>
-                  {i < resultPlaces.length - 1 ? (
-                    <div className={styles.aiResultLeg}>
-                      {transportMode ? MODE_MAP[transportMode].label : ''} ·{' '}
-                      {p.legMinutes != null ? `${p.legMinutes}분` : '거리 정보 없음'}
-                    </div>
+              {dayGroups.map((g) => (
+                <div key={g.day}>
+                  {dayGroups.length > 1 ? (
+                    <p className={styles.aiResultDayLabel}>{g.day + 1}일차</p>
                   ) : null}
+                  {g.items.map((p, i) => (
+                    <div key={p.id}>
+                      <div className={styles.aiResultItem}>
+                        <span className={styles.aiResultIndex}>{i + 1}</span>
+                        <div>
+                          <p className={styles.aiResultName}>{p.name}</p>
+                          <p className={styles.aiResultMeta}>
+                            {p.category} · 체류 {p.duration}분
+                          </p>
+                        </div>
+                      </div>
+                      {i < g.items.length - 1 ? (
+                        <div className={styles.aiResultLeg}>
+                          {transportMode ? MODE_MAP[transportMode].label : ''} ·{' '}
+                          {p.legMinutes != null ? `${p.legMinutes}분` : '거리 정보 없음'}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
