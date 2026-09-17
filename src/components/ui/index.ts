@@ -8,6 +8,8 @@ export { DateRangeCalendar } from './DateRangeCalendar';
 export type { DateRangeCalendarProps } from './DateRangeCalendar';
 export { HighlightedCaption } from './HighlightedCaption';
 export type { HighlightedCaptionProps } from './HighlightedCaption';
+export { ImageCropModal } from './ImageCropModal';
+export type { ImageCropModalProps } from './ImageCropModal';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export { PlaceholderImage } from './PlaceholderImage';

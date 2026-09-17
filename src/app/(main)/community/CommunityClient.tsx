@@ -13,7 +13,6 @@ import {
   listPosts,
   listTrendingPlaces,
   MAX_POST_IMAGES,
-  resizePostImageFile,
   togglePostBookmark,
   togglePostLike,
   toggleCommentLike as apiToggleCommentLike,
@@ -23,7 +22,14 @@ import {
 } from '@/lib/community';
 import { formatRelativeTime } from '@/lib/format';
 import { useSession } from '@/components/providers/SessionProvider';
-import { AuthorAvatar, Button, HighlightedCaption, Modal, PlaceholderImage } from '@/components/ui';
+import {
+  AuthorAvatar,
+  Button,
+  HighlightedCaption,
+  ImageCropModal,
+  Modal,
+  PlaceholderImage,
+} from '@/components/ui';
 
 import { CommentThread } from './CommentThread';
 import { POPULAR_TAGS, REGIONS } from './data';
@@ -40,11 +46,24 @@ function totalCommentCount(post: PostView): number {
   return post.comments.reduce((sum, c) => sum + 1 + c.replies.length, 0);
 }
 
-/** 게시물 사진 — 실제 첨부 사진이 있으면 그걸 보여주고, 없으면(마이그레이션 이전 글) 기존 PlaceholderImage 를 유지한다. */
+/**
+ * 게시물 사진 — 실제 첨부 사진이 있으면 그걸 보여주고, 없으면(마이그레이션 이전 글) 기존
+ * PlaceholderImage 를 유지한다. 우클릭 저장/드래그 저장/모바일 길게 눌러 저장을 막는다 —
+ * 완벽히 막을 수는 없지만(스크린샷 등은 어차피 못 막는다) 실수로 쉽게 저장되는 건 줄인다.
+ */
 function PostPhoto({ images, label }: { images: string[]; label: string }) {
   if (images.length === 0) return <PlaceholderImage label={label} />;
-  // eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님
-  return <img src={images[0]} alt={label} className={styles.postPhotoImg} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- data URL 로 저장된 사진, next/image 최적화 대상 아님
+    <img
+      src={images[0]}
+      alt={label}
+      className={styles.postPhotoImg}
+      draggable={false}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+    />
+  );
 }
 
 /** 댓글 상세 팝업 상단의 작성자 글(제목). 3줄을 넘으면 "전체 보기/접기"로 잘라 보여준다. */
@@ -94,6 +113,10 @@ export function CommunityClient() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [composerStatus, setComposerStatus] = useState<'idle' | 'loading'>('idle');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // 사진을 여러 장 고르면 하나씩 순서대로 4:3 위치 조정 팝업을 띄운다 — 아직 자르지 않고
+  // 대기 중인 나머지 파일들과, 지금 자르는 중인 파일의 미리보기 URL을 들고 있는다.
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -249,6 +272,11 @@ export function CommunityClient() {
     setDraftRegion(REGIONS[1]);
     setDraftImages([]);
     setPhotoError(null);
+    setCropQueue([]);
+    setCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
   const openEditComposer = (id: string) => {
     const post = posts.find((p) => p.id === id);
@@ -260,13 +288,31 @@ export function CommunityClient() {
     setDraftRegion(post.region);
     setPhotoError(null);
   };
-  const onPickImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** 큐에 남은 파일이 있으면 그중 첫 장을 자르기 팝업에 띄운다. 없으면 팝업을 닫는다. */
+  const advanceCropQueue = (queue: File[]) => {
+    setCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (!queue.length) {
+      setCropQueue([]);
+      return;
+    }
+    const [next, ...rest] = queue;
+    setCropQueue(rest);
+    setCropSrc(URL.createObjectURL(next));
+  };
+  const onPickImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []).slice(0, MAX_POST_IMAGES - draftImages.length);
     e.target.value = '';
     if (files.length === 0) return;
-    const resized = await Promise.all(files.map(resizePostImageFile));
-    setDraftImages((prev) => [...prev, ...resized]);
     setPhotoError(null);
+    advanceCropQueue(files);
+  };
+  const cancelCrop = () => advanceCropQueue(cropQueue);
+  const confirmCrop = (dataUrl: string) => {
+    setDraftImages((prev) => [...prev, dataUrl]);
+    advanceCropQueue(cropQueue);
   };
   const removeDraftImage = (index: number) => {
     setDraftImages((prev) => prev.filter((_, i) => i !== index));
@@ -947,6 +993,9 @@ export function CommunityClient() {
           </Button>
         </div>
       </Modal>
+
+      {/* 사진 위치 조정(4:3 크롭) — 여러 장을 골랐으면 한 장씩 순서대로 뜬다. */}
+      <ImageCropModal open={cropSrc != null} imageSrc={cropSrc} onCancel={cancelCrop} onConfirm={confirmCrop} />
 
       {/* 댓글 상세: 좌측 사진 / 우측 댓글창 2단 구조 */}
       {commentModalPost ? (
