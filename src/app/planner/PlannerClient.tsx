@@ -861,12 +861,22 @@ export function PlannerClient() {
     openNextModal(() => setAddConfirmOpen(true));
   };
 
-  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로
-   * 돌아간다 — 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
+  // 네이티브 <dialog> 는 .close() 가 어떤 이유로 호출되든(취소 버튼뿐 아니라 검색 결과를
+  // 골라 다음 단계로 넘어갈 때도) close 이벤트를 그대로 발생시킨다. Modal 의 onClose prop은
+  // 그 close 이벤트에 그대로 연결돼 있어서, "취소"의 되돌아가기 로직을 onClose 에 두면
+  // 정상적으로 다음 단계로 넘어갈 때도 매번 잘못 실행돼 버린다(예: 검색 결과를 고르자마자
+  // 출발지 선택 팝업이 떠버림). 그래서 되돌아가기 로직은 "취소" 버튼 전용으로만 쓰고,
+  // Modal 의 onClose 에는 부작용 없는 순수 닫기 함수를 연결한다.
+  const closeAddConfirm = () => setAddConfirmOpen(false);
+  const closeAddPlaceModal = () => setAddPlaceModalOpen(false);
+
+  /** "취소" 버튼 전용. 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로 돌아간다 —
+   * 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
+  /** "취소" 버튼 전용(위와 같은 이유). */
   const cancelAddPlaceModal = () => {
     setAddPlaceModalOpen(false);
     if (returnToOriginPickerAfterAdd) {
@@ -3076,7 +3086,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 확인 */}
-      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={cancelAddConfirm}>
+      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={closeAddConfirm}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>장소명</span>
           <input
@@ -3100,7 +3110,7 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 (출발지 선택 팝업에서 "출발지가 방문지 목록에 없어요"로 진입) */}
-      <Modal open={addPlaceModalOpen} title="방문지 추가" onClose={cancelAddPlaceModal}>
+      <Modal open={addPlaceModalOpen} title="방문지 추가" onClose={closeAddPlaceModal}>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={mapSearchQuery}
