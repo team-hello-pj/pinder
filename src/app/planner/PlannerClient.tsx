@@ -453,9 +453,10 @@ export function PlannerClient() {
     withCoords.forEach((p) => {
       const pos = new kakao.maps.LatLng(p.y as number, p.x as number);
       const marker = new kakao.maps.Marker({ position: pos, map });
+      const pinColor = routeColorForDay(p.day ?? 0);
       const overlay = new kakao.maps.CustomOverlay({
         position: pos,
-        content: `<div style="background:#7BCB93;color:#12321F;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px)">${orderByPlaceId.get(p.id)}</div>`,
+        content: `<div style="background:${pinColor};color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transform:translateY(-28px);box-shadow:0 0 0 2px rgba(255,255,255,0.85)">${orderByPlaceId.get(p.id)}</div>`,
       });
       overlay.setMap(map);
       kakaoMarkersRef.current.push(marker, overlay);
