@@ -570,23 +570,23 @@ export function PlannerClient() {
     // 구간 하나가 실패해도 나머지 구간은 그대로 그린다 (전체를 한 선으로 합치지 않고
     // 실제 데이터가 있는 구간마다 따로따로 그려서 부분 실패에도 지도에 경로가 표시되게 한다).
     for (let idx = 0; idx < segments.length; idx++) {
+      const fromDay = places[idx]?.day ?? 0;
+      const toDay = places[idx + 1]?.day ?? 0;
+      // 하루의 마지막 방문지와 다음 날 첫 방문지는 실제로 이어지는 경로가 아니므로, 전체보기
+      // 여부와 상관없이 항상 건너뛴다.
+      if (fromDay !== toDay) continue;
       // 특정 일차를 선택 중이면 지도에도 그 일차 안에서 이어지는 구간만 그린다
-      // (전체보기일 때는 모든 구간을 그대로 그린다).
-      if (selectedDay !== null) {
-        const fromDay = places[idx]?.day ?? 0;
-        const toDay = places[idx + 1]?.day ?? 0;
-        if (fromDay !== selectedDay || toDay !== selectedDay) continue;
-      }
+      // (전체보기일 때는 같은 날끼리 이어지는 구간을 전부 그린다).
+      if (selectedDay !== null && (fromDay !== selectedDay || toDay !== selectedDay)) continue;
       const cache = getSegmentRouteCache(idx);
       if (!cache || 'failed' in cache || !cache.pathPoints?.length) continue;
       const path = cache.pathPoints.map((pt) => new kakao.maps.LatLng(pt.y, pt.x));
       if (path.length < 2) continue;
-      const segmentDay = places[idx]?.day ?? 0;
       const line = new kakao.maps.Polyline({
         map,
         path,
         strokeWeight: 4,
-        strokeColor: routeColorForDay(segmentDay),
+        strokeColor: routeColorForDay(fromDay),
         strokeOpacity: 0.85,
         strokeStyle: 'solid',
       });
@@ -1126,6 +1126,9 @@ export function PlannerClient() {
     async (idx: number, mode: TransportMode, crit: RouteCriteria) => {
       const a = places[idx];
       const b = places[idx + 1];
+      // 일차가 다른 방문지끼리는 애초에 하나의 경로가 아니다 — 하루 마지막 방문지에서 다음
+      // 날 첫 방문지로 이어붙여 경로를 조회하면 안 되므로, 조회 자체를 건너뛴다.
+      if (a && b && (a.day ?? 0) !== (b.day ?? 0)) return;
       const key = `${mode}_${a?.id}_${b?.id}_${crit}`;
       if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) {
         setRouteCache((prev) => ({
@@ -1757,13 +1760,13 @@ export function PlannerClient() {
         lastDay = day;
       }
       items.push({ kind: 'place', place: p, index: i });
-      // 특정 일차만 보고 있을 때는, 다음 방문지가 다른 일차로 넘어가는 구간(그 일차의 마지막
-      // 방문지 뒤에 붙는 연결선)은 보여주지 않는다 — 화면엔 그 다음 방문지가 안 보이는데
-      // 구간만 매달려 나오는 문제가 있었다.
+      // 하루의 마지막 방문지와 다음 날 첫 방문지는 실제로 이어지는 이동이 아니므로, 전체보기
+      // 여부와 상관없이 그 사이 구간은 절대 보여주지 않는다(예전엔 전체보기에서만 이 구간까지
+      // 보여줘서 1일차 마지막 곳과 2일차 첫 곳이 마치 하나의 경로로 이어진 것처럼 보였다).
       const nextPlace = places[i + 1];
       const nextDay = nextPlace ? Math.min(nextPlace.day ?? 0, dayCount - 1) : null;
       const segmentInView =
-        selectedDay === null || (day === selectedDay && nextDay === selectedDay);
+        day === nextDay && (selectedDay === null || day === selectedDay);
       if (i < enrichedSegments.length && segmentInView) {
         items.push({ kind: 'segment', index: i });
       }
@@ -1780,13 +1783,15 @@ export function PlannerClient() {
     [places, isDayScoped, selectedDay],
   );
   const visibleEnrichedSegments = useMemo(() => {
-    if (!isDayScoped) return enrichedSegments;
     return enrichedSegments.filter((_, idx) => {
       const fromP = places[idx];
       const toP = places[idx + 1];
       const fromDay = Math.min(fromP?.day ?? 0, dayCount - 1);
       const toDay = toP ? Math.min(toP.day ?? 0, dayCount - 1) : null;
-      return fromDay === selectedDay && toDay === selectedDay;
+      // 하루 마지막 방문지 → 다음 날 첫 방문지 구간은 실제 이동이 아니므로 전체보기에서도
+      // 합계에서 항상 제외한다.
+      if (fromDay !== toDay) return false;
+      return !isDayScoped || fromDay === selectedDay;
     });
   }, [enrichedSegments, places, isDayScoped, selectedDay, dayCount]);
   const totalDistance = visibleEnrichedSegments.reduce((sum, s) => sum + s.totalDistanceKm, 0);
