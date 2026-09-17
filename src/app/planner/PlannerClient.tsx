@@ -1338,7 +1338,14 @@ export function PlannerClient() {
         lastDay = day;
       }
       items.push({ kind: 'place', place: p, index: i });
-      if (i < enrichedSegments.length && (selectedDay === null || day === selectedDay)) {
+      // 특정 일차만 보고 있을 때는, 다음 방문지가 다른 일차로 넘어가는 구간(그 일차의 마지막
+      // 방문지 뒤에 붙는 연결선)은 보여주지 않는다 — 화면엔 그 다음 방문지가 안 보이는데
+      // 구간만 매달려 나오는 문제가 있었다.
+      const nextPlace = places[i + 1];
+      const nextDay = nextPlace ? Math.min(nextPlace.day ?? 0, dayCount - 1) : null;
+      const segmentInView =
+        selectedDay === null || (day === selectedDay && nextDay === selectedDay);
+      if (i < enrichedSegments.length && segmentInView) {
         items.push({ kind: 'segment', index: i });
       }
     });
