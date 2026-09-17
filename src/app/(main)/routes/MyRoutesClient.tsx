@@ -1,11 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { avatarColorFor } from '@/lib/avatar';
-import { saveAiRouteHandoff } from '@/lib/ai-route-handoff';
-import { fmtDateLabel, fmtRange } from '@/lib/calendar';
+import { fmtRange } from '@/lib/calendar';
 import {
   deleteSchedule,
   listSchedules,
@@ -14,14 +12,12 @@ import {
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
 import { Button, DateRangeCalendar, Modal } from '@/components/ui';
-import type { Place, TransportMode } from '@/types';
 
-import { AiGenerateWizard } from './AiGenerateWizard';
+import { NewTripFlow, type NewTripFlowHandle } from './NewTripFlow';
 import styles from './my-routes.module.css';
 
 const PAGE_SIZE = 5;
 type StatusTab = 'upcoming' | 'done';
-type CreateMode = 'manual' | 'ai';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -29,7 +25,6 @@ function todayStr(): string {
 
 /** legacy/My Routes.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function MyRoutesClient() {
-  const router = useRouter();
   const { isLoggedIn, isLoading: sessionLoading } = useSession();
   const [routes, setRoutes] = useState<ScheduleSummary[] | null>(null);
 
@@ -42,14 +37,7 @@ export function MyRoutesClient() {
   const [cardCalYear, setCardCalYear] = useState(new Date().getFullYear());
   const [cardCalMonth, setCardCalMonth] = useState(new Date().getMonth());
 
-  const [modeSelectOpen, setModeSelectOpen] = useState(false);
-  const [newTripOpen, setNewTripOpen] = useState(false);
-  const [aiWizardOpen, setAiWizardOpen] = useState(false);
-  const [createMode, setCreateMode] = useState<CreateMode>('manual');
-  const [newTripStart, setNewTripStart] = useState(todayStr());
-  const [newTripEnd, setNewTripEnd] = useState('');
-  const [calYear, setCalYear] = useState(new Date().getFullYear());
-  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const newTripFlowRef = useRef<NewTripFlowHandle>(null);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -79,59 +67,7 @@ export function MyRoutesClient() {
   };
 
   // ---- 새 일정 만들기 ----
-  const openNewTripFlow = () => {
-    if (!isLoggedIn) {
-      router.push('/login');
-      return;
-    }
-    setNewTripStart(todayStr());
-    setNewTripEnd('');
-    setModeSelectOpen(true);
-  };
-  const chooseMode = (mode: CreateMode) => {
-    setCreateMode(mode);
-    setModeSelectOpen(false);
-    setCalYear(new Date().getFullYear());
-    setCalMonth(new Date().getMonth());
-    setNewTripOpen(true);
-  };
-  const resetDates = () => {
-    setNewTripStart(todayStr());
-    setNewTripEnd('');
-  };
-  const onCalDayClick = (dateStr: string) => {
-    if (!newTripStart || (newTripStart && newTripEnd)) {
-      setNewTripStart(dateStr);
-      setNewTripEnd('');
-      return;
-    }
-    if (dateStr === newTripStart) {
-      setNewTripEnd(dateStr);
-      return;
-    }
-    if (dateStr < newTripStart) {
-      setNewTripEnd(newTripStart);
-      setNewTripStart(dateStr);
-      return;
-    }
-    setNewTripEnd(dateStr);
-  };
-  const newTripHref = `/planner?new=1&tripStart=${encodeURIComponent(newTripStart)}&tripEnd=${encodeURIComponent(newTripEnd || newTripStart)}&mode=${createMode}`;
-
-  const startNewTrip = () => {
-    if (createMode === 'ai') {
-      setNewTripOpen(false);
-      setAiWizardOpen(true);
-      return;
-    }
-    router.push(newTripHref);
-  };
-
-  const handleAiConfirm = (places: Place[], segments: TransportMode[]) => {
-    saveAiRouteHandoff({ places, segments });
-    setAiWizardOpen(false);
-    router.push(newTripHref);
-  };
+  const openNewTripFlow = () => newTripFlowRef.current?.open();
 
   // ---- 삭제 ----
   const openDeleteConfirm = (route: ScheduleSummary) => {
@@ -459,97 +395,7 @@ export function MyRoutesClient() {
         </div>
       )}
 
-      {/* 생성 방식 선택 */}
-      <Modal
-        open={modeSelectOpen}
-        title="어떻게 일정을 만들까요?"
-        onClose={() => setModeSelectOpen(false)}
-      >
-        <div className={styles.modeList}>
-          <button type="button" className={styles.modeOption} onClick={() => chooseMode('manual')}>
-            <span className={styles.modeTitle}>직접 생성하기</span>
-            <span className={styles.modeDesc}>
-              내가 가고 싶은 곳을 입력하고 최적의 동선을 생성해줘요
-            </span>
-          </button>
-          <button type="button" className={styles.modeOption} onClick={() => chooseMode('ai')}>
-            <span className={styles.modeTitle}>AI 생성하기</span>
-            <span className={styles.modeDesc}>AI로 알아서 최적의 동선을 생성해줘요</span>
-          </button>
-        </div>
-      </Modal>
-
-      {/* 새 일정 날짜 선택 */}
-      <Modal open={newTripOpen} title="새 일정 만들기" onClose={() => setNewTripOpen(false)}>
-        <div className={styles.newTripHead}>
-          <button
-            type="button"
-            className={styles.resetBtn}
-            onClick={resetDates}
-            title="날짜 초기화"
-          >
-            ↺ 초기화
-          </button>
-        </div>
-        <DateRangeCalendar
-          variant="full"
-          year={calYear}
-          month={calMonth}
-          start={newTripStart}
-          end={newTripEnd}
-          onDayClick={onCalDayClick}
-          onPrevMonth={() => {
-            let m = calMonth - 1;
-            let y = calYear;
-            if (m < 0) {
-              m = 11;
-              y -= 1;
-            }
-            setCalMonth(m);
-            setCalYear(y);
-          }}
-          onNextMonth={() => {
-            let m = calMonth + 1;
-            let y = calYear;
-            if (m > 11) {
-              m = 0;
-              y += 1;
-            }
-            setCalMonth(m);
-            setCalYear(y);
-          }}
-        />
-        <div className={styles.tripDatesSummary}>
-          <div>
-            <div className={styles.tripDateLabel}>출발 날짜</div>
-            <div className={styles.tripDateValue}>
-              {newTripStart ? fmtDateLabel(newTripStart) : '날짜를 선택해주세요'}
-            </div>
-          </div>
-          <div>
-            <div className={styles.tripDateLabel}>도착 날짜</div>
-            <div className={styles.tripDateValue}>
-              {newTripEnd ? fmtDateLabel(newTripEnd) : '날짜를 선택해주세요'}
-            </div>
-          </div>
-        </div>
-        <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => setNewTripOpen(false)}>
-            취소
-          </Button>
-          <Button size="sm" onClick={startNewTrip}>
-            시작하기
-          </Button>
-        </div>
-      </Modal>
-
-      <AiGenerateWizard
-        open={aiWizardOpen}
-        tripStart={newTripStart}
-        tripEnd={newTripEnd || newTripStart}
-        onClose={() => setAiWizardOpen(false)}
-        onConfirm={handleAiConfirm}
-      />
+      <NewTripFlow ref={newTripFlowRef} />
 
       {/* 삭제 확인 */}
       <Modal

@@ -1,7 +1,8 @@
-import Link from 'next/link';
+'use client';
 
-import { ROUTES } from '@/constants';
+import { useRef } from 'react';
 
+import { NewTripFlow, type NewTripFlowHandle } from './routes/NewTripFlow';
 import styles from './AntCtaCard.module.css';
 
 /**
@@ -59,6 +60,8 @@ const TRAILS = (() => {
 })();
 
 export function AntCtaCard() {
+  const newTripFlowRef = useRef<NewTripFlowHandle>(null);
+
   return (
     <div className={styles.card}>
       <div className={styles.blob} aria-hidden />
@@ -82,9 +85,15 @@ export function AntCtaCard() {
 
       <div className={styles.title}>지금 바로 시작하세요</div>
       <div className={styles.sub}>무료로 나만의 여행 일정을 만들어보세요</div>
-      <Link href={`${ROUTES.planner}?new=1`} className={styles.button}>
+      <button
+        type="button"
+        className={styles.button}
+        onClick={() => newTripFlowRef.current?.open()}
+      >
         최적 동선 생성하기 →
-      </Link>
+      </button>
+
+      <NewTripFlow ref={newTripFlowRef} />
     </div>
   );
 }
