@@ -527,7 +527,13 @@ export function CommunityClient() {
           ) : null}
 
           {sorted.length === 0 ? (
-            <p className={styles.empty}>{q ? '검색 결과가 없어요' : '아직 게시물이 없어요'}</p>
+            <p className={styles.empty}>
+              {!isLoggedIn
+                ? '로그인이 필요한 페이지예요.'
+                : q
+                  ? '검색 결과가 없어요'
+                  : '아직 게시물이 없어요'}
+            </p>
           ) : null}
 
           {viewMode === 'grid' ? (
