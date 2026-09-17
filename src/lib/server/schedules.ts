@@ -50,14 +50,23 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
     }
   }
 
-  // 제작자를 항상 맨 앞에 고정하고, 이후 참여자는 참여한(=협업자로 추가된) 순서대로 붙인다.
-  // 본인도 어차피 참여자 중 하나이므로 제외하지 않고 그대로 포함한다 — 본인이 만들지 않은
-  // 일정이면 제작자보다 뒤, 참여한 순서에 맞는 자리로 밀려난다.
-  function buildMembers(scheduleId: string): string[] {
+  // 제작자를 항상 맨 앞에 고정하고(왕관 표시용으로 isOwner: true), 이후 참여자는 참여한(=협업자로
+  // 추가된) 순서대로 붙인다. 본인도 어차피 참여자 중 하나이므로 제외하지 않고 그대로 포함한다.
+  function buildMembers(scheduleId: string): { nickname: string; isOwner: boolean }[] {
     const owner = ownerNicknameById.get(scheduleId);
     const collabs = collabNicknamesById.get(scheduleId) ?? [];
-    const all = [owner, ...collabs].filter((n): n is string => Boolean(n));
-    return Array.from(new Set(all));
+    const seen = new Set<string>();
+    const result: { nickname: string; isOwner: boolean }[] = [];
+    if (owner) {
+      seen.add(owner);
+      result.push({ nickname: owner, isOwner: true });
+    }
+    for (const nickname of collabs) {
+      if (!nickname || seen.has(nickname)) continue;
+      seen.add(nickname);
+      result.push({ nickname, isOwner: false });
+    }
+    return result;
   }
 
   function toSummary(row: (typeof owned)[number], role: ScheduleRole): ScheduleSummary {
