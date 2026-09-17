@@ -49,6 +49,12 @@ export interface RouteLeg {
   landingURL?: string | null;
 }
 
+/** 구간 하나(이동수단+방문지쌍+기준)를 키로 캐시해 둔 조회 결과 한 건. */
+export type RouteLegCacheEntry = RouteLeg | { failed: true; errorMsg: string };
+
+/** `"${mode}_${fromPlaceId}_${toPlaceId}_${criteria}"` 를 키로 하는 구간 조회 결과 캐시. */
+export type RouteLegCache = Record<string, RouteLegCacheEntry>;
+
 /** localStorage(`rp-saved-routes`) 에 저장되는 경로 1건. */
 export interface SavedRoute {
   id: string;
@@ -59,6 +65,9 @@ export interface SavedRoute {
   tripStart: string;
   tripEnd: string;
   updatedAt: string;
+  /** "경로 계산"/"경로 검색"으로 실제 조회해 둔 구간 결과. 저장 시 같이 저장해서 다시
+   * 불러왔을 때 재검색 없이 그대로 쓴다. */
+  routeCache?: RouteLegCache;
   /** 함께 편집 중인 팀원 닉네임. legacy 의 `members` 를 그대로 옮김 (본인 제외). */
   members?: string[];
   /** 제목을 사용자가 직접 바꿨는지 — 자동 생성 제목과 구분할 때 쓴다. */

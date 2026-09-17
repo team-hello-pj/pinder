@@ -51,8 +51,10 @@ export const emailVerificationCodes = pgTable('email_verification_codes', {
 });
 
 /**
- * 경로/일정. `places`/`segments` 는 `SavedRoute` 와 같은 모양의 jsonb 로 그대로 저장한다 —
- * 구간(leg) 거리/시간은 Kakao API 에서 그때그때 다시 계산하는 현재 구조를 유지한다.
+ * 경로/일정. `places`/`segments` 는 `SavedRoute` 와 같은 모양의 jsonb 로 그대로 저장한다.
+ * `routeCache` 는 "경로 계산"/"경로 검색"으로 실제 조회한 구간(leg) 결과를 방문지 id쌍+
+ * 이동수단+기준별로 캐시해 둔 것 — 저장할 때 같이 저장해서, 나중에 다시 불러왔을 때 매번
+ * 새로 검색하지 않고 계산해 둔 결과가 그대로 남아있게 한다.
  * ownerId 가 제작자(creator)다. 삭제 시 CASCADE 로 협업자/수정요청도 함께 정리된다.
  */
 export const schedules = pgTable('schedules', {
@@ -68,6 +70,7 @@ export const schedules = pgTable('schedules', {
   criteria: text('criteria').notNull(),
   tripStart: text('trip_start').notNull(),
   tripEnd: text('trip_end').notNull(),
+  routeCache: jsonb('route_cache'),
   customName: integer('custom_name').notNull().default(0),
   /** 보기전용/편집가능 초대 링크는 서로 다른 토큰을 쓴다 — 하나가 새면 그 권한만 노출된다. */
   inviteTokenViewer: text('invite_token_viewer').unique(),

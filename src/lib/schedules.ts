@@ -28,6 +28,7 @@ export interface ScheduleInput {
   criteria: SavedRoute['criteria'];
   tripStart: string;
   tripEnd: string;
+  routeCache?: SavedRoute['routeCache'];
   customName?: boolean;
 }
 
