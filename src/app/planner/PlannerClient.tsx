@@ -3299,7 +3299,7 @@ export function PlannerClient() {
       >
         <p className={styles.modalDesc}>
           {scheduleId
-            ? '변경한 내용이 아직 저장되지 않았어요. 저장하면 이 일정만 수정돼요.'
+            ? '변경한 내용이 아직 저장되지 않았어요.'
             : '변경한 내용이 아직 저장되지 않았어요. 저장하면 내 일정에 새로 추가돼요.'}
         </p>
         <div className={styles.modalActions}>
