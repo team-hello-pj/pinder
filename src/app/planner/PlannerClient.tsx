@@ -362,6 +362,14 @@ export function PlannerClient() {
   const [addingRecommended, setAddingRecommended] = useState(false);
   // "몇 일차에 추가할까요?" 라고 되물은 뒤, 사용자가 일차를 답할 때까지 들고 있는 추천 장소들.
   const [pendingAddPlaces, setPendingAddPlaces] = useState<RecommendedPlace[] | null>(null);
+  // AI 추천 장소를 지오코딩 없이 바로 넣으면 좌표가 안 맞아 지도에 표시되지 않는 경우가 있었다
+  // — 이제는 방문지 검색과 똑같이 카카오에서 실제로 찾아서 "이 장소를 추가할까요?" 확인을 받고
+  // 넣는다. 추천 장소가 여러 개면 하나씩 순서대로 확인받도록 나머지를 큐에 들고 있는다.
+  const [recommendedQueue, setRecommendedQueue] = useState<
+    { rec: RecommendedPlace; day?: number }[]
+  >([]);
+  const [recommendedFlowActive, setRecommendedFlowActive] = useState(false);
+  const [recommendedAddDay, setRecommendedAddDay] = useState<number | undefined>(undefined);
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([
     {
       role: 'ai',
@@ -832,8 +840,12 @@ export function PlannerClient() {
   };
 
   /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
-  const addSelectedPlace = (doc: KakaoPlaceDoc, nameOverride?: string): Place => {
-    const day = selectedDay ?? 0;
+  const addSelectedPlace = (
+    doc: KakaoPlaceDoc,
+    nameOverride?: string,
+    dayOverride?: number,
+  ): Place => {
+    const day = dayOverride ?? selectedDay ?? 0;
     const name = nameOverride?.trim() || doc.place_name;
     const newPlace: Place = {
       id: allocatePlaceId(),
@@ -911,7 +923,7 @@ export function PlannerClient() {
     if (!pendingSelectedDoc) return;
     const name = pendingName.trim();
     if (!name) return;
-    const added = addSelectedPlace(pendingSelectedDoc, name);
+    const added = addSelectedPlace(pendingSelectedDoc, name, recommendedAddDay);
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
@@ -1609,73 +1621,100 @@ export function PlannerClient() {
     }
   };
 
+  /** 지목된 기존 방문지만 이름/주소/좌표를 바꾸고, 그 자리(순서/일차/체류시간 등)는 그대로 둔다. */
+  const applyRecommendedReplace = async (rec: RecommendedPlace) => {
+    // 이름+주소 힌트를 합친 쿼리가 실패하면 장소명만으로 한 번 더 시도한다(advanceRecommendedQueue
+    // 와 같은 이유).
+    let geo = rec.address ? await geocodePlace(`${rec.name} ${rec.address}`) : null;
+    if (!geo) geo = await geocodePlace(rec.name);
+    let replacedName: string | null = null;
+    setPlaces((prev) => {
+      const idx = prev.findIndex((p) => p.name === rec.replaces);
+      if (idx === -1) return prev;
+      replacedName = prev[idx].name;
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        name: rec.name,
+        address: rec.address || rec.name,
+        x: geo?.x ?? next[idx].x,
+        y: geo?.y ?? next[idx].y,
+      };
+      return next;
+    });
+    if (replacedName) {
+      setRouteCache({});
+      logActivity(`AI 추천으로 "${replacedName}"을(를) "${rec.name}"(으)로 교체했습니다`);
+      showToast(`"${rec.name}"(으)로 교체했어요`);
+    }
+  };
+
+  /**
+   * 큐에 남은 추천 장소를 하나씩 처리한다. 지목된 방문지를 바꾸는 추천(rec.replaces)은 바로
+   * 반영하고, 새로 추가하는 추천은 좌표 없이 바로 넣지 않는다 — 카카오에서 실제로 검색해
+   * 찾은 장소로 "이 장소를 추가할까요?" 확인(addConfirmOpen)을 받은 뒤에 넣는다. 그래야
+   * 방문지 검색으로 추가할 때와 똑같이 좌표가 확실해서 지도에도 바로 나타난다.
+   */
+  const advanceRecommendedQueue = async (queue: { rec: RecommendedPlace; day?: number }[]) => {
+    if (!queue.length) {
+      setRecommendedFlowActive(false);
+      setAddingRecommended(false);
+      return;
+    }
+    const [{ rec, day }, ...rest] = queue;
+    setRecommendedQueue(rest);
+
+    if (rec.replaces) {
+      await applyRecommendedReplace(rec);
+      void advanceRecommendedQueue(rest);
+      return;
+    }
+
+    // AI가 준 이름+주소 힌트를 그대로 합친 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
+    // 잦다(주소 힌트가 부정확하거나 너무 구체적일 때) — 실패하면 장소명만으로 한 번 더 시도한다.
+    const queries = rec.address ? [`${rec.name} ${rec.address}`, rec.name] : [rec.name];
+    let doc: KakaoPlaceDoc | undefined;
+    for (const query of queries) {
+      try {
+        doc = (await searchKeyword(query)).documents?.[0];
+      } catch (err) {
+        console.error('advanceRecommendedQueue: searchKeyword failed:', err);
+      }
+      if (doc) break;
+    }
+    if (!doc) {
+      showToast(`"${rec.name}"의 위치를 찾지 못해 추가하지 못했어요`);
+      void advanceRecommendedQueue(rest);
+      return;
+    }
+    setRecommendedAddDay(day);
+    openAddConfirmForDoc(doc);
+    // AI가 준 이름이 실제 검색 결과 이름과 다를 수 있으니(예: 줄임말), 확인 팝업에는 AI가
+    // 추천한 이름을 기본값으로 보여준다 — 사용자가 원하면 그 자리에서 바로 고칠 수 있다.
+    setPendingName(rec.name);
+  };
+
   const addRecommendedPlaces = async (recs: RecommendedPlace[], dayOverride?: number) => {
     if (!recs.length || addingRecommended) return;
     setAddingRecommended(true);
-
-    // 먼저 전부 지오코딩부터 끝낸다 (경로 배열은 아래에서 한 번에 반영).
-    const resolved: { rec: RecommendedPlace; x: number | null; y: number | null }[] = [];
-    for (const rec of recs) {
-      const query = rec.address ? `${rec.name} ${rec.address}` : rec.name;
-      const geo = await geocodePlace(query);
-      resolved.push({ rec, x: geo?.x ?? null, y: geo?.y ?? null });
-    }
-
-    const nextPlaces = [...places];
-    let replaced = 0;
-    let added = 0;
-
-    for (const { rec, x, y } of resolved) {
-      const targetIdx = rec.replaces ? nextPlaces.findIndex((p) => p.name === rec.replaces) : -1;
-      if (targetIdx !== -1) {
-        // 지목된 기존 방문지만 바꾸고, 그 자리(순서/일차/체류시간 등)는 그대로 둔다.
-        nextPlaces[targetIdx] = {
-          ...nextPlaces[targetIdx],
-          name: rec.name,
-          address: rec.address || rec.name,
-          x,
-          y,
-        };
-        replaced += 1;
-      } else {
-        const newPlace: Place = {
-          id: allocatePlaceId(),
-          name: rec.name,
-          category: '미분류',
-          address: rec.address || rec.name,
-          duration: 15,
-          hours: 'unknown',
-          hoursLabel: '영업시간 확인 필요',
-          visitTime: '',
-          packItems: '',
-          weather: 'sunny',
-          day: dayOverride ?? selectedDay ?? 0,
-          x,
-          y,
-        };
-        nextPlaces.splice(dayGroupedInsertIndex(nextPlaces, newPlace.day ?? 0), 0, newPlace);
-        added += 1;
-      }
-    }
-
-    const finalPlaces = nextPlaces;
-    setPlaces(finalPlaces);
-    setSegments(resizeSegments(finalPlaces, segments));
-    // 방문지가 새로 추가됐으면 경로를 다시 계산할 때까지 이동수단 표시를 숨긴다.
-    if (added > 0) setRouteSegmentsReady(false);
-    setRouteCache({});
-
-    const parts: string[] = [];
-    if (replaced) parts.push(`${replaced}곳 교체`);
-    if (added) parts.push(`${added}곳 추가`);
-    const dayLabel = dayOverride != null ? `${dayOverride + 1}일차에 ` : '';
-    const summary = parts.join(', ') || '변경 없음';
-    logActivity(
-      `AI 추천으로 ${dayLabel}동선을 수정했습니다 (${summary}) — 방문 순서 번호가 갱신됐어요`,
-    );
-    showToast(`${dayLabel}동선을 수정했어요 (${summary})`);
-    setAddingRecommended(false);
+    setRecommendedFlowActive(true);
+    void advanceRecommendedQueue(recs.map((rec) => ({ rec, day: dayOverride })));
   };
+
+  // "이 장소를 추가할까요?" 확인 팝업이 닫히면(추가 확정/취소/X/ESC 등 어떤 방식으로 닫히든)
+  // AI 추천 큐가 진행 중일 때만 다음 추천 장소로 이어간다 — 닫히는 경로마다 따로 챙기면
+  // 하나라도 놓쳤을 때 addingRecommended 가 계속 true로 남아 이후 AI 추천 추가가 전부
+  // 막혀버리므로, 여기 한 곳에서만 처리한다.
+  const wasAddConfirmOpenRef = useRef(false);
+  useEffect(() => {
+    const wasOpen = wasAddConfirmOpenRef.current;
+    wasAddConfirmOpenRef.current = addConfirmOpen;
+    if (wasOpen && !addConfirmOpen && recommendedFlowActive) {
+      setRecommendedAddDay(undefined);
+      void advanceRecommendedQueue(recommendedQueue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addConfirmOpen, recommendedFlowActive, recommendedQueue]);
 
   // ---- 파생 값 ----
   const dayCount = tripDayCount(tripStart, tripEnd);
