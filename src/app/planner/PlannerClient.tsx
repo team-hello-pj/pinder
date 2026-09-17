@@ -2388,6 +2388,7 @@ export function PlannerClient() {
                         place={item.place}
                         order={item.index + 1}
                         displayOrder={dayOrderByPlaceId.get(item.place.id) ?? item.index + 1}
+                        dayColor={routeColorForDay(item.place.day ?? 0)}
                         isLast={item.index === places.length - 1}
                         isDragging={dragIndex === item.index}
                         expanded={Boolean(expandedPlaces[item.place.id])}

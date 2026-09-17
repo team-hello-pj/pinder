@@ -25,6 +25,8 @@ export interface PlaceCardProps {
   order: number;
   /** 화면에 보여줄 순번 — 일차별로 1부터 다시 매긴 값 */
   displayOrder: number;
+  /** 지도 핀/경로선과 맞춘 일차별 색 — 방문지 목록의 순번 배지 배경에도 그대로 쓴다 */
+  dayColor: string;
   isLast: boolean;
   isDragging: boolean;
   expanded: boolean;
@@ -40,6 +42,7 @@ export function PlaceCard({
   place,
   order,
   displayOrder,
+  dayColor,
   isLast,
   isDragging,
   expanded,
@@ -64,7 +67,9 @@ export function PlaceCard({
       style={{ cursor: draggableNow ? 'grab' : 'default' }}
     >
       <div className={styles.placeOrderCol}>
-        <span className={styles.placeOrderBadge}>{displayOrder}</span>
+        <span className={styles.placeOrderBadge} style={{ background: dayColor }}>
+          {displayOrder}
+        </span>
         <span className={styles.placeOrderLine} style={{ opacity: isLast ? 0 : 1 }} />
       </div>
 
