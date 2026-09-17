@@ -256,6 +256,11 @@ export const destinations = pgTable('destinations', {
   routes: jsonb('routes'),
   /** 카드에 보여줄 사진 경로(예: "/제주도.jpeg"). 없으면 자리표시자(PlaceholderImage)를 쓴다. */
   imageUrl: text('image_url'),
+  /**
+   * 사진이 세로로 길 때 카드(4:3 가로) 안에서 어느 부분을 보여줄지 — CSS object-position 값
+   * (예: "center bottom"). 없으면 기본값 "center"를 쓴다.
+   */
+  imagePosition: text('image_position'),
 });
 
 /**
