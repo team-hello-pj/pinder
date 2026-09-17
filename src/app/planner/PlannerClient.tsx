@@ -166,6 +166,7 @@ export function PlannerClient() {
   const [originId, setOriginId] = useState<number | null>(null);
   const [routeOptimization, setRouteOptimization] = useState<RouteOptimizationState | null>(null);
   const [originSelectOpen, setOriginSelectOpen] = useState(false);
+  const [originListExpanded, setOriginListExpanded] = useState(false);
   const [originChoiceId, setOriginChoiceId] = useState<number | null>(null);
   const [originConfirmOpen, setOriginConfirmOpen] = useState(false);
   const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
@@ -597,6 +598,11 @@ export function PlannerClient() {
       return next;
     });
     if (place) logActivity(`${place.name}을(를) 삭제했습니다`);
+    // 출발지로 지정했던 방문지를 삭제하면 다음 경로 계산에서 출발지를 다시 고를 수 있도록 초기화한다.
+    if (id === originId) {
+      setOriginId(null);
+      setRouteOptimization(null);
+    }
   };
 
   const onDeleteClick = (id: number) => {
@@ -812,13 +818,6 @@ export function PlannerClient() {
     syncKakaoPolyline();
     logActivity('경로를 검색했습니다');
     showToast('실제 경로 검색이 완료됐어요');
-  };
-
-  const setCriteria = (c: RouteCriteria) => {
-    setCriteriaState(c);
-    for (let idx = 0; idx < segments.length; idx++) {
-      for (const mode of MODE_ORDER) fetchSegmentRouteForModeWithCriteria(idx, mode, c);
-    }
   };
 
   // ---- 상황 변경 ----
@@ -1334,15 +1333,24 @@ export function PlannerClient() {
   }, [currentVariableInput]);
 
   // ---- AI 가중치 기반 최적경로 계산 ----
-  const applyOptimizedOrder = useCallback((result: OptimalRouteResult, sourcePlaces: Place[]) => {
-    const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
-    const ordered = result.placeIds.map((id) => byId.get(id)).filter((p): p is Place => Boolean(p));
-    const orderedIds = new Set(ordered.map((p) => p.id));
-    const rest = sourcePlaces.filter((p) => !orderedIds.has(p.id));
-    const next = [...ordered, ...rest];
-    setPlaces(next);
-    setSegments((segs) => resizeSegments(next, segs));
-  }, []);
+  /**
+   * result.placeIds 순서대로 방문지를 재배치한다. 다른 일차 방문지는 배열에서 차지하던
+   * 자리 그대로 두고, scopeIds 에 속한 자리에만 새 순서를 채워 넣는다 — 그래야 일차 경계를
+   * 넘어 뒤섞이지 않는다(일차별 방문지 번호/타임라인 구분과도 맞물려 있다).
+   */
+  const applyOptimizedOrder = useCallback(
+    (result: OptimalRouteResult, sourcePlaces: Place[], scopeIds: Set<number>) => {
+      const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
+      const orderedScoped = result.placeIds
+        .map((id) => byId.get(id))
+        .filter((p): p is Place => Boolean(p));
+      let cursor = 0;
+      const next = sourcePlaces.map((p) => (scopeIds.has(p.id) ? orderedScoped[cursor++] : p));
+      setPlaces(next);
+      setSegments((segs) => resizeSegments(next, segs));
+    },
+    [],
+  );
 
   const runOptimalRoute = useCallback(
     async (origin: number) => {
@@ -1353,8 +1361,12 @@ export function PlannerClient() {
         return;
       }
 
+      // 경로 계산은 출발지와 같은 일차의 방문지끼리만 이뤄진다 — 다른 일차는 완전히 별개 영역이다.
+      const originDay = originPlace.day ?? 0;
+      const dayPlaces = hasDayTabs ? places.filter((p) => (p.day ?? 0) === originDay) : places;
+
       const variableKey = currentVariableKey();
-      const signature = buildRouteSignature(origin, places, variableKey);
+      const signature = buildRouteSignature(origin, dayPlaces, variableKey);
       const reusable =
         routeOptimization && routeOptimization.signature === signature ? routeOptimization : null;
 
@@ -1366,7 +1378,7 @@ export function PlannerClient() {
           stateToApply = reusable;
           logActivity('저장된 최적 경로 결과를 사용했습니다');
         } else {
-          const others = places.filter((p) => p.id !== origin && p.x != null && p.y != null);
+          const others = dayPlaces.filter((p) => p.id !== origin && p.x != null && p.y != null);
           const nodes = [originPlace, ...others];
 
           if (nodes.length < 2) {
@@ -1484,9 +1496,11 @@ export function PlannerClient() {
           logActivity('AI가 변수를 반영해 최적 경로를 계산했습니다');
         }
 
+        const scopeIds = new Set(stateToApply.distance.placeIds);
         applyOptimizedOrder(
           criteria === 'distance' ? stateToApply.distance : stateToApply.time,
           places,
+          scopeIds,
         );
         await searchAllRoutes();
         showToast(reusable ? '이전 계산 결과를 사용했어요' : '최적 경로 계산이 완료됐어요');
@@ -1519,17 +1533,49 @@ export function PlannerClient() {
     void runOptimalRoute(origin);
   };
 
+  const setCriteria = (c: RouteCriteria) => {
+    setCriteriaState(c);
+    // 이미 최적 경로를 계산해 뒀다면(출발지/목적지/변수가 그대로라면) 다시 계산하지 않고
+    // 저장해 둔 최단거리/최단시간 결과 중 해당하는 쪽을 그대로 적용한다.
+    if (routeOptimization && originId != null) {
+      const originPlace = places.find((p) => p.id === originId);
+      const originDay = originPlace?.day ?? 0;
+      const dayPlaces = hasDayTabs ? places.filter((p) => (p.day ?? 0) === originDay) : places;
+      const signature = buildRouteSignature(originId, dayPlaces, currentVariableKey());
+      if (routeOptimization.signature === signature) {
+        const scopeIds = new Set(routeOptimization.distance.placeIds);
+        applyOptimizedOrder(
+          c === 'distance' ? routeOptimization.distance : routeOptimization.time,
+          places,
+          scopeIds,
+        );
+      }
+    }
+    for (let idx = 0; idx < segments.length; idx++) {
+      for (const mode of MODE_ORDER) fetchSegmentRouteForModeWithCriteria(idx, mode, c);
+    }
+  };
+
+  // 일차별로 경로를 따로 계산하므로, 출발지도 지금 보고 있는 일차의 방문지 중에서만 고른다.
+  const originCandidatePlaces =
+    hasDayTabs && selectedDay !== null
+      ? places.filter((p) => (p.day ?? 0) === selectedDay)
+      : places;
+
   const handleRouteCalcClick = () => {
-    if (loading || places.length === 0) return;
+    if (loading || originCandidatePlaces.length === 0) return;
     if (hasDayTabs && selectedDay === null) return;
-    if (places.length === 1) {
-      setOriginId(places[0].id);
-      proceedAfterOrigin(places[0].id);
+    if (originCandidatePlaces.length === 1) {
+      setOriginId(originCandidatePlaces[0].id);
+      proceedAfterOrigin(originCandidatePlaces[0].id);
       return;
     }
     const defaultChoice =
-      originId != null && places.some((p) => p.id === originId) ? originId : places[0].id;
+      originId != null && originCandidatePlaces.some((p) => p.id === originId)
+        ? originId
+        : originCandidatePlaces[0].id;
     setOriginChoiceId(defaultChoice);
+    setOriginListExpanded(false);
     setOriginSelectOpen(true);
   };
 
@@ -1539,20 +1585,10 @@ export function PlannerClient() {
     setOriginConfirmOpen(true);
   };
 
-  const finalizeOrigin = (addToDestinationList: boolean) => {
+  const finalizeOrigin = () => {
     if (originChoiceId == null) return;
     const chosenId = originChoiceId;
     setOriginConfirmOpen(false);
-    if (addToDestinationList) {
-      setPlaces((prev) => {
-        if (prev.some((p) => p.id === chosenId)) return prev;
-        const chosen = places.find((p) => p.id === chosenId);
-        if (!chosen) return prev;
-        const next = [...prev, chosen];
-        setSegments((segs) => resizeSegments(next, segs));
-        return next;
-      });
-    }
     setOriginId(chosenId);
     proceedAfterOrigin(chosenId);
   };
@@ -2583,28 +2619,68 @@ export function PlannerClient() {
         onClose={() => setOriginSelectOpen(false)}
       >
         <div className={styles.situationList}>
-          {places.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={
-                originChoiceId === p.id
-                  ? `${styles.situationOption} ${styles.situationOptionActive}`
-                  : styles.situationOption
-              }
-              onClick={() => setOriginChoiceId(p.id)}
+          <button
+            type="button"
+            className={styles.situationOption}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            onClick={() => setOriginListExpanded((v) => !v)}
+          >
+            <span>
+              {originCandidatePlaces.find((p) => p.id === originChoiceId)?.name ??
+                '방문지를 선택해주세요'}
+            </span>
+            <span
+              style={{
+                display: 'inline-block',
+                transform: originListExpanded ? 'rotate(180deg)' : 'none',
+                transition: 'transform .15s',
+              }}
             >
-              {p.name}
-            </button>
-          ))}
+              ▽
+            </span>
+          </button>
+          {originListExpanded ? (
+            <div className={styles.situationList} style={{ marginTop: 6 }}>
+              {originCandidatePlaces.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={
+                    originChoiceId === p.id
+                      ? `${styles.situationOption} ${styles.situationOptionActive}`
+                      : styles.situationOption
+                  }
+                  onClick={() => {
+                    setOriginChoiceId(p.id);
+                    setOriginListExpanded(false);
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className={styles.modalActions} style={{ marginTop: 16 }}>
-          <Button variant="secondary" size="sm" onClick={() => setOriginSelectOpen(false)}>
-            취소
-          </Button>
-          <Button size="sm" onClick={confirmOriginChoice} disabled={originChoiceId == null}>
-            선택
-          </Button>
+        <div className={styles.modalActions} style={{ marginTop: 16, justifyContent: 'space-between' }}>
+          <button
+            type="button"
+            className={styles.hint}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+            onClick={() => {
+              setOriginSelectOpen(false);
+              openSearchMode();
+            }}
+          >
+            출발지가 방문지 목록에 없어요
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" size="sm" onClick={() => setOriginSelectOpen(false)}>
+              취소
+            </Button>
+            <Button size="sm" onClick={confirmOriginChoice} disabled={originChoiceId == null}>
+              선택
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -2619,10 +2695,10 @@ export function PlannerClient() {
           (으)로 설정하시겠습니까?
         </p>
         <div className={styles.modalActions}>
-          <Button variant="secondary" size="sm" onClick={() => finalizeOrigin(true)}>
-            출발지를 방문지 목록에 추가
+          <Button variant="secondary" size="sm" onClick={() => setOriginConfirmOpen(false)}>
+            취소
           </Button>
-          <Button size="sm" onClick={() => finalizeOrigin(false)}>
+          <Button size="sm" onClick={finalizeOrigin}>
             예
           </Button>
         </div>
