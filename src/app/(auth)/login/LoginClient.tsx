@@ -202,10 +202,18 @@ export function LoginClient() {
       </div>
 
       <div className={styles.googleSection}>
-        <div
-          ref={googleSlotRef}
-          className={isDark ? `${styles.googleSlot} ${styles.googleSlotDark}` : styles.googleSlot}
-        />
+        {/* 구글이 그리는 실제 버튼(iframe)은 어떤 theme/width를 넘겨도 주위에 자체 흰 여백이
+            남는 경우가 있어 다크모드에서 완전히 지울 수가 없다 — 그래서 보이는 버튼은 우리
+            디자인대로 직접 그리고, 실제 구글 버튼은 그 위에 거의 투명하게 겹쳐서 클릭만
+            받도록 한다. */}
+        <div className={styles.googleBtnWrap}>
+          <div className={styles.googleBtnVisual} aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element -- 18px 정적 아이콘 */}
+            <img src="/icons/google-g-logo.png" alt="" className={styles.googleGIcon} />
+            <span>Google로 계속하기</span>
+          </div>
+          <div ref={googleSlotRef} className={styles.googleSlotOverlay} />
+        </div>
         {googleError ? <p className={styles.googleNoticeError}>{googleError}</p> : null}
         {googleUserLabel ? (
           <div className={styles.googleSuccess}>
