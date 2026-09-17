@@ -76,6 +76,17 @@ function nextIdAfter(places: Place[]): number {
 }
 
 /**
+ * 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
+ * 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣을 위치를 찾는다 (해당 일차가 아직 없으면 끝에 붙인다).
+ */
+function dayGroupedInsertIndex(places: Place[], day: number): number {
+  for (let i = places.length - 1; i >= 0; i--) {
+    if (places[i].day === day) return i + 1;
+  }
+  return places.length;
+}
+
+/**
  * 일차마다 지도 경로선 색을 다르게 보여주기 위한 팔레트. 초록 계열로만 묶으면 지도(도로/
  * 지형)와 겹쳐서 구분이 잘 안 됐다 — 서로 색상(hue)이 뚜렷이 다른 색으로 바꿔 한눈에
  * 구분되게 했다. 일차 수가 더 많으면 순환한다.
@@ -725,7 +736,8 @@ export function PlannerClient() {
       weather: 'sunny',
       day,
     };
-    const next = [...places, newPlace];
+    const next = [...places];
+    next.splice(dayGroupedInsertIndex(next, day), 0, newPlace);
     setPlaces(next);
     setSegments(resizeSegments(next, segments));
     // 방문지를 새로 추가하면 아직 이 방문지를 반영한 경로가 계산되지 않은 상태이므로
@@ -1440,16 +1452,7 @@ export function PlannerClient() {
           x,
           y,
         };
-        // 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
-        // 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣는다 (해당 일차가 아직 없으면 끝에 붙인다).
-        let insertAt = nextPlaces.length;
-        for (let i = nextPlaces.length - 1; i >= 0; i--) {
-          if (nextPlaces[i].day === newPlace.day) {
-            insertAt = i + 1;
-            break;
-          }
-        }
-        nextPlaces.splice(insertAt, 0, newPlace);
+        nextPlaces.splice(dayGroupedInsertIndex(nextPlaces, newPlace.day ?? 0), 0, newPlace);
         added += 1;
       }
     }
@@ -2131,11 +2134,7 @@ export function PlannerClient() {
                 ) : null}
               </div>
               <div className={styles.listHeaderRight}>
-                {canEdit ? (
-                  <span className={styles.hint}>
-                    {isAllDaysView ? '드래그로 같은 일차 안에서 순서 변경' : '드래그로 순서 변경'}
-                  </span>
-                ) : null}
+                {canEdit ? <span className={styles.hint}>드래그로 순서 변경</span> : null}
                 {places.length > 0 && canEdit ? (
                   <button type="button" className={styles.clearAllBtn} onClick={clearAllPlaces}>
                     전체 삭제
