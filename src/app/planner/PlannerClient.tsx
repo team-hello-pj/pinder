@@ -176,6 +176,7 @@ export function PlannerClient() {
   const [originConfirmOpen, setOriginConfirmOpen] = useState(false);
   const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
   const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
+  const [addPlaceModalOpen, setAddPlaceModalOpen] = useState(false);
 
   // ---- 협업 / 권한 ----
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
@@ -311,7 +312,10 @@ export function PlannerClient() {
     if (!map || !kakao) return;
     kakaoMarkersRef.current.forEach((m) => m.setMap(null));
     kakaoMarkersRef.current = [];
-    const withCoords = places.filter((p) => p.x && p.y);
+    // 특정 일차를 선택 중이면 지도에도 그 일차의 방문지만 보여준다(전체보기일 때는 전부 표시).
+    const withCoords = places.filter(
+      (p) => p.x && p.y && (selectedDay === null || (p.day ?? 0) === selectedDay),
+    );
     if (!withCoords.length) return;
     // 지도 핀 번호는 전체 순번이 아니라 일차별로 1부터 다시 매긴다.
     const dayCounters = new Map<number, number>();
@@ -335,7 +339,7 @@ export function PlannerClient() {
       bounds.extend(pos);
     });
     map.setBounds(bounds);
-  }, [places]);
+  }, [places, selectedDay]);
 
   useEffect(() => {
     if (kakaoReady) syncKakaoMarkers();
@@ -511,6 +515,7 @@ export function PlannerClient() {
       else if (situationModalOpen) setSituationModalOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
+      else if (addPlaceModalOpen) setAddPlaceModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
     };
@@ -527,6 +532,7 @@ export function PlannerClient() {
     originSelectOpen,
     originConfirmOpen,
     noVariableModalOpen,
+    addPlaceModalOpen,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -925,6 +931,13 @@ export function PlannerClient() {
     setMapSearchQuery(newAddress);
     setMapSearchResults([]);
     setMapSearchError(null);
+  };
+  /** 출발지 선택 팝업에서 "출발지가 방문지 목록에 없어요"를 눌렀을 때 여는 주소 추가 카드. */
+  const openAddPlaceModal = () => {
+    setMapSearchQuery('');
+    setMapSearchResults([]);
+    setMapSearchError(null);
+    setAddPlaceModalOpen(true);
   };
   const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
@@ -1348,14 +1361,33 @@ export function PlannerClient() {
    * 자리 그대로 두고, scopeIds 에 속한 자리에만 새 순서를 채워 넣는다 — 그래야 일차 경계를
    * 넘어 뒤섞이지 않는다(일차별 방문지 번호/타임라인 구분과도 맞물려 있다).
    */
+  /**
+   * scope 에 속한 자리들에 새 순서를 하나씩 흩뿌려 채우면, 그 자리들 중 배열 앞쪽에
+   * 남아있던 이전 출발지(혹은 좌표 없는 방문지)가 여전히 "1번" 자리를 차지해버릴 수 있다.
+   * 그래서 scope 블록 전체를 새 순서(orderedScoped, 0번째가 항상 새 출발지)로 통째로
+   * 교체해서, 새 출발지가 항상 그 일차의 맨 앞(1번)에 오고 번호가 겹치지 않게 한다.
+   */
   const applyOptimizedOrder = useCallback(
     (result: OptimalRouteResult, sourcePlaces: Place[], scopeIds: Set<number>) => {
       const byId = new Map(sourcePlaces.map((p) => [p.id, p] as const));
       const orderedScoped = result.placeIds
         .map((id) => byId.get(id))
         .filter((p): p is Place => Boolean(p));
-      let cursor = 0;
-      const next = sourcePlaces.map((p) => (scopeIds.has(p.id) ? orderedScoped[cursor++] : p));
+
+      let blockInserted = false;
+      const next: Place[] = [];
+      sourcePlaces.forEach((p) => {
+        if (!scopeIds.has(p.id)) {
+          next.push(p);
+          return;
+        }
+        if (!blockInserted) {
+          blockInserted = true;
+          next.push(...orderedScoped);
+        }
+        // scope 에 속한 나머지 자리는 이미 orderedScoped 블록에 포함돼 있으므로 건너뛴다.
+      });
+
       setPlaces(next);
       setSegments((segs) => resizeSegments(next, segs));
       setRouteSegmentsReady(false);
@@ -1603,6 +1635,9 @@ export function PlannerClient() {
     if (originChoiceId == null) return;
     const chosenId = originChoiceId;
     setOriginConfirmOpen(false);
+    // 출발지를 바꾸면 이전 출발지 기준으로 저장해 둔 최적 경로 결과는 더 이상 유효하지 않다 —
+    // 시그니처 비교로도 걸러지지만, 이전 출발지가 1번으로 남아있는 일이 없도록 명시적으로 비운다.
+    if (chosenId !== originId) setRouteOptimization(null);
     setOriginId(chosenId);
     proceedAfterOrigin(chosenId);
   };
@@ -2528,6 +2563,62 @@ export function PlannerClient() {
         </div>
       </Modal>
 
+      {/* 방문지 추가 (출발지 선택 팝업에서 "출발지가 방문지 목록에 없어요"로 진입) */}
+      <Modal
+        open={addPlaceModalOpen}
+        title="방문지 추가"
+        onClose={() => setAddPlaceModalOpen(false)}
+      >
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={mapSearchQuery}
+            onChange={(e) => setMapSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                runMapSearch();
+              }
+            }}
+            placeholder="주소 또는 장소명을 입력하세요"
+            autoFocus
+            className={styles.addInput}
+          />
+          <Button size="sm" onClick={runMapSearch}>
+            검색
+          </Button>
+        </div>
+        {mapSearchLoading ? <p className={styles.modalDesc}>검색 중...</p> : null}
+        {mapSearchError ? <p className={styles.modalDesc}>{mapSearchError}</p> : null}
+        {mapSearchResults.length > 0 ? (
+          <div
+            className={styles.searchResults}
+            style={{ marginTop: 8, maxHeight: 260, overflowY: 'auto' }}
+          >
+            {mapSearchResults.map((doc) => (
+              <button
+                key={doc.id}
+                type="button"
+                className={styles.searchResultItem}
+                onClick={() => {
+                  setAddPlaceModalOpen(false);
+                  openAddConfirmForDoc(doc);
+                }}
+              >
+                <span className={styles.searchResultName}>{doc.place_name}</span>
+                <span className={styles.searchResultAddress}>
+                  {doc.road_address_name || doc.address_name}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className={styles.modalActions} style={{ marginTop: 16 }}>
+          <Button variant="secondary" size="sm" onClick={() => setAddPlaceModalOpen(false)}>
+            취소
+          </Button>
+        </div>
+      </Modal>
+
       {/* 상황 변경 */}
       <Modal
         open={situationModalOpen}
@@ -2697,7 +2788,7 @@ export function PlannerClient() {
             }}
             onClick={() => {
               setOriginSelectOpen(false);
-              openSearchMode();
+              openAddPlaceModal();
             }}
           >
             출발지가 방문지 목록에 없어요
