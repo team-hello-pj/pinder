@@ -905,9 +905,10 @@
   inset: 0;
 }
 
+/* 우측 하단은 AI 도우미 FAB(.aiFab, position: fixed)와 겹쳐서 좌측 하단에 둔다. */
 .currentLocationBtn {
   position: absolute;
-  right: 14px;
+  left: 14px;
   bottom: 14px;
   z-index: 2;
   width: 38px;
