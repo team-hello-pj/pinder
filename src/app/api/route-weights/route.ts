@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const GEMINI_MODEL = 'gemini-3.6-flash';
+const GEMINI_MODEL = 'gemini-3.8-flash'; // Current stable GA Flash model
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const MAX_FREE_TEXT_LENGTH = 300;

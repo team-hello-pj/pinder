@@ -556,7 +556,7 @@ a:hover{color:#146030}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
       <sc-if value="{{ canDeleteOriginal }}" hint-placeholder-val="{{ false }}">
-        <div onClick="{{ deleteOriginalRoute }}" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #F3C9C9; display: flex; align-items: center; font-size: 13px; font-weight: 600; color: #892222; cursor: pointer; white-space: nowrap; background: #FDECEC; border-color: #DCC8C8">원본 삭제</div>
+        <div onClick="{{ deleteOriginalRoute }}" style="height: 40px; padding: 0 14px; border-radius: 10px; display: flex; align-items: center; font-size: 13px; font-weight: 600; color: {{ deleteOriginalColor }}; cursor: pointer; white-space: nowrap; background: {{ deleteOriginalBg }}; border: 1px solid {{ deleteOriginalBorder }}">원본 삭제</div>
       </sc-if>
       <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
         <div onClick="{{ openSituationModal }}" style="height:40px;padding:0 14px;border-radius:10px;background:{{ situationBtnBg }};display:flex;align-items:center;font-size:13px;font-weight:600;color:{{ situationBtnColor }};cursor:pointer;white-space:nowrap;border:1px solid {{ situationBtnBorder }}">변수 추가</div>
@@ -2284,6 +2284,9 @@ class Component extends DCLogic {
       routeSearchLabel: this.state.routeSearching ? '경로 검색 중...' : '경로 검색',
       routeSearchOpacity: this.state.routeSearching ? 0.7 : 1,
       canSearchRoutes: places.length > 1,
+      deleteOriginalBg: this.state.theme === 'dark' ? 'rgba(178,12,12,.16)' : '#FDECEC',
+      deleteOriginalColor: this.state.theme === 'dark' ? '#F09B9B' : '#892222',
+      deleteOriginalBorder: this.state.theme === 'dark' ? 'rgba(178,12,12,.35)' : '#DCC8C8',
       closeIconColor: this.state.theme === 'dark' ? '#B4B5B9' : '#FFFFFF',
       summary: {
         count: places.length,

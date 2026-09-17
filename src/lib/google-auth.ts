@@ -51,6 +51,7 @@ export async function renderGoogleLoginButton(
   onSuccess: (user: AuthUser) => void,
   onError: (message: string) => void,
   onNeedsSignup?: (info: { email: string; name: string }) => void,
+  theme: 'light' | 'dark' = 'light',
 ): Promise<void> {
   if (!sdkPromise) sdkPromise = loadGsiScript();
   try {
@@ -93,7 +94,8 @@ export async function renderGoogleLoginButton(
     });
     window.google.accounts.id.renderButton(container, {
       type: 'standard',
-      theme: 'outline',
+      // 구글 자체 버튼 테마 중 다크 배경에 맞는 건 filled_black 뿐이라 다크모드일 때만 바꾼다.
+      theme: theme === 'dark' ? 'filled_black' : 'outline',
       size: 'large',
       width: 320,
     });

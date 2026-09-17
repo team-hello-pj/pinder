@@ -11,7 +11,7 @@ import { tripDayCount } from '@/lib/format';
 
 export const runtime = 'nodejs';
 
-const GEMINI_MODEL = 'gemini-3.6-flash';
+const GEMINI_MODEL = 'gemini-3.8-flash'; // Current stable GA Flash model
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const MIN_PLACES_PER_DAY = 2;

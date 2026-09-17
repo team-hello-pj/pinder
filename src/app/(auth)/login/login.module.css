@@ -20,7 +20,26 @@
 
 .topBar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+}
+
+.homeBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* 구글 로그인 버튼은 iframe으로 렌더링돼 다크모드에서도 항상 밝게 나온다 —
+   filled_black 테마를 쓰지 못하는 상황(테마 전환 직후 재렌더 전)까지 대비해
+   다크모드에서는 밝기를 올려 배경과 어울리게 보정한다. */
+.googleSlotDark {
+  filter: brightness(1.6) contrast(0.9);
 }
 
 .brandBlock {

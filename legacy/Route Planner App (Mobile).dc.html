@@ -35,11 +35,13 @@ a:hover{color:#146030}
   .rp-summary-cta{flex:1.6;min-width:0;padding:0 12px!important}
   .rp-summary-danger-inline{flex:0.7!important;min-width:0;padding:0 8px!important}
   .rp-summary-btn{height:38px!important}
-  .rp-ai-fab{bottom:220px!important}
+  .rp-ai-fab{bottom:90px!important}
   .rp-summary-bar{border-radius:18px 18px 0 0!important;box-shadow:0 -4px 16px rgba(0,0,0,.06)}
   .rp-summary-stats{background:#F4F4F5;border-radius:12px;padding:8px 12px!important;justify-content:center!important;align-items:center!important;padding-right:36px!important}
+  .rp-shell.rp-dark .rp-summary-stats{background:#26272A}
   .rp-summary-stat{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .rp-summary-danger-inline{background:#FDECEC!important;border-color:#DCC8C8!important;color:#892222!important;font-weight:600!important}
+  .rp-shell.rp-dark .rp-summary-danger-inline{background:rgba(178,12,12,.16)!important;border-color:rgba(178,12,12,.35)!important;color:#F09B9B!important}
   .rp-shell.rp-panel-collapsed{grid-template-columns:1fr;grid-template-rows:1fr}
   .rp-shell.rp-panel-collapsed .rp-panel{display:none!important}
   .rp-shell.rp-panel-collapsed .rp-map-col{display:flex;min-height:0;flex:1;position:relative}
@@ -1832,7 +1834,7 @@ class Component extends DCLogic {
     const canManageInvite = devRole === 'creator';
     const canDeleteOriginal = devRole === 'creator';
     const isViewerRole = devRole === 'viewer' || devRole === 'savedViewer';
-    const shellStateClass = panelCollapsed ? 'rp-panel-collapsed' : (mapCollapsed ? 'rp-map-collapsed' : '');
+    const shellStateClass = (panelCollapsed ? 'rp-panel-collapsed' : (mapCollapsed ? 'rp-map-collapsed' : '')) + (this.state.theme === 'dark' ? ' rp-dark' : '');
     const hasActivityLog = activityLog.length > 0;
     const noActivityLog = activityLog.length === 0;
     const logDrawerTransform = activityLogOpen ? 'translateX(0)' : 'translateX(100%)';
@@ -2155,7 +2157,7 @@ class Component extends DCLogic {
       aiSendOpacity: this.state.aiLoading ? 0.5 : 1,
       aiSendLabel: this.state.aiLoading ? '...' : '전송',
       aiPanelClass: aiOpen ? 'rp-ai-panel rp-ai-panel-open' : 'rp-ai-panel',
-      aiFabDisplay: aiOpen ? 'none' : 'flex',
+      aiFabDisplay: (aiOpen || !panelCollapsed || isViewerRole) ? 'none' : 'flex',
       toastMsg: this.state.toastMsg, toastOpacity: this.state.toastVisible ? 1 : 0,
       places: enrichedPlaces,
       timeline,

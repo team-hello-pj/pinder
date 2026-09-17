@@ -9,6 +9,7 @@ import { loginUser } from '@/lib/auth';
 import { renderGoogleLoginButton } from '@/lib/google-auth';
 import { STORAGE_KEYS, storage } from '@/lib/storage';
 import { useSession } from '@/components/providers/SessionProvider';
+import { useTheme } from '@/components/providers/ThemeProvider';
 import { Logo } from '@/components/layout/Logo';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
@@ -18,6 +19,7 @@ import styles from './login.module.css';
 export function LoginClient() {
   const router = useRouter();
   const { login } = useSession();
+  const { isDark } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,6 +41,9 @@ export function LoginClient() {
 
   useEffect(() => {
     if (!googleSlotRef.current) return;
+    // 테마가 바뀌면(라이트<->다크) 구글 버튼도 그에 맞는 테마로 다시 그려야 한다 — 이미 그려진
+    // 버튼은 그대로 남아있으므로 비우고 다시 렌더링한다.
+    googleSlotRef.current.innerHTML = '';
     renderGoogleLoginButton(
       googleSlotRef.current,
       (user) => {
@@ -52,9 +57,9 @@ export function LoginClient() {
         const params = new URLSearchParams({ email, name, googleVerified: '1' });
         router.push(`${ROUTES.signup}?${params.toString()}`);
       },
+      isDark ? 'dark' : 'light',
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 버튼은 마운트 시 한 번만 렌더링한다
-  }, []);
+  }, [isDark, login, router]);
 
   const onEmailChange = (value: string) => {
     setEmail(value);
@@ -86,6 +91,21 @@ export function LoginClient() {
   return (
     <div className={styles.card}>
       <div className={styles.topBar}>
+        <Link href={ROUTES.home} title="홈으로" className={styles.homeBtn}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 11l9-8 9 8" />
+            <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
+          </svg>
+        </Link>
         <ThemeToggle />
       </div>
 
@@ -182,7 +202,10 @@ export function LoginClient() {
       </div>
 
       <div className={styles.googleSection}>
-        <div ref={googleSlotRef} className={styles.googleSlot} />
+        <div
+          ref={googleSlotRef}
+          className={isDark ? `${styles.googleSlot} ${styles.googleSlotDark}` : styles.googleSlot}
+        />
         {googleError ? <p className={styles.googleNoticeError}>{googleError}</p> : null}
         {googleUserLabel ? (
           <div className={styles.googleSuccess}>

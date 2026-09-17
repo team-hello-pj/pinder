@@ -2,7 +2,7 @@
 // Proxies chat requests to the Gemini API without exposing the API key to the client.
 // Requires the GEMINI_API_KEY environment variable to be set in Vercel Project Settings.
 
-const GEMINI_MODEL = 'gemini-3.6-flash'; // gemini-2.5-flash was retired for new users; Google now recommends gemini-3.6-flash
+const GEMINI_MODEL = 'gemini-3.8-flash'; // Current stable GA Flash model
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export default async function handler(req, res) {
