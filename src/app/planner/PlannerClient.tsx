@@ -257,6 +257,14 @@ export function PlannerClient() {
   // "출발지가 방문지 목록에 없어요"를 눌러 방문지를 추가한 경우, 추가가 끝나면 출발지 선택
   // 팝업으로 돌아가서 방금 추가한 곳을 바로 고를 수 있게 한다.
   const [returnToOriginPickerAfterAdd, setReturnToOriginPickerAfterAdd] = useState(false);
+  // 전체보기(일차별 출발지 한 번에 선택) 팝업에서도 같은 "출발지가 목록에 없어요" 기능을 쓸 수
+  // 있어야 한다 — 없으면 AI로 만든 여러 일차 일정처럼 전체보기로 시작하는 경우 새 출발지를
+  // 추가해도 그 일차의 출발지 후보에 반영되지 않아 "적용이 안 되는" 것처럼 보인다.
+  // 어느 일차에 추가하는 중인지(null이면 이 흐름이 아님) 기억해뒀다가, 추가가 끝나면 그 일차의
+  // 출발지로 바로 반영하고 일차별 출발지 팝업으로 되돌아간다.
+  const [returnToMultiDayOriginAfterAdd, setReturnToMultiDayOriginAfterAdd] = useState<
+    number | null
+  >(null);
 
   // ---- 협업 / 권한 ----
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
@@ -463,9 +471,12 @@ export function PlannerClient() {
     );
     if (!withCoords.length) return;
     // 지도 핀 번호는 전체 순번이 아니라 일차별로 1부터 다시 매긴다.
+    // 좌표가 없어 지도에 아예 표시되지 않는 방문지는 번호를 소비하면 안 된다 — 그러면 실제
+    // 핀 번호가 1,2,4,5 처럼 건너뛰거나(좌표 없는 방문지가 끼어든 자리) 다른 일차의 핀과
+    // 번호가 겹쳐 보일 수 있다. 그래서 실제로 지도에 그려질 withCoords 기준으로만 센다.
     const dayCounters = new Map<number, number>();
     const orderByPlaceId = new Map<number, number>();
-    places.forEach((p) => {
+    withCoords.forEach((p) => {
       const day = p.day ?? 0;
       const next = (dayCounters.get(day) ?? 0) + 1;
       dayCounters.set(day, next);
@@ -762,7 +773,9 @@ export function PlannerClient() {
       else if (categoryModalOpen) setCategoryModalOpen(false);
       else if (addConfirmOpen) {
         setAddConfirmOpen(false);
-        if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
+        if (returnToOriginPickerAfterAdd || returnToMultiDayOriginAfterAdd != null) {
+          openNextModal(() => setAddPlaceModalOpen(true));
+        }
       } else if (situationModalOpen) setSituationModalOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
@@ -772,6 +785,10 @@ export function PlannerClient() {
         if (returnToOriginPickerAfterAdd) {
           setReturnToOriginPickerAfterAdd(false);
           openNextModal(() => setOriginSelectOpen(true));
+        } else if (returnToMultiDayOriginAfterAdd != null) {
+          setReturnToMultiDayOriginAfterAdd(null);
+          setSelectedDay(null);
+          openNextModal(() => setMultiDayOriginModalOpen(true));
         }
       } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
@@ -797,6 +814,7 @@ export function PlannerClient() {
     multiDayOriginModalOpen,
     leaveConfirmOpen,
     returnToOriginPickerAfterAdd,
+    returnToMultiDayOriginAfterAdd,
     loginRequiredOpen,
   ]);
 
@@ -872,6 +890,10 @@ export function PlannerClient() {
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       openNextModal(() => setOriginSelectOpen(true));
+    } else if (returnToMultiDayOriginAfterAdd != null) {
+      setReturnToMultiDayOriginAfterAdd(null);
+      setSelectedDay(null);
+      openNextModal(() => setMultiDayOriginModalOpen(true));
     }
   };
 
@@ -892,6 +914,18 @@ export function PlannerClient() {
       setOriginChoiceId(added.id);
       setOriginListExpanded(true);
       openNextModal(() => setOriginSelectOpen(true));
+      return;
+    }
+    // 일차별 출발지 한 번에 선택(전체보기) 흐름에서 들어온 추가라면, 방금 추가한 곳을 그
+    // 일차의 출발지로 바로 반영하고 일차별 출발지 팝업으로 돌아간다 — 이 반영이 없으면
+    // 새로 추가한 출발지가 그 일차의 후보 목록에 들어가긴 해도 선택되어 있지 않아 "적용이
+    // 안 된 것"처럼 보인다.
+    if (returnToMultiDayOriginAfterAdd != null) {
+      const day = returnToMultiDayOriginAfterAdd;
+      setReturnToMultiDayOriginAfterAdd(null);
+      setSelectedDay(null);
+      setMultiDayOriginChoices((prev) => ({ ...prev, [day]: added.id }));
+      openNextModal(() => setMultiDayOriginModalOpen(true));
     }
   };
 
@@ -1737,8 +1771,26 @@ export function PlannerClient() {
     return items;
   }, [places, dayCount, hasDayTabs, selectedDay, enrichedSegments.length]);
 
-  const totalDistance = enrichedSegments.reduce((sum, s) => sum + s.totalDistanceKm, 0);
-  const totalMinutes = enrichedSegments.reduce((sum, s) => sum + s.totalMinutes, 0);
+  // 일차를 선택 중이면 요약(총 방문지/이동거리/이동시간)도 그 일차 것만 보여준다 — 전체보기
+  // 기준 합계를 그대로 두면 "이 일차는 3곳인데 총 방문지가 12곳"처럼 헷갈린다. 내 일정으로
+  // 저장해 다시 불러온 경우도 같은 selectedDay/hasDayTabs 로직을 타므로 동일하게 적용된다.
+  const isDayScoped = hasDayTabs && selectedDay !== null;
+  const visiblePlaces = useMemo(
+    () => (isDayScoped ? places.filter((p) => (p.day ?? 0) === selectedDay) : places),
+    [places, isDayScoped, selectedDay],
+  );
+  const visibleEnrichedSegments = useMemo(() => {
+    if (!isDayScoped) return enrichedSegments;
+    return enrichedSegments.filter((_, idx) => {
+      const fromP = places[idx];
+      const toP = places[idx + 1];
+      const fromDay = Math.min(fromP?.day ?? 0, dayCount - 1);
+      const toDay = toP ? Math.min(toP.day ?? 0, dayCount - 1) : null;
+      return fromDay === selectedDay && toDay === selectedDay;
+    });
+  }, [enrichedSegments, places, isDayScoped, selectedDay, dayCount]);
+  const totalDistance = visibleEnrichedSegments.reduce((sum, s) => sum + s.totalDistanceKm, 0);
+  const totalMinutes = visibleEnrichedSegments.reduce((sum, s) => sum + s.totalMinutes, 0);
   const h = Math.floor(totalMinutes / 60);
   const m = Math.round(totalMinutes % 60);
 
@@ -2268,7 +2320,7 @@ export function PlannerClient() {
             <div className={styles.listHeader}>
               <div className={styles.listHeaderLeft}>
                 <span className={styles.listTitle}>
-                  방문지 목록 {places.length > 0 ? `(${places.length})` : ''}
+                  방문지 목록 {visiblePlaces.length > 0 ? `(${visiblePlaces.length})` : ''}
                 </span>
                 {hasDayTabs ? (
                   <select
@@ -2657,8 +2709,8 @@ export function PlannerClient() {
                 </div>
                 <div className={styles.aiContextBar}>
                   현재 경로 ·{' '}
-                  {places.length
-                    ? `경유지 ${places.length}곳 · ${totalDistance.toFixed(1)}km · ${h > 0 ? h + '시간 ' : ''}${m}분`
+                  {visiblePlaces.length
+                    ? `경유지 ${visiblePlaces.length}곳 · ${totalDistance.toFixed(1)}km · ${h > 0 ? h + '시간 ' : ''}${m}분`
                     : '방문지를 추가하면 AI가 경로를 참고해요'}
                 </div>
                 <div className={styles.aiMessages} ref={aiMessagesRef}>
@@ -2725,18 +2777,18 @@ export function PlannerClient() {
               <div className={styles.summaryStats}>
                 <div>
                   <p className={styles.summaryLabel}>총 방문지</p>
-                  <p className={styles.summaryValue}>{places.length}곳</p>
+                  <p className={styles.summaryValue}>{visiblePlaces.length}곳</p>
                 </div>
                 <div>
                   <p className={styles.summaryLabel}>총 이동거리</p>
                   <p className={styles.summaryValue}>
-                    {places.length ? `${totalDistance.toFixed(1)}km` : '-'}
+                    {visiblePlaces.length ? `${totalDistance.toFixed(1)}km` : '-'}
                   </p>
                 </div>
                 <div>
                   <p className={styles.summaryLabel}>총 이동시간</p>
                   <p className={styles.summaryValue}>
-                    {places.length ? (h > 0 ? `${h}시간 ${m}분` : `${m}분`) : '-'}
+                    {visiblePlaces.length ? (h > 0 ? `${h}시간 ${m}분` : `${m}분`) : '-'}
                   </p>
                 </div>
               </div>
@@ -3403,6 +3455,26 @@ export function PlannerClient() {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  className={styles.hint}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    marginTop: 4,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                  onClick={() => {
+                    setMultiDayOriginModalOpen(false);
+                    setReturnToMultiDayOriginAfterAdd(day);
+                    setSelectedDay(day);
+                    openAddPlaceModal();
+                  }}
+                >
+                  이 일차 출발지가 목록에 없어요
+                </button>
               </div>
             ))}
         </div>
