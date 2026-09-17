@@ -38,7 +38,9 @@ async function sendMail(
   }
 
   try {
-    await getTransporter().sendMail({ from: `p:nder <${user}>`, to, subject, html });
+    // 표시 이름에 ':'가 들어있으면 RFC 5322상 특수문자라 따옴표로 감싸지 않으면 일부
+    // 메일 클라이언트가 "p"까지만 이름으로 파싱하고 나머지를 잘라버린다.
+    await getTransporter().sendMail({ from: `"p:nder" <${user}>`, to, subject, html });
   } catch (err) {
     console.error(`[${logLabel}] Gmail 발송 실패 — ${to}`, err);
   }

@@ -76,6 +76,15 @@ function nextIdAfter(places: Place[]): number {
 }
 
 /**
+ * 팝업(네이티브 <dialog>) 하나를 닫으면서 곧바로 다른 팝업을 여는 코드가 여러 곳에 있는데,
+ * 같은 렌더링 틱에서 열고 닫으면 두 다이얼로그가 한 프레임 동안 동시에 열려 보일 수 있다.
+ * 닫는 쪽 효과가 먼저 반영되도록 다음 팝업 열기를 한 틱 미룬다.
+ */
+function openNextModal(open: () => void) {
+  setTimeout(open, 0);
+}
+
+/**
  * 전체보기에서 새 방문지가 엉뚱하게 맨 끝에 따로 떨어져 보이지 않도록,
  * 같은 일차의 마지막 방문지 바로 뒤에 끼워 넣을 위치를 찾는다 (해당 일차가 아직 없으면 끝에 붙인다).
  */
@@ -202,6 +211,9 @@ export function PlannerClient() {
   const kakaoMarkersRef = useRef<KakaoOverlayLike[]>([]);
   const kakaoPolylinesRef = useRef<KakaoOverlayLike[]>([]);
   const searchMarkerRef = useRef<KakaoOverlayLike | null>(null);
+  // 현재 위치 marker는 재조회할 때마다 새로 만들지 않고 위치만 옮긴다.
+  const currentLocationMarkerRef = useRef<KakaoOverlayLike | null>(null);
+  const [locatingMe, setLocatingMe] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
   const [kakaoLoadFailed, setKakaoLoadFailed] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
@@ -491,6 +503,53 @@ export function PlannerClient() {
     [places],
   );
 
+  /**
+   * "현재 위치" 버튼. 지도 중심 이동 + 전용 marker 표시만 하고, 방문지/구간과는 무관하므로
+   * 경로 검색·재계산은 절대 건드리지 않는다. 재조회 시에는 marker를 새로 만들지 않고
+   * 기존 marker 위치만 옮긴다. 위치 권한이 없거나 거부돼도 이 기능만 안 될 뿐 나머지
+   * 화면은 그대로 정상 동작한다.
+   */
+  const handleLocateMe = useCallback(() => {
+    const kakao = window.kakao;
+    const map = kakaoMapRef.current;
+    if (!kakao || !map) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      showToast('이 브라우저에서는 위치 정보를 사용할 수 없어요.');
+      return;
+    }
+    setLocatingMe(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocatingMe(false);
+        const pos = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        map.setCenter(pos);
+        if (currentLocationMarkerRef.current?.setPosition) {
+          currentLocationMarkerRef.current.setPosition(pos);
+        } else {
+          currentLocationMarkerRef.current?.setMap(null);
+          currentLocationMarkerRef.current = new kakao.maps.Marker({
+            position: pos,
+            map,
+            zIndex: 10,
+            image: new kakao.maps.MarkerImage(
+              'data:image/svg+xml;base64,' +
+                btoa(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="8" fill="#3b82f6" stroke="#fff" stroke-width="3"/></svg>',
+                ),
+              new kakao.maps.Size(26, 26),
+              { offset: new kakao.maps.Point(13, 13) },
+            ),
+          });
+        }
+      },
+      () => {
+        setLocatingMe(false);
+        showToast('위치 권한이 없어 현재 위치를 가져오지 못했어요.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, [showToast]);
+
   const syncKakaoPolyline = useCallback(() => {
     kakaoPolylinesRef.current.forEach((line) => line.setMap(null));
     kakaoPolylinesRef.current = [];
@@ -703,14 +762,17 @@ export function PlannerClient() {
       else if (categoryModalOpen) setCategoryModalOpen(false);
       else if (addConfirmOpen) {
         setAddConfirmOpen(false);
-        setReturnToOriginPickerAfterAdd(false);
+        if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
       } else if (situationModalOpen) setSituationModalOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
       else if (noVariableModalOpen) setNoVariableModalOpen(false);
       else if (addPlaceModalOpen) {
         setAddPlaceModalOpen(false);
-        setReturnToOriginPickerAfterAdd(false);
+        if (returnToOriginPickerAfterAdd) {
+          setReturnToOriginPickerAfterAdd(false);
+          openNextModal(() => setOriginSelectOpen(true));
+        }
       } else if (multiDayOriginModalOpen) setMultiDayOriginModalOpen(false);
       else if (originConfirmOpen) setOriginConfirmOpen(false);
       else if (originSelectOpen) setOriginSelectOpen(false);
@@ -734,6 +796,7 @@ export function PlannerClient() {
     addPlaceModalOpen,
     multiDayOriginModalOpen,
     leaveConfirmOpen,
+    returnToOriginPickerAfterAdd,
     loginRequiredOpen,
   ]);
 
@@ -793,17 +856,23 @@ export function PlannerClient() {
     setPendingSelectedDoc(doc);
     setPendingName(doc.place_name);
     setPendingAddress(doc.road_address_name || doc.address_name);
-    setAddConfirmOpen(true);
+    // 방문지 추가 팝업(addPlaceModalOpen)에서 결과를 고른 경우처럼, 다른 팝업을 막 닫은
+    // 직후에 호출될 수 있어 실제로 닫힌 뒤에 열리도록 미룬다.
+    openNextModal(() => setAddConfirmOpen(true));
   };
 
-  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었어도 그 흐름은 그냥 끝난다. */
+  /** 방문지 추가를 취소하면, 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로
+   * 돌아간다 — 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
-    setReturnToOriginPickerAfterAdd(false);
+    if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
   const cancelAddPlaceModal = () => {
     setAddPlaceModalOpen(false);
-    setReturnToOriginPickerAfterAdd(false);
+    if (returnToOriginPickerAfterAdd) {
+      setReturnToOriginPickerAfterAdd(false);
+      openNextModal(() => setOriginSelectOpen(true));
+    }
   };
 
   const confirmAddPlace = () => {
@@ -814,13 +883,15 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setPendingAddress('');
     setPendingName('');
-    // 출발지 선택 흐름에서 들어온 추가라면, 목록 선택 팝업으로 되돌아가지 않고 방금 추가한
-    // 곳을 출발지로 바로 확정하는 팝업("출발지를 OOO로 설정하시겠습니까?")으로 곧장 이어간다 —
-    // 경로 계산 버튼을 다시 누르거나 목록에서 또 골라야 하는 단계를 없앤다.
+    // 출발지 선택 흐름에서 들어온 추가라면, 경로 계산 버튼을 다시 누르지 않아도 되도록 출발지
+    // 선택 목록 팝업을 자동으로 다시 띄운다. 방금 추가한 곳을 선택된 상태로 두면(목록에서도
+    // 맨 앞에 오도록 정렬) 바로 "선택"만 눌러도 된다. addConfirmOpen 팝업이 실제로 닫힌 뒤에
+    // 열어야 두 팝업이 동시에 보이는 일이 없다.
     if (returnToOriginPickerAfterAdd) {
       setReturnToOriginPickerAfterAdd(false);
       setOriginChoiceId(added.id);
-      setOriginConfirmOpen(true);
+      setOriginListExpanded(true);
+      openNextModal(() => setOriginSelectOpen(true));
     }
   };
 
@@ -1080,7 +1151,9 @@ export function PlannerClient() {
     setSituationSub(null);
     setSituationSeverity(null);
     setSituationFreeText('');
-    setSituationModalOpen(true);
+    // 다른 팝업(변수 없음 확인, 일차 선택 등)을 막 닫은 직후 호출될 수 있어 그 팝업이
+    // 실제로 닫힌 뒤에 열리도록 미룬다.
+    openNextModal(() => setSituationModalOpen(true));
   };
 
   const applySituationRuleBased = () => {
@@ -1176,7 +1249,9 @@ export function PlannerClient() {
     setMapSearchQuery('');
     setMapSearchResults([]);
     setMapSearchError(null);
-    setAddPlaceModalOpen(true);
+    // 이 팝업을 열기 직전에 다른 팝업(출발지 선택 등)을 닫는 경우가 많아서, 그 팝업이
+    // 실제로 닫힌 뒤에 열어야 두 팝업이 동시에 보이지 않는다.
+    openNextModal(() => setAddPlaceModalOpen(true));
   };
   const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
@@ -1930,7 +2005,8 @@ export function PlannerClient() {
   const proceedAfterOrigin = (origin: number) => {
     if (!currentVariableInput()) {
       setPendingRouteOrigin(origin);
-      setNoVariableModalOpen(true);
+      // 출발지 확정 팝업을 막 닫은 직후 호출될 수 있어(finalizeOrigin) 실제로 닫힌 뒤에 연다.
+      openNextModal(() => setNoVariableModalOpen(true));
       return;
     }
     void runOptimalRoute(origin);
@@ -1966,6 +2042,15 @@ export function PlannerClient() {
     hasDayTabs && selectedDay !== null
       ? places.filter((p) => (p.day ?? 0) === selectedDay)
       : places;
+  // 방금 방문지를 추가한 직후에는(주로 "출발지가 목록에 없어요" 흐름) 그 방문지를 고르기
+  // 쉽도록 목록 맨 앞에 오게 정렬한다. 그 외에는 지금 선택된 항목이 맨 앞에 온다.
+  const originCandidatePlacesSorted =
+    originChoiceId != null
+      ? [
+          ...originCandidatePlaces.filter((p) => p.id === originChoiceId),
+          ...originCandidatePlaces.filter((p) => p.id !== originChoiceId),
+        ]
+      : originCandidatePlaces;
 
   const handleRouteCalcClick = () => {
     if (loading || originCandidatePlaces.length === 0) return;
@@ -2023,7 +2108,7 @@ export function PlannerClient() {
   const confirmOriginChoice = () => {
     if (originChoiceId == null) return;
     setOriginSelectOpen(false);
-    setOriginConfirmOpen(true);
+    openNextModal(() => setOriginConfirmOpen(true));
   };
 
   const finalizeOrigin = () => {
@@ -2367,6 +2452,35 @@ export function PlannerClient() {
           <>
             <div className={styles.mapArea}>
               <div ref={mapRef} className={styles.mapCanvas} />
+
+              {kakaoReady ? (
+                <button
+                  type="button"
+                  className={styles.currentLocationBtn}
+                  onClick={handleLocateMe}
+                  disabled={locatingMe}
+                  aria-label="현재 위치로 이동"
+                  title="현재 위치로 이동"
+                >
+                  {locatingMe ? (
+                    '…'
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                    </svg>
+                  )}
+                </button>
+              ) : null}
 
               {/* 지도 화면 → 방문지/주소 입력 화면으로 돌아가는 버튼. 지도 상단은 검색창(searchOverlay)이
                   펼침/접힘 상태에 따라 폭을 다르게 차지하므로, 그 영역과 절대 겹치지 않도록
@@ -3204,7 +3318,7 @@ export function PlannerClient() {
               className={styles.situationList}
               style={{ marginTop: 6, maxHeight: 224, overflowY: 'auto' }}
             >
-              {originCandidatePlaces.map((p) => (
+              {originCandidatePlacesSorted.map((p) => (
                 <button
                   key={p.id}
                   type="button"
@@ -3455,6 +3569,7 @@ export function PlannerClient() {
 // Kakao Maps SDK 최소 인터페이스 (전역 타입 선언과 별개로, 이 화면에서 실제 쓰는 멤버만).
 interface KakaoOverlayLike {
   setMap: (map: unknown) => void;
+  setPosition?: (pos: unknown) => void;
 }
 interface KakaoMapInstance {
   setBounds: (bounds: unknown) => void;

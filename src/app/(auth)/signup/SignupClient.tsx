@@ -68,6 +68,19 @@ function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
+/**
+ * 위치정보 이용에 동의한 경우에만 호출 — 권한 프롬프트만 띄워보는 용도라
+ * 좌표는 어디에도 저장하지 않고, 거부되거나 실패해도 그냥 무시한다
+ * (회원가입/로그인 완료 여부에 전혀 영향 없음).
+ */
+function requestLocationPermission() {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    () => {},
+    () => {},
+  );
+}
+
 /** legacy/Signup Screen.dc.html 을 그대로 이식. */
 export function SignupClient() {
   const router = useRouter();
@@ -99,6 +112,7 @@ export function SignupClient() {
     service: false,
     privacy: false,
     marketing: false,
+    location: false,
   });
   const [termsSectionOpen, setTermsSectionOpen] = useState(false);
   const [termsModalKey, setTermsModalKey] = useState<string | null>(null);
@@ -112,6 +126,7 @@ export function SignupClient() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const resendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendingCodeRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -192,14 +207,21 @@ export function SignupClient() {
   };
 
   const handleSendCode = async () => {
-    if (!email || resendDisabled) return;
+    // resendDisabled state 갱신은 비동기라 클릭을 연타하면 응답이 오기 전까지 여러 번
+    // 통과해버린다 — ref로 즉시 잠가서 중복 발송(메일 5통 전송 버그)을 막는다.
+    if (!email || resendDisabled || sendingCodeRef.current) return;
+    sendingCodeRef.current = true;
+    setResendDisabled(true);
     setEmailFieldError('');
     let res;
     try {
       res = await sendCode(email);
     } catch (err) {
       setEmailFieldError(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
+      setResendDisabled(false);
       return;
+    } finally {
+      sendingCodeRef.current = false;
     }
     if (resendTimerRef.current) clearInterval(resendTimerRef.current);
     if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
@@ -260,7 +282,7 @@ export function SignupClient() {
   const allTermsChecked = TERMS_DATA.every((t) => termsChecked[t.key]);
   const toggleAllTerms = () => {
     const next = !allTermsChecked;
-    setTermsChecked({ service: next, privacy: next, marketing: next });
+    setTermsChecked({ service: next, privacy: next, marketing: next, location: next });
   };
   const requiredOk = TERMS_DATA.filter((t) => t.required).every((t) => termsChecked[t.key]);
   const activeTerm = TERMS_DATA.find((t) => t.key === termsModalKey);
@@ -314,6 +336,7 @@ export function SignupClient() {
       return;
     }
     setError('');
+    if (termsChecked.location) requestLocationPermission();
     login(result.user);
     router.push(ROUTES.home);
   };

@@ -13,10 +13,7 @@ export interface ScheduleSummary extends SavedRoute {
 }
 
 /** 로그인한 사용자가 제작자이거나 협업자인 모든 일정을, 각자의 권한과 함께 돌려준다. */
-export async function listSchedulesForUser(
-  userId: string,
-  selfNickname: string | null,
-): Promise<ScheduleSummary[]> {
+export async function listSchedulesForUser(userId: string): Promise<ScheduleSummary[]> {
   const owned = await db.select().from(schedules).where(eq(schedules.ownerId, userId));
   const collabRows = await db
     .select({ schedule: schedules, role: scheduleCollaborators.role })
@@ -37,10 +34,15 @@ export async function listSchedulesForUser(
     for (const row of ownerRows) ownerNicknameById.set(row.id, row.nickname);
 
     const collabNicknameRows = await db
-      .select({ scheduleId: scheduleCollaborators.scheduleId, nickname: users.nickname })
+      .select({
+        scheduleId: scheduleCollaborators.scheduleId,
+        nickname: users.nickname,
+        joinedAt: scheduleCollaborators.createdAt,
+      })
       .from(scheduleCollaborators)
       .innerJoin(users, eq(scheduleCollaborators.userId, users.id))
-      .where(inArray(scheduleCollaborators.scheduleId, allIds));
+      .where(inArray(scheduleCollaborators.scheduleId, allIds))
+      .orderBy(scheduleCollaborators.createdAt);
     for (const row of collabNicknameRows) {
       const list = collabNicknamesById.get(row.scheduleId) ?? [];
       list.push(row.nickname ?? '');
@@ -48,11 +50,23 @@ export async function listSchedulesForUser(
     }
   }
 
-  function buildMembers(scheduleId: string): string[] {
+  // 제작자를 항상 맨 앞에 고정하고(왕관 표시용으로 isOwner: true), 이후 참여자는 참여한(=협업자로
+  // 추가된) 순서대로 붙인다. 본인도 어차피 참여자 중 하나이므로 제외하지 않고 그대로 포함한다.
+  function buildMembers(scheduleId: string): { nickname: string; isOwner: boolean }[] {
     const owner = ownerNicknameById.get(scheduleId);
     const collabs = collabNicknamesById.get(scheduleId) ?? [];
-    const all = [owner, ...collabs].filter((n): n is string => Boolean(n) && n !== selfNickname);
-    return Array.from(new Set(all));
+    const seen = new Set<string>();
+    const result: { nickname: string; isOwner: boolean }[] = [];
+    if (owner) {
+      seen.add(owner);
+      result.push({ nickname: owner, isOwner: true });
+    }
+    for (const nickname of collabs) {
+      if (!nickname || seen.has(nickname)) continue;
+      seen.add(nickname);
+      result.push({ nickname, isOwner: false });
+    }
+    return result;
   }
 
   function toSummary(row: (typeof owned)[number], role: ScheduleRole): ScheduleSummary {

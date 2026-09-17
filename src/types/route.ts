@@ -68,8 +68,11 @@ export interface SavedRoute {
   /** "경로 계산"/"경로 검색"으로 실제 조회해 둔 구간 결과. 저장 시 같이 저장해서 다시
    * 불러왔을 때 재검색 없이 그대로 쓴다. */
   routeCache?: RouteLegCache;
-  /** 함께 편집 중인 팀원 닉네임. legacy 의 `members` 를 그대로 옮김 (본인 제외). */
-  members?: string[];
+  /**
+   * 이 일정에 관여된 사람 전체(본인 포함) — 제작자가 항상 맨 앞이고 isOwner: true(왕관 표시용),
+   * 이후 참여한 순서대로 이어진다.
+   */
+  members?: { nickname: string; isOwner: boolean }[];
   /** 제목을 사용자가 직접 바꿨는지 — 자동 생성 제목과 구분할 때 쓴다. */
   customName?: boolean;
 }
