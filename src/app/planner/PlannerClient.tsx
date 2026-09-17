@@ -21,6 +21,7 @@ import {
   fetchRouteLeg,
   KakaoApiError,
   loadKakaoMapsSdk,
+  reverseGeocode,
   searchKeyword,
   type KakaoPlaceDoc,
 } from '@/lib/kakao/client';
@@ -249,6 +250,8 @@ export function PlannerClient() {
   const [noVariableModalOpen, setNoVariableModalOpen] = useState(false);
   const [pendingRouteOrigin, setPendingRouteOrigin] = useState<number | null>(null);
   const [addPlaceModalOpen, setAddPlaceModalOpen] = useState(false);
+  // "현재 위치를 출발지로 설정"으로 위치/주소를 가져오는 동안 버튼을 잠그기 위한 상태.
+  const [locatingCurrentPosition, setLocatingCurrentPosition] = useState(false);
   // 전체보기에서 여행이 2일 이상이면, 일차마다 따로 "경로 계산"을 누르는 대신
   // 한 번에 일차별 출발지를 다 고르고 순서대로 계산한다.
   const [multiDayOriginModalOpen, setMultiDayOriginModalOpen] = useState(false);
@@ -1310,6 +1313,74 @@ export function PlannerClient() {
     // 실제로 닫힌 뒤에 열어야 두 팝업이 동시에 보이지 않는다.
     openNextModal(() => setAddPlaceModalOpen(true));
   };
+  /** 방문지 추가 팝업에서 "현재 위치를 출발지로 설정"을 눌렀을 때: 브라우저 위치를 가져와
+   * 주소로 바꾼 뒤 다른 방문지와 똑같은 방식으로 바로 등록하고, 원래 흐름(B: 출발지 선택
+   * 목록)으로 이어간다. */
+  const useCurrentLocationAsOrigin = async () => {
+    if (!navigator.geolocation) {
+      showToast('이 브라우저에서는 현재 위치를 가져올 수 없어요');
+      return;
+    }
+    setLocatingCurrentPosition(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      const x = position.coords.longitude;
+      const y = position.coords.latitude;
+
+      let name = '현재 위치';
+      try {
+        const data = await reverseGeocode(x, y);
+        const doc = data.documents?.[0];
+        const addressName = doc?.road_address?.address_name || doc?.address?.address_name;
+        if (addressName) name = addressName;
+      } catch (err) {
+        // 주소를 못 가져와도 좌표는 이미 있으니 "현재 위치"라는 이름으로 계속 진행한다.
+        console.error('reverseGeocode failed:', err);
+      }
+
+      const newPlace: Place = {
+        id: allocatePlaceId(),
+        name,
+        category: '미분류',
+        address: name,
+        duration: 15,
+        hours: 'unknown',
+        hoursLabel: '영업시간 확인 필요',
+        visitTime: '',
+        packItems: '',
+        weather: 'sunny',
+        day: selectedDay ?? 0,
+        x,
+        y,
+      };
+      const next = [...places, newPlace];
+      setPlaces(next);
+      setSegments(resizeSegments(next, segments));
+      setRouteSegmentsReady(false);
+      setRouteCache({});
+      logActivity(`${name}을(를) 현재 위치로 추가했습니다`);
+      showToast('현재 위치를 방문지로 추가했어요');
+
+      setAddPlaceModalOpen(false);
+      if (returnToOriginPickerAfterAdd) {
+        setReturnToOriginPickerAfterAdd(false);
+        setOriginChoiceId(newPlace.id);
+        setOriginListExpanded(true);
+        openNextModal(() => setOriginSelectOpen(true));
+      }
+    } catch (err) {
+      console.error('useCurrentLocationAsOrigin failed:', err);
+      showToast('현재 위치를 가져오지 못했어요. 위치 권한을 확인해주세요.');
+    } finally {
+      setLocatingCurrentPosition(false);
+    }
+  };
+
   const toggleMapSearchCollapsed = () => setMapSearchBarCollapsed((prev) => !prev);
   const clearMapSearchQuery = () => {
     clearSearchMarker();
@@ -3197,6 +3268,23 @@ export function PlannerClient() {
             검색
           </Button>
         </div>
+        <button
+          type="button"
+          className={styles.hint}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            marginTop: 8,
+            cursor: locatingCurrentPosition ? 'default' : 'pointer',
+            textDecoration: 'underline',
+            opacity: locatingCurrentPosition ? 0.6 : 1,
+          }}
+          onClick={useCurrentLocationAsOrigin}
+          disabled={locatingCurrentPosition}
+        >
+          {locatingCurrentPosition ? '현재 위치를 확인하는 중...' : '현재 위치를 출발지로 설정'}
+        </button>
         {mapSearchLoading ? <p className={styles.modalDesc}>검색 중...</p> : null}
         {mapSearchError ? <p className={styles.modalDesc}>{mapSearchError}</p> : null}
         {mapSearchResults.length > 0 ? (
