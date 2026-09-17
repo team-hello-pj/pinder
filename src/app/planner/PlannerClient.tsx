@@ -2281,27 +2281,6 @@ export function PlannerClient() {
 
       {/* 우측: 지도 + 요약 */}
       <div className={styles.mapCol}>
-        {panelCollapsed ? (
-          <button
-            type="button"
-            className={styles.mobileExpandPanelBtn}
-            onClick={togglePanelCollapsed}
-            aria-label="플래너 펼치기"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        ) : null}
         {mapCollapsed ? (
           <button
             type="button"
@@ -2315,6 +2294,31 @@ export function PlannerClient() {
           <>
             <div className={styles.mapArea}>
               <div ref={mapRef} className={styles.mapCanvas} />
+
+              {/* 지도 화면 → 방문지/주소 입력 화면으로 돌아가는 버튼. 지도 상단은 검색창(searchOverlay)이
+                  펼침/접힘 상태에 따라 폭을 다르게 차지하므로, 그 영역과 절대 겹치지 않도록
+                  mapArea 하단(요약바 위쪽)에 고정한다. */}
+              {panelCollapsed ? (
+                <button
+                  type="button"
+                  className={styles.mobileExpandPanelBtn}
+                  onClick={togglePanelCollapsed}
+                  aria-label="플래너 펼치기"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+              ) : null}
 
               {searchMode ? (
                 <div className={styles.searchOverlay}>
