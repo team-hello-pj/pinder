@@ -7,6 +7,7 @@ import { saveAiRouteHandoff } from '@/lib/ai-route-handoff';
 import {
   getDestinationRoute,
   listExploreSections,
+  type Destination,
   type DestinationTripLength,
   type ExploreSection,
 } from '@/lib/destinations';
@@ -41,31 +42,35 @@ export function ExploreClient() {
   // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.legendCollapsed) — PC에서는 항상 펼쳐져 보인다.
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
-  const [durationModalDestId, setDurationModalDestId] = useState<string | null>(null);
+  const [durationModalDest, setDurationModalDest] = useState<Destination | null>(null);
   const [loadingLength, setLoadingLength] = useState<DestinationTripLength | null>(null);
 
-  const openDurationModal = (destId: string) => {
-    if (!isLoggedIn) {
-      router.push('/login');
-      return;
-    }
-    setDurationModalDestId(destId);
-  };
-
-  const startWithDestinationRoute = async (tripLength: DestinationTripLength) => {
-    if (!durationModalDestId) return;
+  const startWithDestinationRoute = async (destId: string, tripLength: DestinationTripLength) => {
     setLoadingLength(tripLength);
-    const route = await getDestinationRoute(durationModalDestId, tripLength);
+    const route = await getDestinationRoute(destId, tripLength);
     setLoadingLength(null);
     if (!route) {
       window.alert('아직 준비된 동선이 없어요.');
       return;
     }
-    setDurationModalDestId(null);
+    setDurationModalDest(null);
     saveAiRouteHandoff(route);
     const tripStart = todayStr();
     const tripEnd = addDaysStr(tripStart, tripLength - 1);
     router.push(`/planner?new=1&tripStart=${tripStart}&tripEnd=${tripEnd}&mode=ai`);
+  };
+
+  const onCardClick = (dest: Destination) => {
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
+    // 미리 만들어 둔 기간이 하나뿐이면(예: 드라이브 코스는 당일치기만) 굳이 묻지 않고 바로 시작한다.
+    if (dest.availableTripLengths.length === 1) {
+      void startWithDestinationRoute(dest.id, dest.availableTripLengths[0]);
+      return;
+    }
+    setDurationModalDest(dest);
   };
 
   useEffect(() => {
@@ -240,7 +245,7 @@ export function ExploreClient() {
                         <button
                           type="button"
                           className={styles.cardLink}
-                          onClick={() => openDurationModal(dest.id)}
+                          onClick={() => onCardClick(dest)}
                         >
                           이 여행지로 일정 짜기 →
                         </button>
@@ -254,18 +259,22 @@ export function ExploreClient() {
       )}
 
       <Modal
-        open={durationModalDestId !== null}
+        open={durationModalDest !== null}
         title="며칠 동안 다녀오시나요?"
-        onClose={() => setDurationModalDestId(null)}
+        onClose={() => setDurationModalDest(null)}
       >
         <div className={styles.tripLengthList}>
-          {TRIP_LENGTH_OPTIONS.map((opt) => (
+          {TRIP_LENGTH_OPTIONS.filter((opt) =>
+            durationModalDest?.availableTripLengths.includes(opt.length),
+          ).map((opt) => (
             <button
               key={opt.length}
               type="button"
               className={styles.tripLengthOption}
               disabled={loadingLength !== null}
-              onClick={() => startWithDestinationRoute(opt.length)}
+              onClick={() =>
+                durationModalDest && startWithDestinationRoute(durationModalDest.id, opt.length)
+              }
             >
               {loadingLength === opt.length ? '불러오는 중...' : opt.label}
             </button>

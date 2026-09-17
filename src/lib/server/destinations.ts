@@ -24,6 +24,11 @@ export interface DestinationView {
   tags: string[];
   /** 우리 AI 동선 생성 기능으로 미리 만들어 둔 동선이 있는지 — "이 여행지로 일정 짜기" 노출 여부. */
   hasRoute: boolean;
+  /**
+   * 미리 만들어 둔 기간이 몇 가지인지(1/2/3 중 일부 또는 전부). 하나뿐이면 굳이 "며칠 동안
+   * 다녀오시나요?"를 묻지 않고 그 길이로 바로 시작한다 — 예: 드라이브 코스는 당일치기만 있다.
+   */
+  availableTripLengths: DestinationTripLength[];
 }
 
 export interface ExploreSectionView {
@@ -48,6 +53,11 @@ export async function listExploreSections(): Promise<ExploreSectionView[]> {
       sectionByTitle.set(row.sectionTitle, section);
       sections.push(section);
     }
+    const routes = row.routes as StoredRoutes | null;
+    const availableTripLengths = ([1, 2, 3] as DestinationTripLength[]).filter((len) => {
+      const variant = routes?.[String(len) as '1' | '2' | '3'];
+      return Boolean(variant?.places?.length);
+    });
     section.items.push({
       id: row.id,
       name: row.name,
@@ -55,7 +65,8 @@ export async function listExploreSections(): Promise<ExploreSectionView[]> {
       badge: row.badge,
       desc: row.desc,
       tags: row.tags as string[],
-      hasRoute: Boolean(row.routes && typeof row.routes === 'object'),
+      hasRoute: availableTripLengths.length > 0,
+      availableTripLengths,
     });
   }
 
