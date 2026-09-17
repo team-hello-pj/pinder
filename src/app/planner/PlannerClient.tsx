@@ -14,6 +14,7 @@ import {
   WEATHER_SUBS,
 } from '@/constants';
 import { consumeAiRouteHandoff } from '@/lib/ai-route-handoff';
+import { runWithConcurrencyLimit } from '@/lib/concurrency';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
@@ -873,12 +874,14 @@ export function PlannerClient() {
   const searchAllRoutes = async () => {
     if (routeSearching || segments.length < 1) return;
     setRouteSearching(true);
-    const tasks: Promise<void>[] = [];
+    const tasks: (() => Promise<void>)[] = [];
     for (let idx = 0; idx < segments.length; idx++) {
       for (const mode of MODE_ORDER)
-        tasks.push(fetchSegmentRouteForModeWithCriteria(idx, mode, criteria));
+        tasks.push(() => fetchSegmentRouteForModeWithCriteria(idx, mode, criteria));
     }
-    await Promise.all(tasks);
+    // 방문지 수 × 이동수단 4종 요청을 한 번에 다 쏘면 카카오 API 요청 속도 제한에 걸려
+    // 일부(특히 도보/대중교통/자전거)가 조회 실패로 남는다 — 동시 요청 수를 제한한다.
+    await runWithConcurrencyLimit(tasks, 4);
     setRouteSearching(false);
     syncKakaoPolyline();
     logActivity('경로를 검색했습니다');
@@ -1596,18 +1599,20 @@ export function PlannerClient() {
               const matrix: (RouteLeg | null)[][] = Array.from({ length: size }, () =>
                 new Array(size).fill(null),
               );
-              const tasks: Promise<void>[] = [];
+              const tasks: (() => Promise<void>)[] = [];
               for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                   if (i === j) continue;
-                  tasks.push(
+                  tasks.push(() =>
                     fetchLeg(nodes[i], nodes[j], crit).then((leg) => {
                       matrix[i][j] = leg;
                     }),
                   );
                 }
               }
-              await Promise.all(tasks);
+              // 방문지 수의 제곱만큼 요청이 한 번에 몰리면 카카오 API 요청 속도 제한에 걸린다 —
+              // 동시 요청 수를 제한해서 실패율을 낮춘다.
+              await runWithConcurrencyLimit(tasks, 4);
               return matrix;
             };
 
