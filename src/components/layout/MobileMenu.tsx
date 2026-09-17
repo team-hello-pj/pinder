@@ -42,22 +42,6 @@ export function MobileMenu() {
             >
               {isLoggedIn ? '마이페이지' : '로그인'}
             </Link>
-            <div className={styles.notifyRow}>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3a5 5 0 0 0-5 5v3.2c0 .6-.24 1.18-.66 1.6L4.8 14.3c-.86.86-.25 2.34.95 2.34h12.5c1.2 0 1.8-1.48.95-2.34l-1.54-1.5A2.27 2.27 0 0 1 17 11.2V8a5 5 0 0 0-5-5Z" />
-                <path d="M9.5 19a2.5 2.5 0 0 0 5 0" />
-              </svg>
-              <span>알림</span>
-            </div>
           </div>
         </>
       ) : null}

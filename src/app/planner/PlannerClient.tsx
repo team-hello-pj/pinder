@@ -1919,6 +1919,27 @@ export function PlannerClient() {
 
       {/* 우측: 지도 + 요약 */}
       <div className={styles.mapCol}>
+        {panelCollapsed ? (
+          <button
+            type="button"
+            className={styles.mobileExpandPanelBtn}
+            onClick={togglePanelCollapsed}
+            aria-label="플래너 펼치기"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        ) : null}
         {mapCollapsed ? (
           <button
             type="button"

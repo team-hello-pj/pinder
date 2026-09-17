@@ -73,13 +73,3 @@
   background: var(--pd-row-hover);
   color: var(--pd-link);
 }
-
-.notifyRow {
-  padding: 9px 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--pd-text);
-  font-size: 13.5px;
-  font-weight: 600;
-}

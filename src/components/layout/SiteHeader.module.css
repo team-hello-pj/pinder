@@ -81,7 +81,7 @@
     display: none;
   }
 
-  .desktopOnly {
-    display: none;
+  .actions {
+    gap: 14px;
   }
 }

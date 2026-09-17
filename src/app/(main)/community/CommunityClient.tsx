@@ -100,7 +100,8 @@ export function CommunityClient() {
   const [toastVisible, setToastVisible] = useState(false);
 
   const [selectedRegion, setSelectedRegion] = useState('전체');
-  const [regionExpanded, setRegionExpanded] = useState(true);
+  // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.regionCollapsed) — PC에서는 항상 펼쳐져 보인다.
+  const [regionExpanded, setRegionExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('popular');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');

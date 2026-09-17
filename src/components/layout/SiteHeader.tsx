@@ -43,9 +43,7 @@ export function SiteHeader() {
 
         <div className={styles.actions}>
           <ThemeToggle />
-          <div className={styles.desktopOnly}>
-            <NotificationBell />
-          </div>
+          <NotificationBell />
           <Link href={isLoggedIn ? ROUTES.myPage : ROUTES.login} className={styles.loginBtn}>
             {isLoggedIn ? '마이페이지' : '로그인'}
           </Link>

@@ -12,7 +12,8 @@ import styles from './explore.module.css';
 export function ExploreClient() {
   const [rawSections, setRawSections] = useState<ExploreSection[]>([]);
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
-  const [legendExpanded, setLegendExpanded] = useState(true);
+  // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.legendCollapsed) — PC에서는 항상 펼쳐져 보인다.
+  const [legendExpanded, setLegendExpanded] = useState(false);
   const [sectionPages, setSectionPages] = useState<Record<number, number>>({});
 
   useEffect(() => {
