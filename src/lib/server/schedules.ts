@@ -71,10 +71,14 @@ export async function listSchedulesForUser(
     };
   }
 
-  return [
-    ...owned.map((s) => toSummary(s, 'creator')),
-    ...collabRows.map((r) => toSummary(r.schedule, r.role as ScheduleRole)),
+  const combined = [
+    ...owned.map((row) => ({ row, role: 'creator' as ScheduleRole })),
+    ...collabRows.map((r) => ({ row: r.schedule, role: r.role as ScheduleRole })),
   ];
+  // 생성된 순서대로, 최신 일정이 맨 위로 오도록 정렬한다.
+  combined.sort((a, b) => b.row.createdAt.getTime() - a.row.createdAt.getTime());
+
+  return combined.map(({ row, role }) => toSummary(row, role));
 }
 
 /** 이 사용자가 해당 일정에 어떤 권한으로 접근할 수 있는지. 접근 불가면 null. */
