@@ -2320,7 +2320,7 @@ export function PlannerClient() {
             <div className={styles.listHeader}>
               <div className={styles.listHeaderLeft}>
                 <span className={styles.listTitle}>
-                  방문지 목록 {places.length > 0 ? `(${places.length})` : ''}
+                  방문지 목록 {visiblePlaces.length > 0 ? `(${visiblePlaces.length})` : ''}
                 </span>
                 {hasDayTabs ? (
                   <select
