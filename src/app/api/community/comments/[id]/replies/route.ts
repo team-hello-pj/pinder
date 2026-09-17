@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!text?.trim()) return NextResponse.json({ error: '답글을 입력해주세요.' }, { status: 400 });
 
   const [comment] = await db
-    .select({ authorId: postComments.authorId })
+    .select({ authorId: postComments.authorId, postId: postComments.postId })
     .from(postComments)
     .where(eq(postComments.id, id))
     .limit(1);
@@ -33,6 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       'comment',
       `${session.nickname ?? session.name}님이 회원님의 댓글에 답글을 남겼어요.`,
       'communityComment',
+      { relatedId: comment.postId },
     );
   }
 

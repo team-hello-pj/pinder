@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -81,6 +81,8 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const appliedPostParamRef = useRef(false);
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
   const [posts, setPosts] = useState<PostView[]>([]);
@@ -136,6 +138,18 @@ export function CommunityClient() {
       cancelled = true;
     };
   }, []);
+
+  // 알림에서 "/community?post=<id>" 로 들어온 경우, 게시물 목록이 로드되면 해당 게시물의
+  // 상세(댓글) 모달을 자동으로 연다. 대상 게시물을 못 찾으면(삭제됨 등) 조용히 무시한다.
+  useEffect(() => {
+    if (appliedPostParamRef.current) return;
+    const postId = searchParams.get('post');
+    if (!postId) return;
+    if (!posts.some((p) => p.id === postId)) return;
+    appliedPostParamRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 게시물이 로드된 뒤 한 번만 연다
+    setCommentModalId(postId);
+  }, [posts, searchParams]);
 
   useEffect(() => {
     if (!commentModalId) return;

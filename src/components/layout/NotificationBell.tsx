@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import {
@@ -58,6 +59,7 @@ function TypeIcon({ type }: { type: NotificationItem['type'] }) {
 
 /** 헤더의 알림 종. 열 때 전부 읽음 처리한다 (legacy/main(home).dc.html 과 동일한 동작). */
 export function NotificationBell() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
@@ -92,6 +94,22 @@ export function NotificationBell() {
     if (!n.relatedScheduleId || !n.relatedRequestId) return;
     await resolveEditRequest(n.relatedScheduleId, n.relatedRequestId, action);
     deleteNotification(n.id).then(setNotifications);
+  };
+  /**
+   * 알림 클릭 시 원래 위치로 이동한다. relatedScheduleId 는 알림 종류에 따라
+   * 일정 id(schedule) 또는 커뮤니티 게시물 id(comment)를 담고 있다 — 연결 정보가 없는
+   * 기존 알림(마이그레이션 이전에 생성된 것 등)은 그냥 무시하고 아무 일도 하지 않는다.
+   */
+  const onItemClick = (n: NotificationItem) => {
+    if (!n.relatedScheduleId) return;
+    if (n.type === 'schedule') {
+      router.push(`/planner?loadRoute=${n.relatedScheduleId}`);
+    } else if (n.type === 'comment') {
+      router.push(`/community?post=${n.relatedScheduleId}`);
+    } else {
+      return;
+    }
+    setOpen(false);
   };
 
   return (
@@ -130,7 +148,11 @@ export function NotificationBell() {
                   <div
                     key={n.id}
                     className={styles.item}
-                    style={{ fontWeight: n.read ? 500 : 700 }}
+                    style={{
+                      fontWeight: n.read ? 500 : 700,
+                      cursor: n.relatedScheduleId ? 'pointer' : 'default',
+                    }}
+                    onClick={() => onItemClick(n)}
                   >
                     <span className={styles.itemBadge}>
                       <TypeIcon type={n.type} />
@@ -147,14 +169,20 @@ export function NotificationBell() {
                           <button
                             type="button"
                             className={styles.approveBtn}
-                            onClick={() => onResolveRequest(n, 'approve')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onResolveRequest(n, 'approve');
+                            }}
                           >
                             승인
                           </button>
                           <button
                             type="button"
                             className={styles.rejectBtn}
-                            onClick={() => onResolveRequest(n, 'reject')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onResolveRequest(n, 'reject');
+                            }}
                           >
                             거절
                           </button>
@@ -167,7 +195,10 @@ export function NotificationBell() {
                         className={styles.deleteBtn}
                         title="삭제"
                         aria-label="알림 삭제"
-                        onClick={() => onDelete(n.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(n.id);
+                        }}
                       >
                         ✕
                       </button>

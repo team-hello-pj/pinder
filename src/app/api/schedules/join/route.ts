@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         'schedule',
         `${session.nickname ?? session.name}님이 설정한 「${schedule.title}」에 편집 권한을 수락하시겠습니까?`,
         'schedule',
-        { scheduleId: schedule.id, requestId: newRequest.id },
+        { relatedId: schedule.id, requestId: newRequest.id },
       );
     }
   }
