@@ -241,6 +241,7 @@
 }
 
 .memberAvatar {
+  position: relative;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -251,6 +252,16 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/** 일정 제작자(권한자) 표시 — 아바타 위에 살짝 겹치는 왕관. */
+.ownerCrown {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
 }
 
 .chips {

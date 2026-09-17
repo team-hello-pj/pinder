@@ -309,15 +309,16 @@ export function MyRoutesClient() {
 
                   {route.members && route.members.length > 0 ? (
                     <div className={styles.members}>
-                      {route.members.map((name) => (
-                        <span key={name} className={styles.member}>
+                      {route.members.map((m) => (
+                        <span key={m.nickname} className={styles.member}>
                           <span
                             className={styles.memberAvatar}
-                            style={{ background: avatarColorFor(name) }}
+                            style={{ background: avatarColorFor(m.nickname) }}
                           >
-                            {name.slice(0, 1)}
+                            {m.isOwner ? <span className={styles.ownerCrown}>👑</span> : null}
+                            {m.nickname.slice(0, 1)}
                           </span>
-                          <span>{name}</span>
+                          <span>{m.nickname}</span>
                         </span>
                       ))}
                     </div>
