@@ -202,6 +202,9 @@ export function PlannerClient() {
   const kakaoMarkersRef = useRef<KakaoOverlayLike[]>([]);
   const kakaoPolylinesRef = useRef<KakaoOverlayLike[]>([]);
   const searchMarkerRef = useRef<KakaoOverlayLike | null>(null);
+  // 현재 위치 marker는 재조회할 때마다 새로 만들지 않고 위치만 옮긴다.
+  const currentLocationMarkerRef = useRef<KakaoOverlayLike | null>(null);
+  const [locatingMe, setLocatingMe] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
   const [kakaoLoadFailed, setKakaoLoadFailed] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
@@ -484,6 +487,53 @@ export function PlannerClient() {
     },
     [places],
   );
+
+  /**
+   * "현재 위치" 버튼. 지도 중심 이동 + 전용 marker 표시만 하고, 방문지/구간과는 무관하므로
+   * 경로 검색·재계산은 절대 건드리지 않는다. 재조회 시에는 marker를 새로 만들지 않고
+   * 기존 marker 위치만 옮긴다. 위치 권한이 없거나 거부돼도 이 기능만 안 될 뿐 나머지
+   * 화면은 그대로 정상 동작한다.
+   */
+  const handleLocateMe = useCallback(() => {
+    const kakao = window.kakao;
+    const map = kakaoMapRef.current;
+    if (!kakao || !map) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      showToast('이 브라우저에서는 위치 정보를 사용할 수 없어요.');
+      return;
+    }
+    setLocatingMe(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocatingMe(false);
+        const pos = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        map.setCenter(pos);
+        if (currentLocationMarkerRef.current?.setPosition) {
+          currentLocationMarkerRef.current.setPosition(pos);
+        } else {
+          currentLocationMarkerRef.current?.setMap(null);
+          currentLocationMarkerRef.current = new kakao.maps.Marker({
+            position: pos,
+            map,
+            zIndex: 10,
+            image: new kakao.maps.MarkerImage(
+              'data:image/svg+xml;base64,' +
+                btoa(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="8" fill="#3b82f6" stroke="#fff" stroke-width="3"/></svg>',
+                ),
+              new kakao.maps.Size(26, 26),
+              { offset: new kakao.maps.Point(13, 13) },
+            ),
+          });
+        }
+      },
+      () => {
+        setLocatingMe(false);
+        showToast('위치 권한이 없어 현재 위치를 가져오지 못했어요.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, [showToast]);
 
   const syncKakaoPolyline = useCallback(() => {
     kakaoPolylinesRef.current.forEach((line) => line.setMap(null));
@@ -2369,6 +2419,35 @@ export function PlannerClient() {
             <div className={styles.mapArea}>
               <div ref={mapRef} className={styles.mapCanvas} />
 
+              {kakaoReady ? (
+                <button
+                  type="button"
+                  className={styles.currentLocationBtn}
+                  onClick={handleLocateMe}
+                  disabled={locatingMe}
+                  aria-label="현재 위치로 이동"
+                  title="현재 위치로 이동"
+                >
+                  {locatingMe ? (
+                    '…'
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                    </svg>
+                  )}
+                </button>
+              ) : null}
+
               {/* 지도 화면 → 방문지/주소 입력 화면으로 돌아가는 버튼. 지도 상단은 검색창(searchOverlay)이
                   펼침/접힘 상태에 따라 폭을 다르게 차지하므로, 그 영역과 절대 겹치지 않도록
                   mapArea 하단(요약바 위쪽)에 고정한다. */}
@@ -3452,6 +3531,7 @@ export function PlannerClient() {
 // Kakao Maps SDK 최소 인터페이스 (전역 타입 선언과 별개로, 이 화면에서 실제 쓰는 멤버만).
 interface KakaoOverlayLike {
   setMap: (map: unknown) => void;
+  setPosition?: (pos: unknown) => void;
 }
 interface KakaoMapInstance {
   setBounds: (bounds: unknown) => void;
