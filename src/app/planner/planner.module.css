@@ -2084,11 +2084,12 @@
 
   /* 하단 요약바의 액션 버튼들 — PC에서는 한 줄로 쭉 이어지지만 모바일에서는 6개가
      한 줄에 다 들어가지 않는다. 각 버튼의 기존 스타일/문구/아이콘은 그대로 두고,
-     3열 그리드로 균등하게 배치해 [변수추가·활동로그·저장] / [달력·원본삭제·경로계산]
-     두 줄로 잘리거나 겹치지 않게 정리한다. */
+     12분할 그리드로 배치해 [변수추가·활동로그·저장] / [달력·원본삭제·경로계산]
+     두 줄로 잘리거나 겹치지 않게 정리한다 — gap은 모든 버튼에 동일하게 유지하고,
+     칸 너비(span)만 달리해서 원본삭제는 조금 작게, 경로계산은 조금 크게 잡는다. */
   .summaryActions {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(12, 1fr);
     width: 100%;
     margin-left: 0;
   }
@@ -2099,25 +2100,31 @@
 
   .mobileActionsRow1Col1 {
     order: 1;
+    grid-column: span 4;
   }
 
   .mobileActionsRow1Col2 {
     order: 2;
+    grid-column: span 4;
   }
 
   .mobileActionsRow1Col3 {
     order: 3;
+    grid-column: span 4;
   }
 
   .mobileActionsRow2Col1 {
     order: 4;
+    grid-column: span 4;
   }
 
   .mobileActionsRow2Col2 {
     order: 5;
+    grid-column: span 3;
   }
 
   .mobileActionsRow2Col3 {
     order: 6;
+    grid-column: span 5;
   }
 }
