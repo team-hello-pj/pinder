@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 
+import { DesktopScaleView } from '@/components/layout/DesktopScaleView';
 import { ForceDesktopView } from '@/components/layout/ForceDesktopView';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
@@ -10,15 +11,23 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
  * 로그인/회원가입처럼 헤더가 없는 화면은 (auth) 그룹에 둔다.
  */
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  return (
+  const content = (
     <>
-      {/* ForceDesktopView 가 useSearchParams() 를 쓰므로 Suspense 경계가 필요하다. */}
-      <Suspense fallback={null}>
-        <ForceDesktopView />
-      </Suspense>
       <SiteHeader />
       <main>{children}</main>
       <SiteFooter />
+    </>
+  );
+
+  return (
+    <>
+      {/* ForceDesktopView/DesktopScaleView 가 useSearchParams() 를 쓰므로 Suspense 경계가 필요하다. */}
+      <Suspense fallback={null}>
+        <ForceDesktopView />
+      </Suspense>
+      <Suspense fallback={content}>
+        <DesktopScaleView>{content}</DesktopScaleView>
+      </Suspense>
     </>
   );
 }
