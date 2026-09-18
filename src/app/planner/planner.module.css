@@ -1971,6 +1971,15 @@
     transform: translateX(0);
   }
 
+  /* .collapseBtn(«) 은 모바일에서 지도를 펼치는 유일한 진입점인데, 테두리(--pd-border)와
+     배경(--pd-chip-bg)의 명도 차이가 거의 없어 잘 안 보인다는 피드백을 받았다 — 모바일에서만
+     브랜드 색 테두리/배경을 뚜렷하게 넣어 눈에 띄게 한다(PC/다크모드 스타일은 그대로 둔다). */
+  .collapseBtn {
+    border: 1.5px solid var(--pd-brand-strong);
+    background: var(--pd-brand);
+    color: var(--pd-brand-ink);
+  }
+
   /* mapArea 를 독립된 stacking context 로 분리한다 — 이 안의 어떤 자식(검색 오버레이,
      검색 결과 등)이 앞으로 z-index 를 올리더라도, mapArea 밖으로는 절대 영향을 주지 않고
      mapArea 안에서는 .mobileExpandPanelBtn 의 z-index 비교가 항상 예측 가능하게 유지된다. */
