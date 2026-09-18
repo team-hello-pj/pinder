@@ -19,8 +19,25 @@ export const runtime = 'nodejs';
 type Action = 'geocode' | 'reverseGeocode' | 'keyword' | 'nearby' | 'car' | 'walk' | 'transit' | 'bike';
 
 /** 지도 클릭 좌표 주변의 실제 장소 후보를 찾을 때 훑는 대표 카테고리 — Kakao 카테고리 검색은
- * "전체" 카테고리 옵션이 없으므로, 자주 방문지가 될 만한 카테고리 몇 가지를 병렬로 조회해 합친다. */
-const NEARBY_CATEGORY_CODES = ['FD6', 'CE7', 'CS2', 'PO3', 'SC4', 'AT4', 'HP8', 'AD5'] as const;
+ * "전체" 카테고리 옵션이 없으므로, 자주 방문지가 될 만한 카테고리를 병렬로 조회해 합친다.
+ * 상업시설이 드문 주거/외곽 지역에서도 후보가 아예 안 나오는 경우를 줄이려고 지하철역·
+ * 대형마트·문화시설·은행처럼 널리 퍼져 있는 카테고리도 포함한다. */
+const NEARBY_CATEGORY_CODES = [
+  'FD6',
+  'CE7',
+  'CS2',
+  'PO3',
+  'SC4',
+  'AT4',
+  'HP8',
+  'AD5',
+  'MT1',
+  'CT1',
+  'SW8',
+  'BK9',
+] as const;
+/** 상업시설이 드문 곳에서도 후보를 찾을 확률을 높이려고 300m보다 넓게 훑는다. */
+const NEARBY_SEARCH_RADIUS_M = 800;
 
 interface KakaoRequestBody {
   action?: Action;
@@ -114,7 +131,7 @@ export async function POST(request: Request) {
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const addrDoc = (addrRes.data as any)?.documents?.[0];
-        const radius = params.radius ?? 300;
+        const radius = params.radius ?? NEARBY_SEARCH_RADIUS_M;
 
         const categoryResults = await Promise.all(
           NEARBY_CATEGORY_CODES.map((code) =>
