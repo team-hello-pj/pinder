@@ -132,8 +132,10 @@
   }
 }
 
-/* 모바일 헤더에서는 nav/로그인 버튼이 사라져 액션 영역(야간모드 버튼)이 훨씬 가까워지므로,
-   이동 경로·타이밍은 그대로 두고 마지막 도착 좌표만 야간모드 버튼 바로 앞에 오도록 줄인다. */
+/* 모바일 헤더에서는 nav/로그인 버튼이 사라져 액션 영역(야간모드 버튼)이 훨씬 가까워진다.
+   개미 본체(불투명 구간, 40%)가 아니라 "사라지면서 옅어지는" 잔상의 마지막 지점(opacity가
+   0에 닿는 50% 지점)이 야간모드 버튼 바로 앞에서 끝나도록 좌표만 조정한다 — 경로·타이밍·
+   페이드 폭(40%→50% 사이 20px 이동)은 기존과 동일하게 유지. */
 @media (max-width: 767px) {
   .markAnimated {
     animation-name: pd-logo-ant-push-mobile;
@@ -150,11 +152,11 @@
     opacity: 1;
   }
   40% {
-    transform: translateX(137px);
+    transform: translateX(117px);
     opacity: 1;
   }
   50% {
-    transform: translateX(157px);
+    transform: translateX(137px);
     opacity: 0;
   }
   62% {
@@ -177,11 +179,11 @@
     opacity: 1;
   }
   40% {
-    transform: translateX(137px);
+    transform: translateX(117px);
     opacity: 1;
   }
   50% {
-    transform: translateX(157px);
+    transform: translateX(137px);
     opacity: 0;
   }
   62% {
