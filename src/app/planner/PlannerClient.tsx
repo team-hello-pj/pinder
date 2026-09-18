@@ -1099,6 +1099,10 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    // 지도 클릭으로 들어온 팝업이었다면(취소든 추가든) 그 위치를 표시하려고 찍어둔 임시
+    // marker를 지운다 — 추가된 경우엔 곧 syncKakaoMarkers 가 일차 색이 입혀진 정식 핀을
+    // 그리므로 겹쳐 보이지 않게 하고, 취소된 경우엔 아무것도 안 남긴다.
+    if (addConfirmFromMapClick) clearSearchMarker();
     setAddConfirmFromMapClick(false);
   };
   const closeAddPlaceModal = () => setAddPlaceModalOpen(false);

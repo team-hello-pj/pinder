@@ -71,7 +71,7 @@ export interface KakaoNearbyResult {
 
 /** 지도 클릭 좌표의 실제 주소 + 주변 실존 장소 후보(여러 카테고리를 훑어 합친 실제 Kakao
  * 데이터)를 한 번에 가져온다. 후보가 없으면 documents 가 빈 배열로 온다. */
-export function fetchNearbyPlaces(x: number, y: number, radius = 300) {
+export function fetchNearbyPlaces(x: number, y: number, radius = 800) {
   return callKakao<KakaoNearbyResult>('nearby', { x, y, radius });
 }
 
