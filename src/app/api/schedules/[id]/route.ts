@@ -113,8 +113,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.places !== undefined) patch.places = body.places;
   if (body.segments !== undefined) patch.segments = body.segments;
   if (body.criteria !== undefined) patch.criteria = body.criteria;
-  if (body.tripStart !== undefined) patch.tripStart = body.tripStart;
-  if (body.tripEnd !== undefined) patch.tripEnd = body.tripEnd;
+  // 날짜 변경은 제작자만 할 수 있다 — 편집 권한을 받은 협업자도 불가. 다만 편집자의 다른
+  // 자동 저장(방문지 등)에는 기존 날짜값이 그대로 실려 오므로, 조용히 무시만 하고 요청
+  // 자체를 실패시키지는 않는다.
+  if (body.tripStart !== undefined && role === 'creator') patch.tripStart = body.tripStart;
+  if (body.tripEnd !== undefined && role === 'creator') patch.tripEnd = body.tripEnd;
   if (body.routeCache !== undefined) patch.routeCache = body.routeCache;
   if (body.customName !== undefined) patch.customName = body.customName ? 1 : 0;
 
