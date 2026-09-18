@@ -215,6 +215,7 @@ export function PlannerClient() {
   // 현재 위치 marker는 재조회할 때마다 새로 만들지 않고 위치만 옮긴다.
   const currentLocationMarkerRef = useRef<KakaoOverlayLike | null>(null);
   const [locatingMe, setLocatingMe] = useState(false);
+  const [locatingForAddConfirm, setLocatingForAddConfirm] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
   const [kakaoLoadFailed, setKakaoLoadFailed] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
@@ -903,6 +904,58 @@ export function PlannerClient() {
     // 방문지 추가 팝업(addPlaceModalOpen)에서 결과를 고른 경우처럼, 다른 팝업을 막 닫은
     // 직후에 호출될 수 있어 실제로 닫힌 뒤에 열리도록 미룬다.
     openNextModal(() => setAddConfirmOpen(true));
+  };
+
+  /** 현재 위치를 방문지로 추가할지 확인하는 팝업이 열려 있는지 — pendingSelectedDoc.id 로
+   * 구분해서 별도 상태 없이 판단한다(추가/취소 시 addSelectedPlace 가 pendingSelectedDoc 을
+   * 알아서 비워주므로 리셋을 따로 챙길 필요가 없다). */
+  const CURRENT_LOCATION_DOC_ID = 'current-location';
+  const isCurrentLocationAddConfirm = pendingSelectedDoc?.id === CURRENT_LOCATION_DOC_ID;
+
+  /** 지도 검색창의 돋보기 옆 위치 핑: 브라우저 현재 위치를 가져와 주소로 바꾼 뒤, 검색
+   * 결과를 고른 것과 동일하게 "현재 위치를 추가할까요?" 확인 팝업을 띄운다. */
+  const openCurrentLocationAddConfirm = async () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      showToast('이 브라우저에서는 현재 위치를 가져올 수 없어요');
+      return;
+    }
+    setLocatingForAddConfirm(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      const x = position.coords.longitude;
+      const y = position.coords.latitude;
+
+      let address = '현재 위치';
+      try {
+        const data = await reverseGeocode(x, y);
+        const doc = data.documents?.[0];
+        const addressName = doc?.road_address?.address_name || doc?.address?.address_name;
+        if (addressName) address = addressName;
+      } catch (err) {
+        // 주소를 못 가져와도 좌표는 이미 있으니 "현재 위치"라는 이름으로 계속 진행한다.
+        console.error('reverseGeocode failed:', err);
+      }
+
+      openAddConfirmForDoc({
+        id: CURRENT_LOCATION_DOC_ID,
+        place_name: '현재 위치',
+        address_name: address,
+        road_address_name: address,
+        category_group_name: '',
+        x: String(x),
+        y: String(y),
+      });
+    } catch (err) {
+      console.error('openCurrentLocationAddConfirm failed:', err);
+      showToast('현재 위치를 가져오지 못했어요. 위치 권한을 확인해주세요.');
+    } finally {
+      setLocatingForAddConfirm(false);
+    }
   };
 
   // 네이티브 <dialog> 는 .close() 가 어떤 이유로 호출되든(취소 버튼뿐 아니라 검색 결과를
@@ -1935,8 +1988,7 @@ export function PlannerClient() {
       // 보여줘서 1일차 마지막 곳과 2일차 첫 곳이 마치 하나의 경로로 이어진 것처럼 보였다).
       const nextPlace = places[i + 1];
       const nextDay = nextPlace ? Math.min(nextPlace.day ?? 0, dayCount - 1) : null;
-      const segmentInView =
-        day === nextDay && (selectedDay === null || day === selectedDay);
+      const segmentInView = day === nextDay && (selectedDay === null || day === selectedDay);
       if (i < enrichedSegments.length && segmentInView) {
         items.push({ kind: 'segment', index: i });
       }
@@ -2073,7 +2125,8 @@ export function PlannerClient() {
       const variableKey = currentVariableKey();
       const signature = buildRouteSignature(origin, dayPlaces, variableKey);
       const existingForDay = routeOptimizationByDay[originDay];
-      const reusable = existingForDay && existingForDay.signature === signature ? existingForDay : null;
+      const reusable =
+        existingForDay && existingForDay.signature === signature ? existingForDay : null;
 
       setLoading(true);
       try {
@@ -2204,7 +2257,10 @@ export function PlannerClient() {
         }
 
         const scopeIds = new Set(stateToApply.distance.placeIds);
-        applyOptimizedOrder(criteria === 'distance' ? stateToApply.distance : stateToApply.time, scopeIds);
+        applyOptimizedOrder(
+          criteria === 'distance' ? stateToApply.distance : stateToApply.time,
+          scopeIds,
+        );
         await searchAllRoutes();
         // 경로 계산이 끝났으므로 이동수단을 다시 표시한다.
         setRouteSegmentsReady(true);
@@ -2298,9 +2354,7 @@ export function PlannerClient() {
         const dayPlaces = places.filter((p) => (p.day ?? 0) === day);
         if (!dayPlaces.length) continue;
         defaults[day] =
-          originId != null && dayPlaces.some((p) => p.id === originId)
-            ? originId
-            : dayPlaces[0].id;
+          originId != null && dayPlaces.some((p) => p.id === originId) ? originId : dayPlaces[0].id;
       }
       setMultiDayOriginChoices(defaults);
       setMultiDayOriginModalOpen(true);
@@ -2834,6 +2888,32 @@ export function PlannerClient() {
                             <path d="M21 21l-4.3-4.3" />
                           </svg>
                         </button>
+                        <button
+                          type="button"
+                          className={styles.searchCurrentLocationBtn}
+                          onClick={openCurrentLocationAddConfirm}
+                          disabled={locatingForAddConfirm}
+                          aria-label="현재 위치를 방문지로 추가"
+                          title="현재 위치를 방문지로 추가"
+                        >
+                          {locatingForAddConfirm ? (
+                            '…'
+                          ) : (
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 21s-7-6.2-7-11.2a7 7 0 1 1 14 0C19 14.8 12 21 12 21z" />
+                              <circle cx="12" cy="9.8" r="2.4" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                       {mapSearchLoading ? (
                         <div className={styles.searchStatusBox}>검색 중...</div>
@@ -3316,7 +3396,11 @@ export function PlannerClient() {
       </Modal>
 
       {/* 방문지 추가 확인 */}
-      <Modal open={addConfirmOpen} title="방문지를 추가할까요?" onClose={closeAddConfirm}>
+      <Modal
+        open={addConfirmOpen}
+        title={isCurrentLocationAddConfirm ? '현재 위치를 추가할까요?' : '방문지를 추가할까요?'}
+        onClose={closeAddConfirm}
+      >
         <div className={styles.field}>
           <span className={styles.fieldLabel}>장소명</span>
           <input
@@ -3573,9 +3657,7 @@ export function PlannerClient() {
             onClick={applySituation}
             disabled={
               !situationFreeText.trim() &&
-              (!situationVar ||
-                !situationSeverity ||
-                (situationVar === 'weather' && !situationSub))
+              (!situationVar || !situationSeverity || (situationVar === 'weather' && !situationSub))
             }
           >
             AI로 동선 재구성
@@ -3600,7 +3682,9 @@ export function PlannerClient() {
               {(() => {
                 const chosen = originCandidatePlaces.find((p) => p.id === originChoiceId);
                 if (!chosen) return '방문지를 선택해주세요';
-                return isAllDaysView ? `${(chosen.day ?? 0) + 1}일차 · ${chosen.name}` : chosen.name;
+                return isAllDaysView
+                  ? `${(chosen.day ?? 0) + 1}일차 · ${chosen.name}`
+                  : chosen.name;
               })()}
             </span>
             <span

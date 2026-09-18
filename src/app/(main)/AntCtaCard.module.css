@@ -283,3 +283,25 @@
     margin-top: 14px;
   }
 }
+
+/* "웹 버전으로 보기"가 켜지면 실제 폭과 무관하게 PC 레이아웃 값을 그대로 쓴다. */
+:global(.force-desktop-view) .card {
+  padding: 44px 32px;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+:global(.force-desktop-view) .title {
+  margin-top: 0;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+:global(.force-desktop-view) .sub {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+:global(.force-desktop-view) .button {
+  margin-top: 8px;
+}

@@ -1,3 +1,6 @@
+import { Suspense } from 'react';
+
+import { ForceDesktopView } from '@/components/layout/ForceDesktopView';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 
@@ -9,6 +12,10 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      {/* ForceDesktopView 가 useSearchParams() 를 쓰므로 Suspense 경계가 필요하다. */}
+      <Suspense fallback={null}>
+        <ForceDesktopView />
+      </Suspense>
       <SiteHeader />
       <main>{children}</main>
       <SiteFooter />

@@ -407,6 +407,52 @@
   }
 }
 
+/*
+ * "웹 버전으로 보기"가 켜지면(<html class="force-desktop-view">) 실제 화면 폭과 무관하게
+ * 위 모바일 미디어쿼리(700px/760px/767px)들이 바꿔둔 값을 PC 기본값으로 되돌린다.
+ */
+:global(.force-desktop-view) .grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+:global(.force-desktop-view) .mapRow {
+  flex-direction: row;
+}
+
+:global(.force-desktop-view) .legendCol {
+  width: 180px;
+  max-height: 520px;
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  gap: 4px;
+}
+
+:global(.force-desktop-view) .mapWrap {
+  height: auto;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+:global(.force-desktop-view) .legendToggle {
+  display: none;
+}
+
+:global(.force-desktop-view) .legendCollapsed .legendCol {
+  display: flex;
+}
+
+:global(.force-desktop-view) .legendItem {
+  font-size: 13px;
+  padding: 9px 12px;
+  box-sizing: content-box;
+  line-height: normal;
+  min-height: auto;
+  white-space: normal;
+  text-align: left;
+}
+
 .tripLengthList {
   display: flex;
   flex-direction: column;

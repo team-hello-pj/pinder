@@ -1045,7 +1045,28 @@
   justify-content: center;
   flex-shrink: 0;
   margin-left: 6px;
+}
+
+/* 돋보기(.searchRunBtn) 바로 옆에 붙는 "현재 위치를 방문지로 추가" 핑 버튼. */
+.searchCurrentLocationBtn {
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eaf2ff;
+  border: 1px solid #cfe0fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   margin-right: 6px;
+  font-size: 13px;
+  color: #3b82f6;
+}
+
+.searchCurrentLocationBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .searchCloseBtn {
@@ -1526,8 +1547,10 @@
   pointer-events: none;
   /* AI 상황 반영 결과처럼 긴 안내 문구는 한 줄로 고정하면(nowrap) 좁은 모바일 화면
      너비를 넘어가는 부분이 잘려 보였다 — 너비를 제한하고 줄바꿈을 허용한다.
-     짧은 토스트는 이 너비보다 좁아서 기존처럼 한 줄로 그대로 보인다. */
-  max-width: min(420px, 88vw);
+     짧은 토스트는 이 너비보다 좁아서 기존처럼 한 줄로 그대로 보인다.
+     처음엔 420px 로 좁게 잡았더니 실제 기기에서 너무 좁게 여러 줄로 잘려 보인다는
+     피드백을 받아 96vw 로 넓혀 한 줄에 더 많은 글자가 들어가도록 했다. */
+  max-width: min(560px, 96vw);
   white-space: normal;
   text-align: center;
 }
@@ -2008,25 +2031,16 @@
   }
 
   /* .aiFab 은 position:fixed 라 방문지 입력 화면/지도 화면 어느 쪽이 보이든 항상 뷰포트
-     우측 하단에 고정된다 — 입력 화면의 하단 주소 추가 바(.addBar), 지도 화면의 하단 요약바
-     (.summaryBar, 높이 약 120px)와 겹치지 않으면서 그 바로 위에 붙도록 모바일에서는 bottom
-     값만 조정한다. 그 외 색상/크기/z-index/클릭 동작은 PC와 동일하게 유지한다.
+     우측 하단에 고정된다. bottom 값은 PC와 동일한 72px 을 그대로 쓴다(모바일에서 하단
+     요약바 위쪽으로 더 내렸다가 너무 내려온다는 피드백을 받고 되돌림).
      모바일에서는 방문지 목록 화면에서는 숨기고, 지도를 펼쳤을 때(.shellPanelCollapsed)만
      보이게 한다 — 목록 화면에서는 하단 주소 입력바와 겹쳐 보이고 자리도 좁았다. */
   .aiFab {
     display: none;
-    bottom: 140px;
   }
 
   .shellPanelCollapsed .aiFab {
     display: flex;
-  }
-
-  /* PC에서는 현재 위치 버튼(bottom:128px)이 AI 도우미(bottom:72px)보다 위에 쌓이는데,
-     모바일에서는 AI 도우미를 하단 요약바 바로 위로 내리면서 같은 간격(56px)을 유지해
-     현재 위치 버튼도 함께 내려 AI 도우미 위로 오도록 한다. */
-  .currentLocationBtn {
-    bottom: 196px;
   }
 
   /* 검색창을 열면(.searchInput 이 autoFocus 로 바로 포커스됨) 모바일 브라우저(특히 iOS

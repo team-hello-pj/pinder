@@ -1248,3 +1248,84 @@
     text-align: center;
   }
 }
+
+/*
+ * "웹 버전으로 보기"가 켜지면(<html class="force-desktop-view">) 실제 화면 폭과 무관하게
+ * 위 모바일 미디어쿼리(640px/700px/767px/1024px)들이 바꿔둔 값을 PC 기본값으로 되돌린다.
+ * 클래스 선택자 두 개(force-desktop-view + 대상)라 미디어쿼리 안의 단일 클래스 선택자보다 우선한다.
+ */
+:global(.force-desktop-view) .commentModalOverlay {
+  padding: 24px;
+}
+
+:global(.force-desktop-view) .commentModalCard {
+  flex-direction: row;
+  width: min(1000px, 92vw);
+  height: min(680px, 88vh);
+  border-radius: 12px;
+}
+
+:global(.force-desktop-view) .commentModalPhoto {
+  flex: 1.2;
+  height: auto;
+}
+
+:global(.force-desktop-view) .commentModalRight {
+  flex: 1;
+  max-width: 380px;
+}
+
+:global(.force-desktop-view) .sideCol {
+  display: flex;
+}
+
+:global(.force-desktop-view) .mobileActions {
+  display: none;
+}
+
+:global(.force-desktop-view) .row {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+:global(.force-desktop-view) .searchWrap {
+  flex-basis: auto;
+  width: 320px;
+}
+
+:global(.force-desktop-view) .sortRow {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: auto;
+  max-width: none;
+  box-sizing: content-box;
+}
+
+:global(.force-desktop-view) .regionToggle {
+  display: none;
+}
+
+:global(.force-desktop-view) .regionCollapsed .regionCol {
+  display: flex;
+}
+
+:global(.force-desktop-view) .regionCol {
+  width: 180px;
+  max-height: 520px;
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  grid-auto-rows: auto;
+  padding: 10px;
+  box-sizing: content-box;
+}
+
+:global(.force-desktop-view) .regionItem {
+  font-size: 13px;
+  padding: 9px 12px;
+  box-sizing: content-box;
+  line-height: normal;
+  min-height: auto;
+  white-space: normal;
+  text-align: left;
+}

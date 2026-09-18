@@ -580,6 +580,25 @@
   }
 }
 
+/* "웹 버전으로 보기"가 켜지면 실제 화면 폭과 무관하게 위 767px 미디어쿼리 값을 PC 기본값으로 되돌린다. */
+:global(.force-desktop-view) .cardBody {
+  padding-right: 120px;
+  min-width: 220px;
+  width: auto;
+}
+
+:global(.force-desktop-view) .cardActions {
+  position: absolute;
+  order: 0;
+  width: auto;
+  justify-content: flex-start;
+}
+
+:global(.force-desktop-view) .card {
+  flex-direction: row;
+  align-items: center;
+}
+
 /* ---- AI 생성하기 마법사 ---- */
 
 .aiWizardOverlay {
