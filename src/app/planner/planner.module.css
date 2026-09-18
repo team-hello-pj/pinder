@@ -1971,6 +1971,15 @@
     transform: translateX(0);
   }
 
+  /* .collapseBtn(«) 은 모바일에서 지도를 펼치는 유일한 진입점인데, 테두리(--pd-border)와
+     배경(--pd-chip-bg)의 명도 차이가 거의 없어 잘 안 보인다는 피드백을 받았다 — 모바일에서만
+     브랜드 색 테두리/배경을 뚜렷하게 넣어 눈에 띄게 한다(PC/다크모드 스타일은 그대로 둔다). */
+  .collapseBtn {
+    border: 1.5px solid var(--pd-brand-strong);
+    background: var(--pd-brand);
+    color: var(--pd-brand-ink);
+  }
+
   /* mapArea 를 독립된 stacking context 로 분리한다 — 이 안의 어떤 자식(검색 오버레이,
      검색 결과 등)이 앞으로 z-index 를 올리더라도, mapArea 밖으로는 절대 영향을 주지 않고
      mapArea 안에서는 .mobileExpandPanelBtn 의 z-index 비교가 항상 예측 가능하게 유지된다. */
@@ -2031,16 +2040,26 @@
   }
 
   /* .aiFab 은 position:fixed 라 방문지 입력 화면/지도 화면 어느 쪽이 보이든 항상 뷰포트
-     우측 하단에 고정된다. bottom 값은 PC와 동일한 72px 을 그대로 쓴다(모바일에서 하단
-     요약바 위쪽으로 더 내렸다가 너무 내려온다는 피드백을 받고 되돌림).
+     우측 하단에 고정된다. PC와 같은 bottom:72px 을 모바일에 그대로 쓰면, 모바일 지도
+     화면 하단에 항상 떠 있는 요약바(.summaryBar, 높이 121px)의 절반 가까이를 파고들어
+     버튼이 요약바 위에 겹쳐 보인다 — 실기기 스크린샷으로 확인된 실제 겹침 버그라 요약바
+     높이(121px)보다 확실히 위(140px)로 올려서 요약바 바로 위에 붙게 한다.
      모바일에서는 방문지 목록 화면에서는 숨기고, 지도를 펼쳤을 때(.shellPanelCollapsed)만
      보이게 한다 — 목록 화면에서는 하단 주소 입력바와 겹쳐 보이고 자리도 좁았다. */
   .aiFab {
     display: none;
+    bottom: 140px;
   }
 
   .shellPanelCollapsed .aiFab {
     display: flex;
+  }
+
+  /* PC에서는 현재 위치 버튼(bottom:128px)이 AI 도우미(bottom:72px)보다 56px 위에 쌓이는데,
+     모바일에서는 AI 도우미를 요약바 위로 올리면서(72→140) 같은 간격을 유지하도록 현재 위치
+     버튼도 함께 올린다(128→196) — 그대로 두면 두 버튼이 겹치거나 순서가 뒤바뀌어 보인다. */
+  .currentLocationBtn {
+    bottom: 196px;
   }
 
   /* 검색창을 열면(.searchInput 이 autoFocus 로 바로 포커스됨) 모바일 브라우저(특히 iOS
