@@ -236,6 +236,9 @@ export function PlannerClient() {
   const [mapClickCandidatesOpen, setMapClickCandidatesOpen] = useState(false);
   const [mapClickCandidates, setMapClickCandidates] = useState<KakaoPlaceDoc[]>([]);
   const [mapClickAddress, setMapClickAddress] = useState('');
+  // 주변 후보 목록에서 하나를 꼭 고르지 않아도, 클릭한 위치 자체(도로명 주소)를 바로 추가할
+  // 수 있도록 후보 팝업에 항상 들고 있는 "직접 추가" 후보 doc.
+  const [mapClickDirectDoc, setMapClickDirectDoc] = useState<KakaoPlaceDoc | null>(null);
   // 지도 클릭 리스너(카카오 지도 이벤트에 등록되어 렌더 밖에서 호출됨)는 매 렌더 새로 만들어지는
   // handleMapClick 을 직접 참조하면 안 되므로(참조 안정성 문제), ref 에 매 렌더 최신 핸들러를
   // 담아두고 리스너는 그 ref 를 통해서만 호출한다.
@@ -592,15 +595,10 @@ export function PlannerClient() {
         clearMapClickMarker();
         return;
       }
-      if (result.documents.length > 0) {
-        setMapClickAddress(address);
-        setMapClickCandidates(result.documents);
-        setMapClickCandidatesOpen(true);
-        return;
-      }
-      // 주변에 마땅한 후보가 없으면(4번) 클릭 좌표 + 역지오코딩 주소만으로 바로 확인 팝업을
-      // 띄운다. 장소명은 지어내지 않고, 건물명이 있으면 건물명을, 없으면 주소 자체를 쓴다.
-      const fallbackDoc: KakaoPlaceDoc = {
+      // 클릭한 위치 자체(도로명 주소)를 나타내는 doc — 장소명은 지어내지 않고, 건물명이
+      // 있으면 건물명을, 없으면 주소 자체를 쓴다. 주변 후보가 있어도 후보를 꼭 고르지 않고
+      // 이 doc으로 바로 추가할 수 있어야 하므로 후보 유무와 상관없이 항상 만들어 둔다.
+      const directDoc: KakaoPlaceDoc = {
         id: `map-click_${x}_${y}`,
         place_name: result.buildingName || address,
         address_name: result.jibunAddress || address,
@@ -609,8 +607,16 @@ export function PlannerClient() {
         x: String(x),
         y: String(y),
       };
+      if (result.documents.length > 0) {
+        setMapClickAddress(address);
+        setMapClickCandidates(result.documents);
+        setMapClickDirectDoc(directDoc);
+        setMapClickCandidatesOpen(true);
+        return;
+      }
+      // 주변에 마땅한 후보가 없으면(4번) 후보 팝업 없이 바로 확인 팝업으로 넘어간다.
       clearMapClickMarker();
-      mapClickAddConfirmRef.current(fallbackDoc);
+      mapClickAddConfirmRef.current(directDoc);
     } catch (err) {
       console.error('handleMapClick fetchNearbyPlaces failed:', err);
       showToast('위치 정보를 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
@@ -1093,6 +1099,10 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    // 지도 클릭으로 들어온 팝업이었다면(취소든 추가든) 그 위치를 표시하려고 찍어둔 임시
+    // marker를 지운다 — 추가된 경우엔 곧 syncKakaoMarkers 가 일차 색이 입혀진 정식 핀을
+    // 그리므로 겹쳐 보이지 않게 하고, 취소된 경우엔 아무것도 안 남긴다.
+    if (addConfirmFromMapClick) clearSearchMarker();
     setAddConfirmFromMapClick(false);
   };
   const closeAddPlaceModal = () => setAddPlaceModalOpen(false);
@@ -3571,6 +3581,17 @@ export function PlannerClient() {
         <div className={styles.field}>
           <span className={styles.fieldLabel}>지도에서 선택한 위치</span>
           <p className={styles.fieldStatic}>{mapClickAddress}</p>
+          {mapClickDirectDoc ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              fullWidth
+              style={{ marginTop: 8 }}
+              onClick={() => selectMapClickCandidate(mapClickDirectDoc)}
+            >
+              주변 후보 대신 이 주소로 바로 추가
+            </Button>
+          ) : null}
         </div>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>주변 장소</span>
