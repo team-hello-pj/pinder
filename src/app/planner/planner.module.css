@@ -2051,4 +2051,54 @@
   .searchInput {
     font-size: 16px;
   }
+
+  /* 토스트(예: "변수 추가"로 AI가 재구성한 결과 안내)는 좌우 offset 없이 max-width만
+     지정돼 있어 폭이 내용에 맞춰 줄어드는 shrink-to-fit 박스다 — 한글은 공백 없이도
+     아무 글자 사이에서나 줄바꿈이 가능해서, 이 축소 과정에서 실제 가용 폭(96vw)을 다
+     안 쓰고 훨씬 좁은 폭으로 쪼그라들며 단어 중간이 뚝뚝 끊겨 보였다. 모바일에서만
+     너비를 명시해 항상 화면 폭 대부분을 채우도록 고정하고, 그 안에서 자연스럽게
+     줄바꿈되도록 한다. */
+  .toast {
+    width: min(340px, 92vw);
+    word-break: keep-all;
+  }
+
+  /* 하단 요약바의 액션 버튼들 — PC에서는 한 줄로 쭉 이어지지만 모바일에서는 6개가
+     한 줄에 다 들어가지 않는다. 각 버튼의 기존 스타일/문구/아이콘은 그대로 두고,
+     3열 그리드로 균등하게 배치해 [변수추가·활동로그·저장] / [달력·원본삭제·경로계산]
+     두 줄로 잘리거나 겹치지 않게 정리한다. */
+  .summaryActions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .summaryActions > * {
+    justify-content: center;
+  }
+
+  .mobileActionsRow1Col1 {
+    order: 1;
+  }
+
+  .mobileActionsRow1Col2 {
+    order: 2;
+  }
+
+  .mobileActionsRow1Col3 {
+    order: 3;
+  }
+
+  .mobileActionsRow2Col1 {
+    order: 4;
+  }
+
+  .mobileActionsRow2Col2 {
+    order: 5;
+  }
+
+  .mobileActionsRow2Col3 {
+    order: 6;
+  }
 }
