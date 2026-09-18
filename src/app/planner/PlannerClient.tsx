@@ -3066,7 +3066,7 @@ export function PlannerClient() {
                 {role === 'creator' && scheduleId ? (
                   <button
                     type="button"
-                    className={styles.dateEditIconBtn}
+                    className={`${styles.dateEditIconBtn} ${styles.mobileActionsRow2Col1}`}
                     onClick={openDateEditModal}
                     title="날짜 변경"
                     aria-label="일정 날짜 변경"
@@ -3078,7 +3078,7 @@ export function PlannerClient() {
                 {canDeleteOriginal ? (
                   <button
                     type="button"
-                    className={styles.deleteOriginalBtn}
+                    className={`${styles.deleteOriginalBtn} ${styles.mobileActionsRow2Col2}`}
                     onClick={deleteOriginalRoute}
                   >
                     원본 삭제
@@ -3087,7 +3087,7 @@ export function PlannerClient() {
                 {canEdit ? (
                   <button
                     type="button"
-                    className={styles.situationBtn}
+                    className={`${styles.situationBtn} ${styles.mobileActionsRow1Col1}`}
                     onClick={() => {
                       if (isAllDaysView && dayCount > 1) {
                         setVariableDayPickerOpen(true);
@@ -3101,12 +3101,16 @@ export function PlannerClient() {
                 ) : null}
                 <button
                   type="button"
-                  className={styles.actionBtn}
+                  className={`${styles.actionBtn} ${styles.mobileActionsRow1Col2}`}
                   onClick={() => setActivityLogOpen(true)}
                 >
                   활동 로그
                 </button>
-                <button type="button" className={styles.actionBtn} onClick={saveOrRemoveAction}>
+                <button
+                  type="button"
+                  className={`${styles.actionBtn} ${styles.mobileActionsRow1Col3}`}
+                  onClick={saveOrRemoveAction}
+                >
                   {inviteJoinRole
                     ? '저장'
                     : isViewerRole && isLoggedIn
@@ -3128,6 +3132,7 @@ export function PlannerClient() {
                 {canEdit ? (
                   <Button
                     size="md"
+                    className={styles.mobileActionsRow2Col3}
                     onClick={handleRouteCalcClick}
                     disabled={loading || multiDayRunning}
                   >

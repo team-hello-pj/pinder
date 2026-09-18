@@ -35,12 +35,6 @@ export function MyRoutesClient() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  const [dateEditingId, setDateEditingId] = useState<string | null>(null);
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
-  const [cardCalYear, setCardCalYear] = useState(new Date().getFullYear());
-  const [cardCalMonth, setCardCalMonth] = useState(new Date().getMonth());
-
   // ---- 일정 수정 팝업 (제목 + 날짜, 제작자 전용) ----
   const [routeEditOpen, setRouteEditOpen] = useState(false);
   const [routeEditId, setRouteEditId] = useState<string | null>(null);
@@ -115,40 +109,6 @@ export function MyRoutesClient() {
     const updated = await updateSchedule(id, { personalTitle: name });
     if (!updated) return;
     setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
-  };
-
-  // ---- 날짜 수정 (카드 내 팝오버) ----
-  const startDateEdit = (route: ScheduleSummary) => {
-    if (route.role !== 'creator') return;
-    const start = route.tripStart || todayStr();
-    const [y, m] = start.split('-').map(Number);
-    setDateEditingId(route.id);
-    setEditStart(start);
-    setEditEnd(route.tripEnd || start);
-    setCardCalYear(y);
-    setCardCalMonth(m - 1);
-  };
-  const onCardCalDayClick = (dateStr: string) => {
-    if (!editStart || (editStart && editEnd && editStart !== editEnd)) {
-      setEditStart(dateStr);
-      setEditEnd(dateStr);
-      return;
-    }
-    if (dateStr < editStart) {
-      setEditEnd(editStart);
-      setEditStart(dateStr);
-      return;
-    }
-    setEditEnd(dateStr);
-  };
-  const saveDateEdit = async () => {
-    if (!routes || !dateEditingId) return;
-    const id = dateEditingId;
-    setDateEditingId(null);
-    const updated = await updateSchedule(id, { tripStart: editStart, tripEnd: editEnd });
-    if (!updated) return;
-    setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
-    showToast('일정이 변경되었습니다');
   };
 
   // ---- 일정 수정 팝업 (제목은 누구나, 날짜는 제작자만) ----
@@ -316,59 +276,9 @@ export function MyRoutesClient() {
                     </div>
                   </div>
 
-                  {dateEditingId === route.id ? (
-                    <div className={styles.dateEditWrap}>
-                      <div
-                        className={styles.overlayCatcher}
-                        onClick={() => setDateEditingId(null)}
-                      />
-                      <div className={styles.dateEditTrigger}>
-                        {editStart} - {editEnd}
-                      </div>
-                      <div className={styles.dateEditPopover}>
-                        <DateRangeCalendar
-                          variant="compact"
-                          year={cardCalYear}
-                          month={cardCalMonth}
-                          start={editStart}
-                          end={editEnd}
-                          onDayClick={onCardCalDayClick}
-                          onPrevMonth={() => {
-                            let m = cardCalMonth - 1;
-                            let y = cardCalYear;
-                            if (m < 0) {
-                              m = 11;
-                              y -= 1;
-                            }
-                            setCardCalMonth(m);
-                            setCardCalYear(y);
-                          }}
-                          onNextMonth={() => {
-                            let m = cardCalMonth + 1;
-                            let y = cardCalYear;
-                            if (m > 11) {
-                              m = 0;
-                              y += 1;
-                            }
-                            setCardCalMonth(m);
-                            setCardCalYear(y);
-                          }}
-                        />
-                        <button type="button" className={styles.dateSaveBtn} onClick={saveDateEdit}>
-                          확인
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={styles.cardMeta}
-                      onClick={route.role === 'creator' ? () => startDateEdit(route) : undefined}
-                      title={route.role === 'creator' ? '클릭해서 날짜 수정' : undefined}
-                      style={route.role === 'creator' ? undefined : { cursor: 'default' }}
-                    >
-                      {route.dateLabel} · 방문지 {route.places.length}곳
-                    </div>
-                  )}
+                  <div className={styles.cardMeta}>
+                    {route.dateLabel} · 방문지 {route.places.length}곳
+                  </div>
 
                   {route.members && route.members.length > 0 ? (
                     <div className={styles.members}>
@@ -496,7 +406,11 @@ export function MyRoutesClient() {
 
       {/* 비회원 안내 — 로그인하지 않았으면 내 일정 기능을 쓸 수 없으니 안내하고 로그인/
           회원가입으로 보낸다. 닫으면(X, ESC) 홈으로 돌려보낸다. */}
-      <Modal open={authGateOpen} title="회원만 이용할 수 있어요" onClose={() => router.push(ROUTES.home)}>
+      <Modal
+        open={authGateOpen}
+        title="회원만 이용할 수 있어요"
+        onClose={() => router.push(ROUTES.home)}
+      >
         <p className={styles.deleteDesc}>
           로그인하면 내 일정의 다양한 기능을
           <br />
