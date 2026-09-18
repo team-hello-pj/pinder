@@ -2158,11 +2158,13 @@
 
   .mobileActionsRow2Col2 {
     order: 5;
-    grid-column: span 3;
+    /* 칸(span) 자체는 좁혀서 경로 계산에 폭을 더 내주고, 원본 삭제 버튼 자체의 실제
+       크기(패딩·높이)는 바뀌지 않으니 시각적 크기는 그대로다. */
+    grid-column: span 2;
     justify-self: start;
     /* 캘린더 칸(span2)이 캘린더 자체 폭(40px)보다 넓어서 생기는 여백만큼 왼쪽으로
-       당겨, 캘린더와의 간격이 1행 버튼 사이 간격(8px)과 비슷해지도록 한다. */
-    margin-left: -9px;
+       당겨, 캘린더 바로 옆에 붙인다. */
+    margin-left: -17.16px;
     /* 원본 삭제만 다른 5개 버튼보다 살짝 작게 — 글자 크기는 그대로 두고
        버튼 박스(가로/세로)만 줄인다. */
     height: 36px;
@@ -2171,7 +2173,7 @@
 
   .mobileActionsRow2Col3 {
     order: 6;
-    /* 활동 로그 + 저장(1행 2·3열, span 4+4=8) 정도의 가로 폭에 맞춘다. */
-    grid-column: span 7;
+    /* 활동 로그 + 저장(1행 2·3열, span 4+4=8)과 정확히 같은 가로 폭. */
+    grid-column: span 8;
   }
 }
