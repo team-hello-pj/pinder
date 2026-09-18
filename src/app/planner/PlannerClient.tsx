@@ -1548,7 +1548,6 @@ export function PlannerClient() {
     // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
     const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
     const input = {
-      title,
       places,
       segments,
       criteria,
@@ -1559,9 +1558,12 @@ export function PlannerClient() {
       routeCache,
     };
 
+    // 업데이트할 때는 title 을 다시 보내지 않는다 — 응답으로 오는 title 은 "내 일정"에서
+    // 계정별로 다르게 보일 수 있는 개인화 이름이라, 그대로 되돌려 보내면 제작자가 처음
+    // 공유한 원본 이름(schedules.title)을 덮어써 버리게 된다. 새로 만들 때만 최초 제목을 정한다.
     const saved = scheduleId
       ? await updateSchedule(scheduleId, input)
-      : await createSchedule(input);
+      : await createSchedule({ ...input, title });
     if (!saved) {
       showToast('저장하지 못했어요. 다시 시도해주세요.');
       return false;

@@ -561,22 +561,13 @@
 }
 
 @media (max-width: 767px) {
+  /* cardBody 는 이제 titleRow(제목+열기+휴지통)를 그대로 품고 있어서 원래 폭을
+     그대로 유지해야 한다 — 예전(카드 절대위치 오버레이) 구조에서 남은 규칙이
+     cardActions 를 width:100% 로 넓혀 제목(cardName) 폭이 0에 가깝게 눌려
+     "사라지는" 문제가 있었다. 이제는 min-width만 좁혀 좁은 화면에서 가로 스크롤이
+     생기지 않게 하고, 제목은 titleRow 의 nowrap + ellipsis 로 항상 보이게 한다. */
   .cardBody {
-    padding-right: 0;
     min-width: 0;
-    width: 100%;
-  }
-
-  .cardActions {
-    position: static;
-    order: -1;
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .card {
-    flex-direction: column;
-    align-items: stretch;
   }
 }
 

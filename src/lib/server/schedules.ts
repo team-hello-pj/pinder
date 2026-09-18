@@ -3,7 +3,7 @@ import 'server-only';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { scheduleCollaborators, schedules, users } from '@/db/schema';
+import { scheduleCollaborators, scheduleTitleOverrides, schedules, users } from '@/db/schema';
 import type { SavedRoute } from '@/types';
 
 export type ScheduleRole = 'creator' | 'editor' | 'viewer';
@@ -24,8 +24,20 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
   const allIds = [...owned.map((s) => s.id), ...collabRows.map((r) => r.schedule.id)];
   const ownerNicknameById = new Map<string, string | null>();
   const collabNicknamesById = new Map<string, string[]>();
+  const myTitleById = new Map<string, string>();
 
   if (allIds.length > 0) {
+    const overrideRows = await db
+      .select({ scheduleId: scheduleTitleOverrides.scheduleId, title: scheduleTitleOverrides.title })
+      .from(scheduleTitleOverrides)
+      .where(
+        and(
+          inArray(scheduleTitleOverrides.scheduleId, allIds),
+          eq(scheduleTitleOverrides.userId, userId),
+        ),
+      );
+    for (const row of overrideRows) myTitleById.set(row.scheduleId, row.title);
+
     const ownerRows = await db
       .select({ id: schedules.id, nickname: users.nickname })
       .from(schedules)
@@ -72,7 +84,7 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
   function toSummary(row: (typeof owned)[number], role: ScheduleRole): ScheduleSummary {
     return {
       id: row.id,
-      title: row.title,
+      title: myTitleById.get(row.id) ?? row.title,
       places: row.places as SavedRoute['places'],
       segments: row.segments as SavedRoute['segments'],
       criteria: row.criteria as SavedRoute['criteria'],

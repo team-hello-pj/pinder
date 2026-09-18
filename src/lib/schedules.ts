@@ -23,6 +23,8 @@ export interface ScheduleDetail {
 
 export interface ScheduleInput {
   title: string;
+  /** "내 일정"에서만 보이는 개인화 이름 — 카카오톡 단톡방 이름처럼 본인 화면에만 반영된다. */
+  personalTitle?: string;
   places: SavedRoute['places'];
   segments: SavedRoute['segments'];
   criteria: SavedRoute['criteria'];
