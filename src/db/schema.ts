@@ -98,6 +98,30 @@ export const scheduleCollaborators = pgTable(
   (t) => [unique().on(t.scheduleId, t.userId)],
 );
 
+/**
+ * 일정 이름을 "내 일정"에서 계정별로 다르게 보이게 하기 위한 개인화 이름 — 카카오톡
+ * 단톡방 이름 설정처럼, 제작자/편집자/뷰어 누구든 자기 화면에서 바꿔도 다른 참여자에게는
+ * 영향이 없다. `schedules.title` 은 제작자가 처음 만들고 공유한 원본 이름 그대로 유지되고,
+ * 여기 override 가 있는 사람만 그 사람 화면에서 이 이름으로 대체해 보여준다.
+ */
+export const scheduleTitleOverrides = pgTable(
+  'schedule_title_overrides',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    scheduleId: text('schedule_id')
+      .notNull()
+      .references(() => schedules.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.scheduleId, t.userId)],
+);
+
 /** viewer 가 편집 권한을 요청하면 생기고, 제작자가 승인/거절하면 사라진다. */
 export const scheduleEditRequests = pgTable(
   'schedule_edit_requests',

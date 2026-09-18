@@ -968,6 +968,29 @@
   z-index: 2;
 }
 
+.dayToggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dayToggleBtn {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-chip-bg);
+  color: var(--pd-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dayToggleBtnActive {
+  background: var(--pd-badge-bg);
+  color: var(--pd-link);
+  border-color: var(--pd-brand);
+}
+
 .mapLoadingOverlay {
   position: absolute;
   inset: 0;
@@ -1359,6 +1382,14 @@
   font-size: 12.5px;
   font-family: inherit;
   color: #171719;
+}
+
+/* .aiInput 은 배경을 따로 지정하지 않아, 다크모드(color-scheme:dark)에서는 <input> 이
+   브라우저 기본 어두운 배경으로 그려진다 — 그런데 글자색은 항상 어두운 색(#171719)으로
+   고정돼 있어 어두운 배경 위에 어두운 글씨가 겹쳐 입력한 내용이 안 보였다. 다크모드에서만
+   흰색으로 바꿔 보이게 한다. */
+:global([data-theme='dark']) .aiInput {
+  color: #fff;
 }
 
 .aiSendBtn {

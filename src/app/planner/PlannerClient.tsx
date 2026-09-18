@@ -18,6 +18,7 @@ import { runWithConcurrencyLimit } from '@/lib/concurrency';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
+  fetchNearbyPlaces,
   fetchRouteLeg,
   KakaoApiError,
   loadKakaoMapsSdk,
@@ -198,6 +199,11 @@ export function PlannerClient() {
   const [addConfirmOpen, setAddConfirmOpen] = useState(false);
   const [pendingName, setPendingName] = useState('');
   const [pendingAddress, setPendingAddress] = useState('');
+  const [addConfirmDayPickerNeeded, setAddConfirmDayPickerNeeded] = useState(false);
+  const [addConfirmDayChoice, setAddConfirmDayChoice] = useState<number | null>(null);
+  // 지도 클릭으로 들어온 추가 확인 팝업은 문구("이 위치를 추가하시겠습니까?")가 검색으로
+  // 들어온 경우와 다르다 — pendingSelectedDoc.id 만으로는 구분이 안 되므로 따로 표시해둔다.
+  const [addConfirmFromMapClick, setAddConfirmFromMapClick] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<DeleteTarget>(null);
@@ -225,6 +231,18 @@ export function PlannerClient() {
   const [mapSearchResults, setMapSearchResults] = useState<KakaoPlaceDoc[]>([]);
   const [mapSearchLoading, setMapSearchLoading] = useState(false);
   const [mapSearchError, setMapSearchError] = useState<string | null>(null);
+  const mapClickMarkerRef = useRef<KakaoOverlayLike | null>(null);
+  // 지도 클릭 → 주변 장소 후보 팝업(별도 하단 bar 없이 팝업으로만 안내한다).
+  const [mapClickCandidatesOpen, setMapClickCandidatesOpen] = useState(false);
+  const [mapClickCandidates, setMapClickCandidates] = useState<KakaoPlaceDoc[]>([]);
+  const [mapClickAddress, setMapClickAddress] = useState('');
+  // 지도 클릭 리스너(카카오 지도 이벤트에 등록되어 렌더 밖에서 호출됨)는 매 렌더 새로 만들어지는
+  // handleMapClick 을 직접 참조하면 안 되므로(참조 안정성 문제), ref 에 매 렌더 최신 핸들러를
+  // 담아두고 리스너는 그 ref 를 통해서만 호출한다.
+  const handleMapClickRef = useRef<(x: number, y: number) => void>(() => {});
+  // handleMapClick 은 openAddConfirmForDoc/isAllDaysView(더 아래에서 선언됨)를 직접 참조하면
+  // "선언 전 접근" 컴파일 경고가 난다 — 이 ref 에 최신 호출부를 담아두고 ref 를 통해서만 부른다.
+  const mapClickAddConfirmRef = useRef<(doc: KakaoPlaceDoc) => void>(() => {});
 
   // ---- 상황 변경 ----
   // 전체보기에서 "변수 추가"를 누르면 어느 일차에 적용할지부터 고르게 한다 — 상황 변경 로직
@@ -536,6 +554,97 @@ export function PlannerClient() {
     [places],
   );
 
+  const clearMapClickMarker = useCallback(() => {
+    mapClickMarkerRef.current?.setMap(null);
+    mapClickMarkerRef.current = null;
+  }, []);
+
+  /** 주변 장소 후보 팝업을 닫는다(취소 버튼·팝업 바깥 클릭·후보 선택 모두 이 경로를 탄다) —
+   * 후보를 선택한 경우에는 곧바로 openAddConfirmForDoc 가 그 장소 좌표에 새 marker를 찍으므로,
+   * 여기서 지도 클릭 임시 marker를 지워도 화면에서 marker가 사라지는 순간은 없다. */
+  const closeMapClickCandidates = useCallback(() => {
+    setMapClickCandidatesOpen(false);
+    clearMapClickMarker();
+  }, [clearMapClickMarker]);
+
+  /**
+   * 지도 클릭 → 임시 marker 표시 → `/api/kakao`(nearby) 로 실제 주소 + 주변 실존 장소 후보를
+   * 조회한다. 후보가 있으면 후보 목록 팝업을, 없으면(적절한 장소를 못 찾은 경우) 클릭 좌표와
+   * 역지오코딩 주소만으로 바로 "이 위치를 추가하시겠습니까?" 확인 팝업을 띄운다. 지도 클릭
+   * 만으로는 방문지에 자동 추가하지 않는다 — 두 경우 모두 사용자가 팝업에서 "추가"를 눌러야
+   * 기존 addSelectedPlace 로 실제 등록된다.
+   */
+  const handleMapClick = async (x: number, y: number) => {
+    const kakao = window.kakao;
+    const map = kakaoMapRef.current;
+    if (!kakao || !map) return;
+    setMapClickCandidatesOpen(false);
+    const pos = new kakao.maps.LatLng(y, x);
+    if (mapClickMarkerRef.current) {
+      mapClickMarkerRef.current.setMap(null);
+    }
+    mapClickMarkerRef.current = new kakao.maps.Marker({ position: pos, map });
+    try {
+      const result = await fetchNearbyPlaces(x, y);
+      const address = result.roadAddress || result.jibunAddress;
+      if (!address) {
+        showToast('이 위치의 주소 정보를 찾지 못했어요.');
+        clearMapClickMarker();
+        return;
+      }
+      if (result.documents.length > 0) {
+        setMapClickAddress(address);
+        setMapClickCandidates(result.documents);
+        setMapClickCandidatesOpen(true);
+        return;
+      }
+      // 주변에 마땅한 후보가 없으면(4번) 클릭 좌표 + 역지오코딩 주소만으로 바로 확인 팝업을
+      // 띄운다. 장소명은 지어내지 않고, 건물명이 있으면 건물명을, 없으면 주소 자체를 쓴다.
+      const fallbackDoc: KakaoPlaceDoc = {
+        id: `map-click_${x}_${y}`,
+        place_name: result.buildingName || address,
+        address_name: result.jibunAddress || address,
+        road_address_name: result.roadAddress || address,
+        category_group_name: '',
+        x: String(x),
+        y: String(y),
+      };
+      clearMapClickMarker();
+      mapClickAddConfirmRef.current(fallbackDoc);
+    } catch (err) {
+      console.error('handleMapClick fetchNearbyPlaces failed:', err);
+      showToast('위치 정보를 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
+      clearMapClickMarker();
+    }
+  };
+  // 매 렌더 최신 handleMapClick 을 ref 에 담아둔다(의존성 배열 없이 매 렌더 후 실행) — 아래
+  // 지도 클릭 리스너는 이 ref 를 통해서만 호출하므로, 리스너 자신은 openAddConfirmForDoc/
+  // isAllDaysView 처럼 나중에 선언되는 값을 직접 참조하지 않는다("선언 전 접근" 문제 회피).
+  useEffect(() => {
+    handleMapClickRef.current = handleMapClick;
+  });
+
+  useEffect(() => {
+    const kakao = window.kakao;
+    const map = kakaoMapRef.current;
+    if (!kakaoReady || !kakao || !map) return;
+    const listener = (e: { latLng: { getLat: () => number; getLng: () => number } }) => {
+      handleMapClickRef.current(e.latLng.getLng(), e.latLng.getLat());
+    };
+    kakao.maps.event.addListener(map, 'click', listener);
+    return () => {
+      kakao.maps.event.removeListener(map, 'click', listener);
+    };
+  }, [kakaoReady]);
+
+  /** 후보 목록 팝업에서 하나를 고르면(3번) 곧바로 "이 위치를 추가하시겠습니까?" 확인 팝업으로
+   * 이어간다 — 검색 결과를 고른 것과 동일한 addSelectedPlace 경로를 그대로 탄다. */
+  const selectMapClickCandidate = (doc: KakaoPlaceDoc) => {
+    setMapClickCandidatesOpen(false);
+    clearMapClickMarker();
+    openAddConfirmForDoc(doc, { dayPickerNeeded: isAllDaysView, mapClick: true });
+  };
+
   /**
    * "현재 위치" 버튼. 지도 중심 이동 + 전용 marker 표시만 하고, 방문지/구간과는 무관하므로
    * 경로 검색·재계산은 절대 건드리지 않는다. 재조회 시에는 marker를 새로 만들지 않고
@@ -795,10 +904,14 @@ export function PlannerClient() {
       else if (categoryModalOpen) setCategoryModalOpen(false);
       else if (addConfirmOpen) {
         setAddConfirmOpen(false);
+        setAddConfirmDayPickerNeeded(false);
+        setAddConfirmDayChoice(null);
+        setAddConfirmFromMapClick(false);
         if (returnToOriginPickerAfterAdd || returnToMultiDayOriginAfterAdd != null) {
           openNextModal(() => setAddPlaceModalOpen(true));
         }
-      } else if (situationModalOpen) setSituationModalOpen(false);
+      } else if (mapClickCandidatesOpen) closeMapClickCandidates();
+      else if (situationModalOpen) setSituationModalOpen(false);
       else if (variablePlacePickerOpen) setVariablePlacePickerOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
       else if (deleteConfirmOpen) setDeleteConfirmOpen(false);
@@ -840,6 +953,8 @@ export function PlannerClient() {
     returnToOriginPickerAfterAdd,
     returnToMultiDayOriginAfterAdd,
     loginRequiredOpen,
+    mapClickCandidatesOpen,
+    closeMapClickCandidates,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -896,12 +1011,21 @@ export function PlannerClient() {
     return newPlace;
   };
 
-  /** 검색 결과 항목을 클릭하면 바로 "방문지를 추가할까요?" 팝업을 정해진 상태로 띄운다. */
-  const openAddConfirmForDoc = (doc: KakaoPlaceDoc) => {
+  /** 검색 결과 항목을 클릭하면 바로 "방문지를 추가할까요?" 팝업을 정해진 상태로 띄운다.
+   * dayPickerNeeded 를 주면(지도 클릭 → 전체보기 상태) 팝업 안에 일차 토글을 함께 보여주고,
+   * "추가"를 누른 시점의 토글 선택값을 그 방문지의 일차로 쓴다. */
+  const openAddConfirmForDoc = (
+    doc: KakaoPlaceDoc,
+    opts?: { dayPickerNeeded?: boolean; mapClick?: boolean },
+  ) => {
     selectMapResult(doc);
     setPendingSelectedDoc(doc);
     setPendingName(doc.place_name);
     setPendingAddress(doc.road_address_name || doc.address_name);
+    const needsDayPicker = Boolean(opts?.dayPickerNeeded);
+    setAddConfirmDayPickerNeeded(needsDayPicker);
+    setAddConfirmDayChoice(needsDayPicker ? 0 : null);
+    setAddConfirmFromMapClick(Boolean(opts?.mapClick));
     // 방문지 추가 팝업(addPlaceModalOpen)에서 결과를 고른 경우처럼, 다른 팝업을 막 닫은
     // 직후에 호출될 수 있어 실제로 닫힌 뒤에 열리도록 미룬다.
     openNextModal(() => setAddConfirmOpen(true));
@@ -965,13 +1089,21 @@ export function PlannerClient() {
   // 정상적으로 다음 단계로 넘어갈 때도 매번 잘못 실행돼 버린다(예: 검색 결과를 고르자마자
   // 출발지 선택 팝업이 떠버림). 그래서 되돌아가기 로직은 "취소" 버튼 전용으로만 쓰고,
   // Modal 의 onClose 에는 부작용 없는 순수 닫기 함수를 연결한다.
-  const closeAddConfirm = () => setAddConfirmOpen(false);
+  const closeAddConfirm = () => {
+    setAddConfirmOpen(false);
+    setAddConfirmDayPickerNeeded(false);
+    setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
+  };
   const closeAddPlaceModal = () => setAddPlaceModalOpen(false);
 
   /** "취소" 버튼 전용. 출발지 선택 흐름에서 들어온 것이었을 때는 그 이전 팝업으로 돌아간다 —
    * 그냥 다 닫아버리면 경로 계산을 처음부터 다시 눌러야 하기 때문. */
   const cancelAddConfirm = () => {
     setAddConfirmOpen(false);
+    setAddConfirmDayPickerNeeded(false);
+    setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
   /** "취소" 버튼 전용(위와 같은 이유). */
@@ -991,8 +1123,12 @@ export function PlannerClient() {
     if (!pendingSelectedDoc) return;
     const name = pendingName.trim();
     if (!name) return;
-    const added = addSelectedPlace(pendingSelectedDoc, name, recommendedAddDay);
+    const dayOverride = addConfirmDayPickerNeeded ? (addConfirmDayChoice ?? 0) : recommendedAddDay;
+    const added = addSelectedPlace(pendingSelectedDoc, name, dayOverride);
     setAddConfirmOpen(false);
+    setAddConfirmDayPickerNeeded(false);
+    setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
     setPendingAddress('');
     setPendingName('');
     // 출발지 선택 흐름에서 들어온 추가라면, 경로 계산 버튼을 다시 누르지 않아도 되도록 출발지
@@ -1549,7 +1685,6 @@ export function PlannerClient() {
     // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
     const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
     const input = {
-      title,
       places,
       segments,
       criteria,
@@ -1560,9 +1695,12 @@ export function PlannerClient() {
       routeCache,
     };
 
+    // 업데이트할 때는 title 을 다시 보내지 않는다 — 응답으로 오는 title 은 "내 일정"에서
+    // 계정별로 다르게 보일 수 있는 개인화 이름이라, 그대로 되돌려 보내면 제작자가 처음
+    // 공유한 원본 이름(schedules.title)을 덮어써 버리게 된다. 새로 만들 때만 최초 제목을 정한다.
     const saved = scheduleId
       ? await updateSchedule(scheduleId, input)
-      : await createSchedule(input);
+      : await createSchedule({ ...input, title });
     if (!saved) {
       showToast('저장하지 못했어요. 다시 시도해주세요.');
       return false;
@@ -1889,6 +2027,14 @@ export function PlannerClient() {
     : [];
   /** 전체보기(모든 일차를 한 번에 보는 상태) — 일차 경계가 모호해지는 동작은 모두 막는다. */
   const isAllDaysView = hasDayTabs && selectedDay === null;
+
+  // mapClickAddConfirmRef 에 매 렌더 최신 호출부를 담아둔다 — handleMapClick(더 위에서 선언)은
+  // 이 ref 를 통해서만 부르므로 openAddConfirmForDoc/isAllDaysView 를 직접 참조하지 않는다.
+  useEffect(() => {
+    mapClickAddConfirmRef.current = (doc: KakaoPlaceDoc) => {
+      openAddConfirmForDoc(doc, { dayPickerNeeded: isAllDaysView, mapClick: true });
+    };
+  });
 
   const enrichedSegments = useMemo(
     () =>
@@ -3416,10 +3562,51 @@ export function PlannerClient() {
         </div>
       </Modal>
 
+      {/* 지도 클릭 → 주변 장소 후보. 하나를 고르면 아래 "방문지 추가 확인" 팝업으로 이어진다. */}
+      <Modal
+        open={mapClickCandidatesOpen}
+        title="이 위치를 추가하시겠습니까?"
+        onClose={closeMapClickCandidates}
+      >
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>지도에서 선택한 위치</span>
+          <p className={styles.fieldStatic}>{mapClickAddress}</p>
+        </div>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>주변 장소</span>
+          <div className={styles.searchResults} style={{ marginTop: 4, maxHeight: 260 }}>
+            {mapClickCandidates.map((doc) => (
+              <button
+                key={doc.id}
+                type="button"
+                className={styles.searchResultItem}
+                onClick={() => selectMapClickCandidate(doc)}
+              >
+                <span className={styles.searchResultName}>{doc.place_name}</span>
+                <span className={styles.searchResultAddress}>
+                  {doc.road_address_name || doc.address_name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={closeMapClickCandidates}>
+            취소
+          </Button>
+        </div>
+      </Modal>
+
       {/* 방문지 추가 확인 */}
       <Modal
         open={addConfirmOpen}
-        title={isCurrentLocationAddConfirm ? '현재 위치를 추가할까요?' : '방문지를 추가할까요?'}
+        title={
+          isCurrentLocationAddConfirm
+            ? '현재 위치를 추가할까요?'
+            : addConfirmFromMapClick
+              ? '이 위치를 추가하시겠습니까?'
+              : '방문지를 추가할까요?'
+        }
         onClose={closeAddConfirm}
       >
         <div className={styles.field}>
@@ -3434,6 +3621,27 @@ export function PlannerClient() {
           <span className={styles.fieldLabel}>도로명주소</span>
           <p className={styles.fieldStatic}>{pendingAddress}</p>
         </div>
+        {addConfirmDayPickerNeeded ? (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>어느 일차에 추가할까요?</span>
+            <div className={styles.dayToggleRow}>
+              {dayTabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  className={
+                    addConfirmDayChoice === tab.value
+                      ? `${styles.dayToggleBtn} ${styles.dayToggleBtnActive}`
+                      : styles.dayToggleBtn
+                  }
+                  onClick={() => setAddConfirmDayChoice(tab.value)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className={styles.modalActions}>
           <Button variant="secondary" size="sm" onClick={cancelAddConfirm}>
             취소

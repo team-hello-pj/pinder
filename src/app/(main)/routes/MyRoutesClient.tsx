@@ -9,6 +9,7 @@ import {
   deleteSchedule,
   listSchedules,
   updateSchedule,
+  type ScheduleInput,
   type ScheduleSummary,
 } from '@/lib/schedules';
 import { useSession } from '@/components/providers/SessionProvider';
@@ -94,9 +95,8 @@ export function MyRoutesClient() {
     showToast('내 일정 1건이 삭제되었습니다');
   };
 
-  // ---- 이름 수정 ----
+  // ---- 이름 수정 (카카오톡 단톡방 이름처럼, 내 계정 화면에서만 보이는 개인화 이름) ----
   const startEdit = (route: ScheduleSummary) => {
-    if (route.role === 'viewer') return;
     setEditingId(route.id);
     setEditValue(route.title);
   };
@@ -105,14 +105,14 @@ export function MyRoutesClient() {
     const name = editValue.trim();
     const id = editingId;
     setEditingId(null);
-    const updated = await updateSchedule(id, { title: name || undefined, customName: true });
+    if (!name) return;
+    const updated = await updateSchedule(id, { personalTitle: name });
     if (!updated) return;
     setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
   };
 
-  // ---- 일정 수정 팝업 (제목 + 날짜, 제작자 전용) ----
+  // ---- 일정 수정 팝업 (제목은 누구나, 날짜는 제작자만) ----
   const openRouteEdit = (route: ScheduleSummary) => {
-    if (route.role !== 'creator') return;
     const start = route.tripStart || todayStr();
     const [y, m] = start.split('-').map(Number);
     setRouteEditId(route.id);
@@ -136,17 +136,20 @@ export function MyRoutesClient() {
     }
     setRouteEditEnd(dateStr);
   };
+  const routeEditRoute = routes?.find((r) => r.id === routeEditId) ?? null;
   const saveRouteEdit = async () => {
     if (!routes || !routeEditId) return;
     const id = routeEditId;
     const name = routeEditTitle.trim();
+    const isCreator = routeEditRoute?.role === 'creator';
     setRouteEditOpen(false);
-    const updated = await updateSchedule(id, {
-      title: name || undefined,
-      customName: true,
-      tripStart: routeEditStart,
-      tripEnd: routeEditEnd,
-    });
+    const patch: Partial<ScheduleInput> = {};
+    if (name) patch.personalTitle = name;
+    if (isCreator) {
+      patch.tripStart = routeEditStart;
+      patch.tripEnd = routeEditEnd;
+    }
+    const updated = await updateSchedule(id, patch);
     if (!updated) return;
     setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
     showToast('일정이 변경되었습니다');
@@ -316,28 +319,26 @@ export function MyRoutesClient() {
                         <span className={styles.moreChip}>+{route.moreChipsCount}</span>
                       ) : null}
                     </div>
-                    {route.role === 'creator' ? (
-                      <button
-                        type="button"
-                        className={styles.routeEditBtn}
-                        onClick={() => openRouteEdit(route)}
-                        aria-label="일정 수정"
+                    <button
+                      type="button"
+                      className={styles.routeEditBtn}
+                      onClick={() => openRouteEdit(route)}
+                      aria-label="일정 수정"
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#878A93"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <svg
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#878A93"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
-                      </button>
-                    ) : null}
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -447,7 +448,7 @@ export function MyRoutesClient() {
         </div>
       </Modal>
 
-      {/* 일정 수정 (제목 + 날짜, 제작자 전용) */}
+      {/* 일정 수정 — 제목은 누구나, 날짜(달력)는 제작자만 보인다 */}
       <Modal open={routeEditOpen} title="일정 수정" onClose={() => setRouteEditOpen(false)}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>방문지 이름</span>
@@ -457,37 +458,39 @@ export function MyRoutesClient() {
             className={styles.fieldInput}
           />
         </div>
-        <div className={styles.field}>
-          <span className={styles.fieldLabel}>날짜</span>
-          <DateRangeCalendar
-            variant="compact"
-            year={routeEditCalYear}
-            month={routeEditCalMonth}
-            start={routeEditStart}
-            end={routeEditEnd}
-            onDayClick={onRouteEditCalDayClick}
-            onPrevMonth={() => {
-              let m = routeEditCalMonth - 1;
-              let y = routeEditCalYear;
-              if (m < 0) {
-                m = 11;
-                y -= 1;
-              }
-              setRouteEditCalMonth(m);
-              setRouteEditCalYear(y);
-            }}
-            onNextMonth={() => {
-              let m = routeEditCalMonth + 1;
-              let y = routeEditCalYear;
-              if (m > 11) {
-                m = 0;
-                y += 1;
-              }
-              setRouteEditCalMonth(m);
-              setRouteEditCalYear(y);
-            }}
-          />
-        </div>
+        {routeEditRoute?.role === 'creator' ? (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>날짜</span>
+            <DateRangeCalendar
+              variant="compact"
+              year={routeEditCalYear}
+              month={routeEditCalMonth}
+              start={routeEditStart}
+              end={routeEditEnd}
+              onDayClick={onRouteEditCalDayClick}
+              onPrevMonth={() => {
+                let m = routeEditCalMonth - 1;
+                let y = routeEditCalYear;
+                if (m < 0) {
+                  m = 11;
+                  y -= 1;
+                }
+                setRouteEditCalMonth(m);
+                setRouteEditCalYear(y);
+              }}
+              onNextMonth={() => {
+                let m = routeEditCalMonth + 1;
+                let y = routeEditCalYear;
+                if (m > 11) {
+                  m = 0;
+                  y += 1;
+                }
+                setRouteEditCalMonth(m);
+                setRouteEditCalYear(y);
+              }}
+            />
+          </div>
+        ) : null}
         <div className={styles.modalActions}>
           <Button variant="secondary" size="sm" onClick={() => setRouteEditOpen(false)}>
             취소
