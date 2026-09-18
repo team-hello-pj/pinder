@@ -194,3 +194,22 @@
     display: inline;
   }
 }
+
+/* "웹 버전으로 보기"가 켜지면 실제 폭과 무관하게 PC 레이아웃 값을 그대로 쓴다. */
+:global(.force-desktop-view) .title {
+  font-size: 44px;
+  line-height: 1.15;
+}
+
+:global(.force-desktop-view) .stats {
+  flex-direction: row;
+  gap: 56px;
+}
+
+:global(.force-desktop-view) .stepsGrid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+:global(.force-desktop-view) .stepCard {
+  padding: 32px 24px;
+}

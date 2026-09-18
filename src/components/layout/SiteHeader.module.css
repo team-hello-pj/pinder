@@ -88,3 +88,17 @@
     gap: 14px;
   }
 }
+
+/* "웹 버전으로 보기"로 강제 진입한 화면 — 실제 폭이 767px 이하여도 PC 레이아웃을 그대로 쓴다. */
+:global(.force-desktop-view) .nav {
+  display: flex;
+}
+
+:global(.force-desktop-view) .loginBtn {
+  display: revert;
+}
+
+:global(.force-desktop-view) .actions {
+  margin-left: 0;
+  gap: 10px;
+}

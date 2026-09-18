@@ -9,6 +9,11 @@
   }
 }
 
+/* "웹 버전으로 보기"가 켜지면 실제 폭과 무관하게 햄버거 메뉴를 다시 숨긴다. */
+:global(.force-desktop-view) .wrap {
+  display: none;
+}
+
 .button {
   width: 36px;
   height: 36px;
