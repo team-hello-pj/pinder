@@ -968,61 +968,6 @@
   z-index: 2;
 }
 
-/* 지도 클릭 시 나오는 장소 정보 카드. 검색결과 카드(.searchResults 등)와 같은 톤으로
-   지도 하단에 띄우되, 우측 하단에 고정된 현재위치/AI 도우미 버튼과는 겹치지 않도록
-   오른쪽 여백을 넉넉히 둔다. */
-.mapClickCard {
-  position: absolute;
-  left: 14px;
-  right: 90px;
-  bottom: 14px;
-  z-index: 21;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.mapClickCardHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.mapClickName {
-  margin: 0 0 2px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #171719;
-}
-
-.mapClickAddress {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(23, 23, 25, 0.55);
-}
-
-.mapClickCloseBtn {
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: rgba(23, 23, 25, 0.4);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.mapClickActions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .dayToggleRow {
   display: flex;
   flex-wrap: wrap;

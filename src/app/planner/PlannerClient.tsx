@@ -18,6 +18,7 @@ import { runWithConcurrencyLimit } from '@/lib/concurrency';
 import { askAssistant, type ChatMessage, type RecommendedPlace } from '@/lib/chat';
 import { requestAiRouteAdjustment } from '@/lib/route-adjust';
 import {
+  fetchNearbyPlaces,
   fetchRouteLeg,
   KakaoApiError,
   loadKakaoMapsSdk,
@@ -199,6 +200,9 @@ export function PlannerClient() {
   const [pendingAddress, setPendingAddress] = useState('');
   const [addConfirmDayPickerNeeded, setAddConfirmDayPickerNeeded] = useState(false);
   const [addConfirmDayChoice, setAddConfirmDayChoice] = useState<number | null>(null);
+  // 지도 클릭으로 들어온 추가 확인 팝업은 문구("이 위치를 추가하시겠습니까?")가 검색으로
+  // 들어온 경우와 다르다 — pendingSelectedDoc.id 만으로는 구분이 안 되므로 따로 표시해둔다.
+  const [addConfirmFromMapClick, setAddConfirmFromMapClick] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<DeleteTarget>(null);
@@ -227,15 +231,17 @@ export function PlannerClient() {
   const [mapSearchLoading, setMapSearchLoading] = useState(false);
   const [mapSearchError, setMapSearchError] = useState<string | null>(null);
   const mapClickMarkerRef = useRef<KakaoOverlayLike | null>(null);
-  const [mapClickInfo, setMapClickInfo] = useState<{
-    x: number;
-    y: number;
-    name: string;
-    address: string;
-    roadAddress: string;
-    jibunAddress: string;
-  } | null>(null);
-  const [mapClickLoading, setMapClickLoading] = useState(false);
+  // 지도 클릭 → 주변 장소 후보 팝업(별도 하단 bar 없이 팝업으로만 안내한다).
+  const [mapClickCandidatesOpen, setMapClickCandidatesOpen] = useState(false);
+  const [mapClickCandidates, setMapClickCandidates] = useState<KakaoPlaceDoc[]>([]);
+  const [mapClickAddress, setMapClickAddress] = useState('');
+  // 지도 클릭 리스너(카카오 지도 이벤트에 등록되어 렌더 밖에서 호출됨)는 매 렌더 새로 만들어지는
+  // handleMapClick 을 직접 참조하면 안 되므로(참조 안정성 문제), ref 에 매 렌더 최신 핸들러를
+  // 담아두고 리스너는 그 ref 를 통해서만 호출한다.
+  const handleMapClickRef = useRef<(x: number, y: number) => void>(() => {});
+  // handleMapClick 은 openAddConfirmForDoc/isAllDaysView(더 아래에서 선언됨)를 직접 참조하면
+  // "선언 전 접근" 컴파일 경고가 난다 — 이 ref 에 최신 호출부를 담아두고 ref 를 통해서만 부른다.
+  const mapClickAddConfirmRef = useRef<(doc: KakaoPlaceDoc) => void>(() => {});
 
   // ---- 상황 변경 ----
   // 전체보기에서 "변수 추가"를 누르면 어느 일차에 적용할지부터 고르게 한다 — 상황 변경 로직
@@ -552,60 +558,91 @@ export function PlannerClient() {
     mapClickMarkerRef.current = null;
   }, []);
 
-  const closeMapClickCard = useCallback(() => {
-    setMapClickInfo(null);
+  /** 주변 장소 후보 팝업을 닫는다(취소 버튼·팝업 바깥 클릭·후보 선택 모두 이 경로를 탄다) —
+   * 후보를 선택한 경우에는 곧바로 openAddConfirmForDoc 가 그 장소 좌표에 새 marker를 찍으므로,
+   * 여기서 지도 클릭 임시 marker를 지워도 화면에서 marker가 사라지는 순간은 없다. */
+  const closeMapClickCandidates = useCallback(() => {
+    setMapClickCandidatesOpen(false);
     clearMapClickMarker();
   }, [clearMapClickMarker]);
 
-  const handleMapClick = useCallback(
-    async (x: number, y: number) => {
-      const kakao = window.kakao;
-      const map = kakaoMapRef.current;
-      if (!kakao || !map) return;
-      const pos = new kakao.maps.LatLng(y, x);
-      if (mapClickMarkerRef.current) {
-        mapClickMarkerRef.current.setMap(null);
-      }
-      mapClickMarkerRef.current = new kakao.maps.Marker({ position: pos, map });
-      setMapClickLoading(true);
-      setMapClickInfo(null);
-      try {
-        const data = await reverseGeocode(x, y);
-        const doc = data.documents?.[0];
-        const roadAddress = doc?.road_address?.address_name || '';
-        const jibunAddress = doc?.address?.address_name || '';
-        const buildingName = doc?.road_address?.building_name || '';
-        const address = roadAddress || jibunAddress;
-        if (!address) {
-          showToast('이 위치의 주소 정보를 찾지 못했어요.');
-          clearMapClickMarker();
-          return;
-        }
-        setMapClickInfo({ x, y, name: buildingName || address, address, roadAddress, jibunAddress });
-      } catch (err) {
-        console.error('handleMapClick reverseGeocode failed:', err);
-        showToast('위치 정보를 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
+  /**
+   * 지도 클릭 → 임시 marker 표시 → `/api/kakao`(nearby) 로 실제 주소 + 주변 실존 장소 후보를
+   * 조회한다. 후보가 있으면 후보 목록 팝업을, 없으면(적절한 장소를 못 찾은 경우) 클릭 좌표와
+   * 역지오코딩 주소만으로 바로 "이 위치를 추가하시겠습니까?" 확인 팝업을 띄운다. 지도 클릭
+   * 만으로는 방문지에 자동 추가하지 않는다 — 두 경우 모두 사용자가 팝업에서 "추가"를 눌러야
+   * 기존 addSelectedPlace 로 실제 등록된다.
+   */
+  const handleMapClick = async (x: number, y: number) => {
+    const kakao = window.kakao;
+    const map = kakaoMapRef.current;
+    if (!kakao || !map) return;
+    setMapClickCandidatesOpen(false);
+    const pos = new kakao.maps.LatLng(y, x);
+    if (mapClickMarkerRef.current) {
+      mapClickMarkerRef.current.setMap(null);
+    }
+    mapClickMarkerRef.current = new kakao.maps.Marker({ position: pos, map });
+    try {
+      const result = await fetchNearbyPlaces(x, y);
+      const address = result.roadAddress || result.jibunAddress;
+      if (!address) {
+        showToast('이 위치의 주소 정보를 찾지 못했어요.');
         clearMapClickMarker();
-      } finally {
-        setMapClickLoading(false);
+        return;
       }
-    },
-    [showToast, clearMapClickMarker],
-  );
+      if (result.documents.length > 0) {
+        setMapClickAddress(address);
+        setMapClickCandidates(result.documents);
+        setMapClickCandidatesOpen(true);
+        return;
+      }
+      // 주변에 마땅한 후보가 없으면(4번) 클릭 좌표 + 역지오코딩 주소만으로 바로 확인 팝업을
+      // 띄운다. 장소명은 지어내지 않고, 건물명이 있으면 건물명을, 없으면 주소 자체를 쓴다.
+      const fallbackDoc: KakaoPlaceDoc = {
+        id: `map-click_${x}_${y}`,
+        place_name: result.buildingName || address,
+        address_name: result.jibunAddress || address,
+        road_address_name: result.roadAddress || address,
+        category_group_name: '',
+        x: String(x),
+        y: String(y),
+      };
+      clearMapClickMarker();
+      mapClickAddConfirmRef.current(fallbackDoc);
+    } catch (err) {
+      console.error('handleMapClick fetchNearbyPlaces failed:', err);
+      showToast('위치 정보를 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
+      clearMapClickMarker();
+    }
+  };
+  // 매 렌더 최신 handleMapClick 을 ref 에 담아둔다(의존성 배열 없이 매 렌더 후 실행) — 아래
+  // 지도 클릭 리스너는 이 ref 를 통해서만 호출하므로, 리스너 자신은 openAddConfirmForDoc/
+  // isAllDaysView 처럼 나중에 선언되는 값을 직접 참조하지 않는다("선언 전 접근" 문제 회피).
+  useEffect(() => {
+    handleMapClickRef.current = handleMapClick;
+  });
 
   useEffect(() => {
     const kakao = window.kakao;
     const map = kakaoMapRef.current;
     if (!kakaoReady || !kakao || !map) return;
     const listener = (e: { latLng: { getLat: () => number; getLng: () => number } }) => {
-      closeMapClickCard();
-      void handleMapClick(e.latLng.getLng(), e.latLng.getLat());
+      handleMapClickRef.current(e.latLng.getLng(), e.latLng.getLat());
     };
     kakao.maps.event.addListener(map, 'click', listener);
     return () => {
       kakao.maps.event.removeListener(map, 'click', listener);
     };
-  }, [kakaoReady, handleMapClick, closeMapClickCard]);
+  }, [kakaoReady]);
+
+  /** 후보 목록 팝업에서 하나를 고르면(3번) 곧바로 "이 위치를 추가하시겠습니까?" 확인 팝업으로
+   * 이어간다 — 검색 결과를 고른 것과 동일한 addSelectedPlace 경로를 그대로 탄다. */
+  const selectMapClickCandidate = (doc: KakaoPlaceDoc) => {
+    setMapClickCandidatesOpen(false);
+    clearMapClickMarker();
+    openAddConfirmForDoc(doc, { dayPickerNeeded: isAllDaysView, mapClick: true });
+  };
 
   /**
    * "현재 위치" 버튼. 지도 중심 이동 + 전용 marker 표시만 하고, 방문지/구간과는 무관하므로
@@ -868,10 +905,11 @@ export function PlannerClient() {
         setAddConfirmOpen(false);
         setAddConfirmDayPickerNeeded(false);
         setAddConfirmDayChoice(null);
+        setAddConfirmFromMapClick(false);
         if (returnToOriginPickerAfterAdd || returnToMultiDayOriginAfterAdd != null) {
           openNextModal(() => setAddPlaceModalOpen(true));
         }
-      } else if (mapClickInfo) closeMapClickCard();
+      } else if (mapClickCandidatesOpen) closeMapClickCandidates();
       else if (situationModalOpen) setSituationModalOpen(false);
       else if (variablePlacePickerOpen) setVariablePlacePickerOpen(false);
       else if (variableDayPickerOpen) setVariableDayPickerOpen(false);
@@ -914,8 +952,8 @@ export function PlannerClient() {
     returnToOriginPickerAfterAdd,
     returnToMultiDayOriginAfterAdd,
     loginRequiredOpen,
-    mapClickInfo,
-    closeMapClickCard,
+    mapClickCandidatesOpen,
+    closeMapClickCandidates,
   ]);
 
   // ---- 방문지 CRUD ----
@@ -975,7 +1013,10 @@ export function PlannerClient() {
   /** 검색 결과 항목을 클릭하면 바로 "방문지를 추가할까요?" 팝업을 정해진 상태로 띄운다.
    * dayPickerNeeded 를 주면(지도 클릭 → 전체보기 상태) 팝업 안에 일차 토글을 함께 보여주고,
    * "추가"를 누른 시점의 토글 선택값을 그 방문지의 일차로 쓴다. */
-  const openAddConfirmForDoc = (doc: KakaoPlaceDoc, opts?: { dayPickerNeeded?: boolean }) => {
+  const openAddConfirmForDoc = (
+    doc: KakaoPlaceDoc,
+    opts?: { dayPickerNeeded?: boolean; mapClick?: boolean },
+  ) => {
     selectMapResult(doc);
     setPendingSelectedDoc(doc);
     setPendingName(doc.place_name);
@@ -983,26 +1024,10 @@ export function PlannerClient() {
     const needsDayPicker = Boolean(opts?.dayPickerNeeded);
     setAddConfirmDayPickerNeeded(needsDayPicker);
     setAddConfirmDayChoice(needsDayPicker ? 0 : null);
+    setAddConfirmFromMapClick(Boolean(opts?.mapClick));
     // 방문지 추가 팝업(addPlaceModalOpen)에서 결과를 고른 경우처럼, 다른 팝업을 막 닫은
     // 직후에 호출될 수 있어 실제로 닫힌 뒤에 열리도록 미룬다.
     openNextModal(() => setAddConfirmOpen(true));
-  };
-
-  /** 정보 카드의 "이 장소 선택" — 기존 검색 결과 클릭과 동일하게 "방문지를 추가할까요?"
-   * 팝업으로 이어간다. 전체보기 상태(2일 이상 + 전체보기)라면 팝업에 일차 토글을 함께 띄운다. */
-  const selectMapClickPlace = () => {
-    if (!mapClickInfo) return;
-    const doc: KakaoPlaceDoc = {
-      id: `map-click_${mapClickInfo.x}_${mapClickInfo.y}`,
-      place_name: mapClickInfo.name,
-      address_name: mapClickInfo.jibunAddress || mapClickInfo.address,
-      road_address_name: mapClickInfo.roadAddress || mapClickInfo.address,
-      category_group_name: '',
-      x: String(mapClickInfo.x),
-      y: String(mapClickInfo.y),
-    };
-    closeMapClickCard();
-    openAddConfirmForDoc(doc, { dayPickerNeeded: isAllDaysView });
   };
 
   /** 현재 위치를 방문지로 추가할지 확인하는 팝업이 열려 있는지 — pendingSelectedDoc.id 로
@@ -1067,6 +1092,7 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
   };
   const closeAddPlaceModal = () => setAddPlaceModalOpen(false);
 
@@ -1076,6 +1102,7 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
   /** "취소" 버튼 전용(위와 같은 이유). */
@@ -1100,6 +1127,7 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    setAddConfirmFromMapClick(false);
     setPendingAddress('');
     setPendingName('');
     // 출발지 선택 흐름에서 들어온 추가라면, 경로 계산 버튼을 다시 누르지 않아도 되도록 출발지
@@ -1998,6 +2026,14 @@ export function PlannerClient() {
     : [];
   /** 전체보기(모든 일차를 한 번에 보는 상태) — 일차 경계가 모호해지는 동작은 모두 막는다. */
   const isAllDaysView = hasDayTabs && selectedDay === null;
+
+  // mapClickAddConfirmRef 에 매 렌더 최신 호출부를 담아둔다 — handleMapClick(더 위에서 선언)은
+  // 이 ref 를 통해서만 부르므로 openAddConfirmForDoc/isAllDaysView 를 직접 참조하지 않는다.
+  useEffect(() => {
+    mapClickAddConfirmRef.current = (doc: KakaoPlaceDoc) => {
+      openAddConfirmForDoc(doc, { dayPickerNeeded: isAllDaysView, mapClick: true });
+    };
+  });
 
   const enrichedSegments = useMemo(
     () =>
@@ -3055,46 +3091,6 @@ export function PlannerClient() {
                 </div>
               ) : null}
 
-              {mapClickLoading || mapClickInfo ? (
-                <div className={styles.mapClickCard}>
-                  {mapClickLoading ? (
-                    <div className={styles.mapClickCardHead}>
-                      <span className={styles.mapClickAddress}>위치 정보를 확인하는 중...</span>
-                      <button
-                        type="button"
-                        className={styles.mapClickCloseBtn}
-                        onClick={closeMapClickCard}
-                        aria-label="닫기"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ) : mapClickInfo ? (
-                    <>
-                      <div className={styles.mapClickCardHead}>
-                        <div>
-                          <p className={styles.mapClickName}>{mapClickInfo.name}</p>
-                          <p className={styles.mapClickAddress}>{mapClickInfo.address}</p>
-                        </div>
-                        <button
-                          type="button"
-                          className={styles.mapClickCloseBtn}
-                          onClick={closeMapClickCard}
-                          aria-label="닫기"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <div className={styles.mapClickActions}>
-                        <Button size="sm" onClick={selectMapClickPlace}>
-                          이 장소 선택
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-
               {!kakaoReady ? (
                 <div className={styles.mapStatusBadge}>
                   {kakaoLoadFailed
@@ -3550,10 +3546,51 @@ export function PlannerClient() {
         </div>
       </Modal>
 
+      {/* 지도 클릭 → 주변 장소 후보. 하나를 고르면 아래 "방문지 추가 확인" 팝업으로 이어진다. */}
+      <Modal
+        open={mapClickCandidatesOpen}
+        title="이 위치를 추가하시겠습니까?"
+        onClose={closeMapClickCandidates}
+      >
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>지도에서 선택한 위치</span>
+          <p className={styles.fieldStatic}>{mapClickAddress}</p>
+        </div>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>주변 장소</span>
+          <div className={styles.searchResults} style={{ marginTop: 4, maxHeight: 260 }}>
+            {mapClickCandidates.map((doc) => (
+              <button
+                key={doc.id}
+                type="button"
+                className={styles.searchResultItem}
+                onClick={() => selectMapClickCandidate(doc)}
+              >
+                <span className={styles.searchResultName}>{doc.place_name}</span>
+                <span className={styles.searchResultAddress}>
+                  {doc.road_address_name || doc.address_name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={closeMapClickCandidates}>
+            취소
+          </Button>
+        </div>
+      </Modal>
+
       {/* 방문지 추가 확인 */}
       <Modal
         open={addConfirmOpen}
-        title={isCurrentLocationAddConfirm ? '현재 위치를 추가할까요?' : '방문지를 추가할까요?'}
+        title={
+          isCurrentLocationAddConfirm
+            ? '현재 위치를 추가할까요?'
+            : addConfirmFromMapClick
+              ? '이 위치를 추가하시겠습니까?'
+              : '방문지를 추가할까요?'
+        }
         onClose={closeAddConfirm}
       >
         <div className={styles.field}>

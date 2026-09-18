@@ -16,7 +16,11 @@ import {
 
 export const runtime = 'nodejs';
 
-type Action = 'geocode' | 'reverseGeocode' | 'keyword' | 'car' | 'walk' | 'transit' | 'bike';
+type Action = 'geocode' | 'reverseGeocode' | 'keyword' | 'nearby' | 'car' | 'walk' | 'transit' | 'bike';
+
+/** 지도 클릭 좌표 주변의 실제 장소 후보를 찾을 때 훑는 대표 카테고리 — Kakao 카테고리 검색은
+ * "전체" 카테고리 옵션이 없으므로, 자주 방문지가 될 만한 카테고리 몇 가지를 병렬로 조회해 합친다. */
+const NEARBY_CATEGORY_CODES = ['FD6', 'CE7', 'CS2', 'PO3', 'SC4', 'AT4', 'HP8', 'AD5'] as const;
 
 interface KakaoRequestBody {
   action?: Action;
@@ -91,6 +95,58 @@ export async function POST(request: Request) {
           );
         }
         return NextResponse.json(r.data);
+      }
+
+      case 'nearby': {
+        // 지도 클릭 → 좌표의 실제 주소 + 주변 실존 장소 후보. 클릭 좌표 자체는 절대
+        // 조작하지 않고 그대로 Kakao 에 전달하며, 후보가 없으면 documents 를 빈 배열로
+        // 돌려줘 프론트에서 주소만으로 진행하게 한다(마음대로 후보를 지어내지 않는다).
+        const addrRes = await kakaoGet(`${LOCAL_BASE}/v2/local/geo/coord2address.json`, {
+          x: params.x,
+          y: params.y,
+        });
+        if (!addrRes.ok) {
+          console.error('kakao nearby(reverseGeocode) error', addrRes.status, addrRes.data);
+          return NextResponse.json(
+            { error: '클릭한 위치의 주소를 찾지 못했습니다.', detail: addrRes.data },
+            { status: 502 },
+          );
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const addrDoc = (addrRes.data as any)?.documents?.[0];
+        const radius = params.radius ?? 300;
+
+        const categoryResults = await Promise.all(
+          NEARBY_CATEGORY_CODES.map((code) =>
+            kakaoGet(`${LOCAL_BASE}/v2/local/search/category.json`, {
+              category_group_code: code,
+              x: params.x,
+              y: params.y,
+              radius,
+              sort: 'distance',
+              size: 5,
+            }),
+          ),
+        );
+
+        const seen = new Set<string>();
+        const documents = categoryResults
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .flatMap((r) => (r.ok ? ((r.data as any)?.documents ?? []) : []))
+          .sort((a, b) => Number(a.distance) - Number(b.distance))
+          .filter((doc) => {
+            if (seen.has(doc.id)) return false;
+            seen.add(doc.id);
+            return true;
+          })
+          .slice(0, 8);
+
+        return NextResponse.json({
+          roadAddress: addrDoc?.road_address?.address_name || '',
+          jibunAddress: addrDoc?.address?.address_name || '',
+          buildingName: addrDoc?.road_address?.building_name || '',
+          documents,
+        });
       }
 
       case 'car': {
