@@ -56,6 +56,10 @@
   max-width: 520px;
 }
 
+.mobileBreak {
+  display: none;
+}
+
 .stats {
   margin-top: 28px;
   display: flex;
@@ -184,5 +188,9 @@
 
   .stepCard {
     padding: 30px 24px;
+  }
+
+  .mobileBreak {
+    display: inline;
   }
 }

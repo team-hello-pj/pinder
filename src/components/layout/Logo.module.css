@@ -132,6 +132,72 @@
   }
 }
 
+/* 모바일 헤더에서는 nav/로그인 버튼이 사라져 액션 영역(야간모드 버튼)이 훨씬 가까워지므로,
+   이동 경로·타이밍은 그대로 두고 마지막 도착 좌표만 야간모드 버튼 바로 앞에 오도록 줄인다. */
+@media (max-width: 767px) {
+  .markAnimated {
+    animation-name: pd-logo-ant-push-mobile;
+  }
+
+  .textAnimated {
+    animation-name: pd-logo-text-push-mobile;
+  }
+}
+
+@keyframes pd-logo-ant-push-mobile {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(137px);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(157px);
+    opacity: 0;
+  }
+  62% {
+    transform: translateX(-4px);
+    opacity: 0;
+  }
+  64% {
+    transform: translateX(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pd-logo-text-push-mobile {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(137px);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(157px);
+    opacity: 0;
+  }
+  62% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  64% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .markAnimated,
   .textAnimated {
