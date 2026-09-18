@@ -1524,7 +1524,12 @@
   box-shadow: 0px 6px 16px -4px rgba(23, 23, 25, 0.25);
   transition: opacity 0.25s ease;
   pointer-events: none;
-  white-space: nowrap;
+  /* AI 상황 반영 결과처럼 긴 안내 문구는 한 줄로 고정하면(nowrap) 좁은 모바일 화면
+     너비를 넘어가는 부분이 잘려 보였다 — 너비를 제한하고 줄바꿈을 허용한다.
+     짧은 토스트는 이 너비보다 좁아서 기존처럼 한 줄로 그대로 보인다. */
+  max-width: min(420px, 88vw);
+  white-space: normal;
+  text-align: center;
 }
 
 /* ---- 드로어 ---- */
