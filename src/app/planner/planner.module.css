@@ -1045,7 +1045,28 @@
   justify-content: center;
   flex-shrink: 0;
   margin-left: 6px;
+}
+
+/* 돋보기(.searchRunBtn) 바로 옆에 붙는 "현재 위치를 방문지로 추가" 핑 버튼. */
+.searchCurrentLocationBtn {
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eaf2ff;
+  border: 1px solid #cfe0fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   margin-right: 6px;
+  font-size: 13px;
+  color: #3b82f6;
+}
+
+.searchCurrentLocationBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .searchCloseBtn {
