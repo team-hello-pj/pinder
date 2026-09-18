@@ -2151,9 +2151,9 @@
   .mobileActionsRow2Col1 {
     order: 4;
     grid-column: span 2;
-    /* 달력 버튼 자체 크기(40px)는 그대로 두고, 칸 오른쪽 끝에 붙인다 — 원본 삭제(다음 칸
-       왼쪽 끝)와의 간격이 그리드 gap(8px) 하나만큼만 자연스럽게 생긴다. */
-    justify-self: end;
+    /* 달력 버튼 자체 크기(40px)는 그대로 두고, 칸의 맨 왼쪽 끝(=2행 전체의 맨 왼쪽)에
+       붙인다. */
+    justify-self: start;
   }
 
   .mobileActionsRow2Col2 {
