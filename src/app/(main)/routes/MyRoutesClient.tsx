@@ -40,6 +40,15 @@ export function MyRoutesClient() {
   const [cardCalYear, setCardCalYear] = useState(new Date().getFullYear());
   const [cardCalMonth, setCardCalMonth] = useState(new Date().getMonth());
 
+  // ---- 일정 수정 팝업 (제목 + 날짜, 제작자 전용) ----
+  const [routeEditOpen, setRouteEditOpen] = useState(false);
+  const [routeEditId, setRouteEditId] = useState<string | null>(null);
+  const [routeEditTitle, setRouteEditTitle] = useState('');
+  const [routeEditStart, setRouteEditStart] = useState('');
+  const [routeEditEnd, setRouteEditEnd] = useState('');
+  const [routeEditCalYear, setRouteEditCalYear] = useState(new Date().getFullYear());
+  const [routeEditCalMonth, setRouteEditCalMonth] = useState(new Date().getMonth());
+
   const newTripFlowRef = useRef<NewTripFlowHandle>(null);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -109,7 +118,7 @@ export function MyRoutesClient() {
 
   // ---- 날짜 수정 (카드 내 팝오버) ----
   const startDateEdit = (route: ScheduleSummary) => {
-    if (route.role === 'viewer') return;
+    if (route.role !== 'creator') return;
     const start = route.tripStart || todayStr();
     const [y, m] = start.split('-').map(Number);
     setDateEditingId(route.id);
@@ -136,6 +145,48 @@ export function MyRoutesClient() {
     const id = dateEditingId;
     setDateEditingId(null);
     const updated = await updateSchedule(id, { tripStart: editStart, tripEnd: editEnd });
+    if (!updated) return;
+    setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
+    showToast('일정이 변경되었습니다');
+  };
+
+  // ---- 일정 수정 팝업 (제목 + 날짜, 제작자 전용) ----
+  const openRouteEdit = (route: ScheduleSummary) => {
+    if (route.role !== 'creator') return;
+    const start = route.tripStart || todayStr();
+    const [y, m] = start.split('-').map(Number);
+    setRouteEditId(route.id);
+    setRouteEditTitle(route.title);
+    setRouteEditStart(start);
+    setRouteEditEnd(route.tripEnd || start);
+    setRouteEditCalYear(y);
+    setRouteEditCalMonth(m - 1);
+    setRouteEditOpen(true);
+  };
+  const onRouteEditCalDayClick = (dateStr: string) => {
+    if (!routeEditStart || (routeEditStart && routeEditEnd && routeEditStart !== routeEditEnd)) {
+      setRouteEditStart(dateStr);
+      setRouteEditEnd(dateStr);
+      return;
+    }
+    if (dateStr < routeEditStart) {
+      setRouteEditEnd(routeEditStart);
+      setRouteEditStart(dateStr);
+      return;
+    }
+    setRouteEditEnd(dateStr);
+  };
+  const saveRouteEdit = async () => {
+    if (!routes || !routeEditId) return;
+    const id = routeEditId;
+    const name = routeEditTitle.trim();
+    setRouteEditOpen(false);
+    const updated = await updateSchedule(id, {
+      title: name || undefined,
+      customName: true,
+      tripStart: routeEditStart,
+      tripEnd: routeEditEnd,
+    });
     if (!updated) return;
     setRoutes(routes.map((r) => (r.id === id ? { ...r, ...updated } : r)));
     showToast('일정이 변경되었습니다');
@@ -205,60 +256,62 @@ export function MyRoutesClient() {
           <div className={styles.list}>
             {pagedRoutes.map((route) => (
               <div key={route.id} className={styles.card}>
-                <div className={styles.cardActions}>
-                  <a
-                    href={`/planner?loadRoute=${encodeURIComponent(route.id)}`}
-                    className={styles.openBtn}
-                  >
-                    열기
-                  </a>
-                  <button
-                    type="button"
-                    className={styles.deleteBtn}
-                    onClick={() => openDeleteConfirm(route)}
-                    aria-label="삭제"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <line x1="10" y1="11" x2="10" y2="17" />
-                      <line x1="14" y1="11" x2="14" y2="17" />
-                    </svg>
-                  </button>
-                </div>
-
                 <div className={styles.cardBody}>
-                  {editingId === route.id ? (
-                    <input
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEdit();
-                        if (e.key === 'Escape') setEditingId(null);
-                      }}
-                      autoFocus
-                      className={styles.editInput}
-                    />
-                  ) : (
-                    <div
-                      className={styles.cardName}
-                      onClick={() => startEdit(route)}
-                      title="클릭해서 제목 수정"
-                    >
-                      {route.title}
+                  <div className={styles.titleRow}>
+                    {editingId === route.id ? (
+                      <input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEdit();
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        autoFocus
+                        className={styles.editInput}
+                      />
+                    ) : (
+                      <div
+                        className={styles.cardName}
+                        onClick={() => startEdit(route)}
+                        title="클릭해서 제목 수정"
+                      >
+                        {route.title}
+                      </div>
+                    )}
+
+                    <div className={styles.cardActions}>
+                      <a
+                        href={`/planner?loadRoute=${encodeURIComponent(route.id)}`}
+                        className={styles.openBtn}
+                      >
+                        열기
+                      </a>
+                      <button
+                        type="button"
+                        className={styles.deleteBtn}
+                        onClick={() => openDeleteConfirm(route)}
+                        aria-label="삭제"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   {dateEditingId === route.id ? (
                     <div className={styles.dateEditWrap}>
@@ -306,8 +359,9 @@ export function MyRoutesClient() {
                   ) : (
                     <div
                       className={styles.cardMeta}
-                      onClick={() => startDateEdit(route)}
-                      title="클릭해서 날짜 수정"
+                      onClick={route.role === 'creator' ? () => startDateEdit(route) : undefined}
+                      title={route.role === 'creator' ? '클릭해서 날짜 수정' : undefined}
+                      style={route.role === 'creator' ? undefined : { cursor: 'default' }}
                     >
                       {route.dateLabel} · 방문지 {route.places.length}곳
                     </div>
@@ -341,14 +395,38 @@ export function MyRoutesClient() {
                     </div>
                   ) : null}
 
-                  <div className={styles.chips}>
-                    {route.placeChips.map((name) => (
-                      <span key={name} className={styles.chip}>
-                        {name}
-                      </span>
-                    ))}
-                    {route.moreChipsCount > 0 ? (
-                      <span className={styles.moreChip}>+{route.moreChipsCount}</span>
+                  <div className={styles.chipsRow}>
+                    <div className={styles.chips}>
+                      {route.placeChips.map((name) => (
+                        <span key={name} className={styles.chip}>
+                          {name}
+                        </span>
+                      ))}
+                      {route.moreChipsCount > 0 ? (
+                        <span className={styles.moreChip}>+{route.moreChipsCount}</span>
+                      ) : null}
+                    </div>
+                    {route.role === 'creator' ? (
+                      <button
+                        type="button"
+                        className={styles.routeEditBtn}
+                        onClick={() => openRouteEdit(route)}
+                        aria-label="일정 수정"
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#878A93"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -451,6 +529,57 @@ export function MyRoutesClient() {
           </Button>
           <Button variant="danger" size="sm" onClick={confirmDelete}>
             내 일정에서 삭제
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 일정 수정 (제목 + 날짜, 제작자 전용) */}
+      <Modal open={routeEditOpen} title="일정 수정" onClose={() => setRouteEditOpen(false)}>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>방문지 이름</span>
+          <input
+            value={routeEditTitle}
+            onChange={(e) => setRouteEditTitle(e.target.value)}
+            className={styles.fieldInput}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>날짜</span>
+          <DateRangeCalendar
+            variant="compact"
+            year={routeEditCalYear}
+            month={routeEditCalMonth}
+            start={routeEditStart}
+            end={routeEditEnd}
+            onDayClick={onRouteEditCalDayClick}
+            onPrevMonth={() => {
+              let m = routeEditCalMonth - 1;
+              let y = routeEditCalYear;
+              if (m < 0) {
+                m = 11;
+                y -= 1;
+              }
+              setRouteEditCalMonth(m);
+              setRouteEditCalYear(y);
+            }}
+            onNextMonth={() => {
+              let m = routeEditCalMonth + 1;
+              let y = routeEditCalYear;
+              if (m > 11) {
+                m = 0;
+                y += 1;
+              }
+              setRouteEditCalMonth(m);
+              setRouteEditCalYear(y);
+            }}
+          />
+        </div>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" size="sm" onClick={() => setRouteEditOpen(false)}>
+            취소
+          </Button>
+          <Button size="sm" onClick={saveRouteEdit}>
+            저장
           </Button>
         </div>
       </Modal>

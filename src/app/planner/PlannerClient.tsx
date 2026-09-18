@@ -2981,7 +2981,7 @@ export function PlannerClient() {
                 </div>
               </div>
               <div className={styles.summaryActions}>
-                {canEdit && scheduleId ? (
+                {role === 'creator' && scheduleId ? (
                   <button
                     type="button"
                     className={styles.dateEditIconBtn}

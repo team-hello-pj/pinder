@@ -92,13 +92,18 @@
   border-color: #cfe8d9;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
 .cardActions {
-  position: absolute;
-  top: 14px;
-  right: 16px;
   display: flex;
   align-items: center;
   gap: 11px;
+  flex-shrink: 0;
 }
 
 .openBtn {
@@ -140,13 +145,13 @@
 .cardBody {
   flex: 1;
   min-width: 220px;
-  padding-right: 120px;
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
 .cardName {
+  flex: 1;
   font-size: 15.5px;
   font-weight: 700;
   color: var(--pd-text);
@@ -158,6 +163,7 @@
 }
 
 .editInput {
+  flex: 1;
   font-size: 15.5px;
   font-weight: 700;
   color: var(--pd-text);
@@ -165,7 +171,7 @@
   border: 1px solid var(--pd-border);
   border-radius: 6px;
   padding: 2px 6px;
-  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   font-family: inherit;
 }
@@ -264,6 +270,13 @@
   line-height: 1;
 }
 
+.chipsRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -285,6 +298,47 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--pd-text-sub);
+}
+
+/** 일정 제목/날짜를 함께 수정하는 팝업을 여는 연필 버튼 — 목적지 목록과 같은 줄, 오른쪽 정렬 */
+.routeEditBtn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.routeEditBtn:hover {
+  background: var(--pd-row-hover);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pd-text-sub);
+}
+
+.fieldInput {
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--pd-text);
+  background: var(--pd-bg);
 }
 
 .pagination {
