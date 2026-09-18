@@ -1,0 +1,89 @@
+/* Product Tour — 기존 /planner 레이아웃에는 영향을 주지 않는 별도의 오버레이 레이어. */
+
+.blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: transparent;
+}
+
+.spotlight {
+  position: fixed;
+  z-index: 2001;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 9999px rgba(10, 10, 12, 0.65);
+  pointer-events: none;
+  transition:
+    top 0.2s ease,
+    left 0.2s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+}
+
+.bubble {
+  position: fixed;
+  z-index: 2002;
+  width: min(320px, calc(100vw - 24px));
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  border: 1px solid var(--pd-border);
+  border-radius: var(--pd-radius-lg);
+  box-shadow: var(--pd-shadow-lg);
+  padding: 16px;
+  transition:
+    top 0.2s ease,
+    left 0.2s ease;
+}
+
+.bubbleHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bubbleStep {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--pd-brand);
+  letter-spacing: 0.03em;
+}
+
+.skipBtn {
+  border: none;
+  background: none;
+  color: var(--pd-text-sub);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.skipBtn:hover {
+  color: var(--pd-text);
+  background: var(--pd-row-hover);
+}
+
+.bubbleTitle {
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--pd-text);
+  line-height: 1.4;
+}
+
+.bubbleDesc {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--pd-text-sub);
+  line-height: 1.55;
+}
+
+.bubbleFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

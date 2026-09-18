@@ -58,6 +58,7 @@ import type { Place, RouteCriteria, RouteLeg, SavedRoute, TransportMode } from '
 import type { EditRequest, Member } from './data';
 import { ModeIcon } from './ModeIcon';
 import { PlaceCard } from './PlaceCard';
+import { ProductTour } from './ProductTour';
 import { SegmentConnector, type SegmentStep } from './SegmentConnector';
 import styles from './planner.module.css';
 
@@ -2469,6 +2470,7 @@ export function PlannerClient() {
                     className={styles.collapseBtn}
                     onClick={togglePanelCollapsed}
                     title="플래너 접기"
+                    data-tour="map-toggle"
                   >
                     «
                   </button>
@@ -2581,7 +2583,11 @@ export function PlannerClient() {
                 ) : null}
               </div>
               <div className={styles.listHeaderRight}>
-                {canEdit ? <span className={styles.hint}>드래그로 순서 변경</span> : null}
+                {canEdit ? (
+                  <span className={styles.hint} data-tour="place-order">
+                    드래그로 순서 변경
+                  </span>
+                ) : null}
                 {places.length > 0 && canEdit ? (
                   <button type="button" className={styles.clearAllBtn} onClick={clearAllPlaces}>
                     전체 삭제
@@ -2591,7 +2597,7 @@ export function PlannerClient() {
             </div>
 
             {places.length === 0 ? (
-              <div className={styles.emptyState}>
+              <div className={styles.emptyState} data-tour="place-list">
                 {canEdit ? (
                   <button
                     type="button"
@@ -2612,7 +2618,7 @@ export function PlannerClient() {
                 ) : null}
               </div>
             ) : (
-              <div className={styles.timeline}>
+              <div className={styles.timeline} data-tour="place-list">
                 {timeline.map((item, i) => {
                   if (item.kind === 'divider') {
                     return (
@@ -2711,6 +2717,7 @@ export function PlannerClient() {
                         onFocus={openSearchMode}
                         placeholder="주소를 검색하여 추가하기"
                         className={styles.addInput}
+                        data-tour="place-search"
                       />
                       <button
                         type="button"
@@ -2755,6 +2762,7 @@ export function PlannerClient() {
                   disabled={locatingMe}
                   aria-label="현재 위치로 이동"
                   title="현재 위치로 이동"
+                  data-tour="my-location"
                 >
                   {locatingMe ? (
                     '…'
@@ -3068,6 +3076,7 @@ export function PlannerClient() {
                     onClick={openDateEditModal}
                     title="날짜 변경"
                     aria-label="일정 날짜 변경"
+                    data-tour="schedule"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- 정적 16px 아이콘, next/image 최적화 불필요 */}
                     <img src="/icons/calendar-days.png" alt="" className={styles.dateEditIcon} />
@@ -3093,6 +3102,7 @@ export function PlannerClient() {
                       }
                       openVariablePlacePicker();
                     }}
+                    data-tour="variables"
                   >
                     변수 추가
                   </button>
@@ -3133,6 +3143,7 @@ export function PlannerClient() {
                     className={styles.mobileActionsRow2Col3}
                     onClick={handleRouteCalcClick}
                     disabled={loading || multiDayRunning}
+                    data-tour="calculate-route"
                   >
                     경로 계산
                   </Button>
@@ -3145,7 +3156,12 @@ export function PlannerClient() {
 
       {/* AI FAB — 뷰어(편집 권한 없음)는 동선을 바꿀 수 없으니 동선 수정용 AI 도우미도 필요 없다. */}
       {!aiOpen && !isViewerRole ? (
-        <button type="button" className={styles.aiFab} onClick={() => setAiOpen(true)}>
+        <button
+          type="button"
+          className={styles.aiFab}
+          onClick={() => setAiOpen(true)}
+          data-tour="ai-helper"
+        >
           ✨ AI 도우미
         </button>
       ) : null}
@@ -3971,6 +3987,8 @@ export function PlannerClient() {
           </Button>
         </div>
       </Modal>
+
+      <ProductTour />
     </div>
   );
 }
