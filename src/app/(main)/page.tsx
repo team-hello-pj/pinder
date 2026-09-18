@@ -3,9 +3,9 @@ import { SectionReveal } from './SectionReveal';
 import styles from './home.module.css';
 
 const STATS = [
-  { value: '128,400+', label: '만족한 횟수' },
-  { value: '2,300+', label: '이용 누적 수' },
-  { value: '21,904+', label: '만족한 개발자' },
+  { value: '128,400+', label: '빠진 머리카락 개수' },
+  { value: '280+', label: '총 커밋 횟수' },
+  { value: '38,880+', label: '박애관 체류 시간' },
 ];
 
 const STEPS = [
