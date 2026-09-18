@@ -1439,6 +1439,14 @@
   color: #171719;
 }
 
+/* .aiInput 은 배경을 따로 지정하지 않아, 다크모드(color-scheme:dark)에서는 <input> 이
+   브라우저 기본 어두운 배경으로 그려진다 — 그런데 글자색은 항상 어두운 색(#171719)으로
+   고정돼 있어 어두운 배경 위에 어두운 글씨가 겹쳐 입력한 내용이 안 보였다. 다크모드에서만
+   흰색으로 바꿔 보이게 한다. */
+:global([data-theme='dark']) .aiInput {
+  color: #fff;
+}
+
 .aiSendBtn {
   background: var(--pd-brand);
   color: #12321f;
