@@ -20,3 +20,6 @@ Screenshot*.png
 # 팀원 개인정보(실명·이메일 매핑)·배포 로그가 섞인 로컬 작업 노트 — 커밋 대상 아님
 plan/role/
 .env*
+
+# vercel CLI로 뽑은 배포 로그(계정명·배포 URL 포함) — 로컬 작업용, 인코딩도 UTF-16이라 lint를 깨뜸
+/vercel-deployments.json
