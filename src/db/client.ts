@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 
 import * as schema from './schema';
 
@@ -10,7 +10,14 @@ function createDb() {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL 환경변수가 없습니다.');
   }
-  return drizzle(neon(databaseUrl), { schema });
+  /** Supabase 의 pooled 연결(Supavisor, transaction mode)은 prepared statement 를
+   * 지원하지 않는다 — prepare:false 없이 쓰면 캐시된 prepared statement 가 다른
+   * 커넥션에서 재사용되며 에러가 난다. */
+  /** Supabase pooler 인증서 체인이 Node 의 기본 신뢰 저장소와 안 맞아 verify-full 이면
+   * "self-signed certificate in certificate chain" 로 실패한다 — require 로 암호화만 하고
+   * CA 검증은 건너뛴다(Supabase 도 이 방식을 권장). */
+  const client = postgres(databaseUrl, { prepare: false, idle_timeout: 20, ssl: 'require' });
+  return drizzle(client, { schema });
 }
 
 type Database = ReturnType<typeof createDb>;
