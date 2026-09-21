@@ -45,7 +45,8 @@
 | AI 추천 장소의 좌표를 카카오에서 못 찾음(대체 후보로 최대 3회 재시도 후에도 실패) | "좌표 매칭에 실패했습니다" 모달 — 해당 장소는 제외하고 진행(전부 실패 시 "조건을 바꾸거나 다시 시도해주세요.") | 나머지 장소로 계속 진행, 또는 조건 변경 후 재시도 | ✅ |
 
 ### 기획 문서
-- [PRD](03-Hello-requirements.md) · [유저 스토리](07-Hello-user-stories.md) · [화면 흐름](08-Hello-screen-flow.md)
+- **사전 기획**(코딩 시작 직후 작성, 근거: `git log`상 커밋 `d61b43b`, 2026-09-15 17:22 — 첫 코드 커밋 16:58 직후): [문제 정의](../plan-example/01-merged.md) · [요구사항](../plan-example/03-H-requirements.md) · [기능](../plan-example/04-H-features.md)
+- **사후 검증**(배포된 코드를 기준으로 역산, 2026-09-18): [PRD](03-Hello-requirements.md) · [유저 스토리](07-Hello-user-stories.md) · [화면 흐름](08-Hello-screen-flow.md)
 
 ---
 
@@ -139,7 +140,7 @@ flowchart LR
 |---|---|---|
 | hello-plan-writer | 배포된 코드를 역산해 기획 문서 작성 | Hello-plan-docs 12개 문서 생성 |
 | rm-writer | Hello-plan-docs를 종합해 README 작성 | 섹션 단위로 반복 사용 중 |
-| planning-partner / product-planner | 기획 인터뷰 진행 · 빈 칸·모호한 문장 검증 | plan-example 초안 다수 생성 |
+| planning-partner / product-planner | 기획 인터뷰 진행(작성) / 빈 칸·모호한 문장 검증(검토만, 직접 안 씀) | plan-example 초안 다수 생성 · 검증 라운드 다수 |
 | design-abstractor | Claude Design export를 코드 기준으로 요약 | 1회(`design-abstract.md` 생성) |
 
 ### 검증 절차
