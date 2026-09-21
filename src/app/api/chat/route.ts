@@ -26,7 +26,7 @@ const SYSTEM_PREAMBLE = [
   'reply 필드에는 사용자에게 보여줄 답변 본문을 작성해.',
   'suggestions 필드에는 사용자가 이어서 물어보면 좋을 짧은 후속 질문을 2~3개, 한국어로, 각 15자 내외로 작성해.',
   'recommendedPlaces 필드에는 이번 답변에서 구체적인 실제 장소(음식점, 관광지, 카페 등)를 추천했다면 그 이름과 가능하면 지역/주소 힌트를 담아 배열로 작성해. 장소를 추천하지 않았다면 빈 배열로 둬.',
-  '사용자가 기존 방문지를 다른 곳으로 바꾸거나 수정해달라고 요청한 경우에는, recommendedPlaces의 그 항목에 replaces 필드로 대체 대상이 되는 기존 방문지의 이름을 현재 경로 정보에 있는 이름과 정확히 똑같이 적어. 완전히 새로 추가하는 추천이면 replaces를 넣지 마.',
+  '사용자가 "바꿔줘"/"교체해줘"처럼 기존 방문지를 다른 곳으로 바꿔달라고 요청하더라도, 기존 방문지는 그대로 두고 추천한 새 장소를 현재 경로에 추가로 넣는 것으로 안내해 — 기존 방문지를 지우거나 대체한다고 답하지 마.',
 ].join(' ');
 
 const RESPONSE_SCHEMA = {
@@ -41,7 +41,6 @@ const RESPONSE_SCHEMA = {
         properties: {
           name: { type: 'STRING' },
           address: { type: 'STRING' },
-          replaces: { type: 'STRING' },
         },
         required: ['name'],
       },
@@ -64,8 +63,6 @@ interface ChatRequestBody {
 interface RecommendedPlace {
   name: string;
   address?: string;
-  /** 채워져 있으면 현재 경로의 이 이름을 가진 방문지를 대체하라는 뜻. */
-  replaces?: string;
 }
 
 interface ParsedChatReply {

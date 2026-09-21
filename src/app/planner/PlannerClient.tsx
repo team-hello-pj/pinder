@@ -967,18 +967,6 @@ export function PlannerClient() {
   ]);
 
   // ---- 방문지 CRUD ----
-  const geocodePlace = async (query: string) => {
-    try {
-      const data = await searchKeyword(query);
-      const doc = data.documents?.[0];
-      if (!doc) return null;
-      return { x: Number(doc.x), y: Number(doc.y) };
-    } catch (err) {
-      console.error('geocodePlace failed:', err);
-      return null;
-    }
-  };
-
   /** 검색 결과에서 실존하는(Kakao에 등록된) 장소만 추가할 수 있다 — 존재하지 않는 장소는 입력할 수 없다. */
   const addSelectedPlace = (
     doc: KakaoPlaceDoc,
@@ -1927,11 +1915,12 @@ export function PlannerClient() {
             recommendedPlaces: res.recommendedPlaces,
           },
         ]);
-        // 사용자가 채팅으로 직접 "추가해줘"/"수정해줘"라고 명령한 경우에만 바로 동선에 반영한다.
+        // 사용자가 채팅으로 직접 "추가해줘"/"수정해줘"/"바꿔줘"라고 명령한 경우에만 바로 동선에
+        // 반영한다 — "바꿔줘"처럼 교체를 뜻하는 말이어도 기존 방문지는 그대로 두고 새 장소를
+        // 추가하는 것으로 처리한다(추천만 하고 실제로 지우거나 대체하지는 않는다).
         if (res.recommendedPlaces.length && isRouteCommandMessage(text)) {
-          const isPureAddition = res.recommendedPlaces.every((p) => !p.replaces);
-          if (isPureAddition && tripDayCountNow > 1 && explicitDay === null) {
-            // 순수 추가인데 몇 일차인지 모른다 — 물어보고 답을 기다린다.
+          if (tripDayCountNow > 1 && explicitDay === null) {
+            // 몇 일차인지 모른다 — 물어보고 답을 기다린다.
             setPendingAddPlaces(res.recommendedPlaces);
             setAiMessages((prev) => [...prev, { role: 'ai', text: '몇 일차에 추가할까요?' }]);
           } else {
@@ -1951,39 +1940,11 @@ export function PlannerClient() {
     }
   };
 
-  /** 지목된 기존 방문지만 이름/주소/좌표를 바꾸고, 그 자리(순서/일차/체류시간 등)는 그대로 둔다. */
-  const applyRecommendedReplace = async (rec: RecommendedPlace) => {
-    // 이름+주소 힌트를 합친 쿼리가 실패하면 장소명만으로 한 번 더 시도한다(advanceRecommendedQueue
-    // 와 같은 이유).
-    let geo = rec.address ? await geocodePlace(`${rec.name} ${rec.address}`) : null;
-    if (!geo) geo = await geocodePlace(rec.name);
-    let replacedName: string | null = null;
-    setPlaces((prev) => {
-      const idx = prev.findIndex((p) => p.name === rec.replaces);
-      if (idx === -1) return prev;
-      replacedName = prev[idx].name;
-      const next = [...prev];
-      next[idx] = {
-        ...next[idx],
-        name: rec.name,
-        address: rec.address || rec.name,
-        x: geo?.x ?? next[idx].x,
-        y: geo?.y ?? next[idx].y,
-      };
-      return next;
-    });
-    if (replacedName) {
-      setRouteCache({});
-      logActivity(`AI 추천으로 "${replacedName}"을(를) "${rec.name}"(으)로 교체했습니다`);
-      showToast(`"${rec.name}"(으)로 교체했어요`);
-    }
-  };
-
   /**
-   * 큐에 남은 추천 장소를 하나씩 처리한다. 지목된 방문지를 바꾸는 추천(rec.replaces)은 바로
-   * 반영하고, 새로 추가하는 추천은 좌표 없이 바로 넣지 않는다 — 카카오에서 실제로 검색해
-   * 찾은 장소로 "이 장소를 추가할까요?" 확인(addConfirmOpen)을 받은 뒤에 넣는다. 그래야
-   * 방문지 검색으로 추가할 때와 똑같이 좌표가 확실해서 지도에도 바로 나타난다.
+   * 큐에 남은 추천 장소를 하나씩 처리한다. "바꿔줘"처럼 교체를 뜻하는 요청이어도 기존
+   * 방문지를 지우지 않고 항상 새로 추가한다 — 좌표 없이 바로 넣지 않고, 카카오에서 실제로
+   * 검색해 찾은 장소로 "이 장소를 추가할까요?" 확인(addConfirmOpen)을 받은 뒤에 넣는다.
+   * 그래야 방문지 검색으로 추가할 때와 똑같이 좌표가 확실해서 지도에도 바로 나타난다.
    */
   const advanceRecommendedQueue = async (queue: { rec: RecommendedPlace; day?: number }[]) => {
     if (!queue.length) {
@@ -1993,12 +1954,6 @@ export function PlannerClient() {
     }
     const [{ rec, day }, ...rest] = queue;
     setRecommendedQueue(rest);
-
-    if (rec.replaces) {
-      await applyRecommendedReplace(rec);
-      void advanceRecommendedQueue(rest);
-      return;
-    }
 
     // AI가 준 이름+주소 힌트를 그대로 합친 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
     // 잦다(주소 힌트가 부정확하거나 너무 구체적일 때) — 실패하면 장소명만으로 한 번 더 시도한다.
