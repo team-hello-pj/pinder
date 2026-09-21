@@ -1026,6 +1026,62 @@
   box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.3);
 }
 
+/* "맨 위로" 버튼 — 300px 이상 스크롤했을 때만 나타난다(showScrollTop). */
+.scrollTopBtn {
+  position: fixed;
+  right: 20px;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-card-bg);
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.9;
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.25);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    background 0.15s ease;
+  animation: scrollTopFadeIn 0.18s ease;
+}
+
+.scrollTopBtn:hover {
+  opacity: 1;
+  background: var(--pd-chip-bg);
+  transform: translateY(-2px);
+}
+
+.scrollTopBtn:active {
+  opacity: 0.85;
+  transform: translateY(0);
+}
+
+@keyframes scrollTopFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 0.9;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .scrollTopBtn {
+    right: 16px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: 38px;
+    height: 38px;
+  }
+}
+
 .myAvatar {
   position: relative;
   width: 64px;

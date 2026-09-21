@@ -205,6 +205,8 @@ export function CommunityClient() {
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
 
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   const [selectedRegion, setSelectedRegion] = useState('전체');
   // 접힘 상태는 767px 이하에서만 CSS로 반영된다(.regionCollapsed) — PC에서는 항상 펼쳐져 보인다.
   const [regionExpanded, setRegionExpanded] = useState(false);
@@ -267,6 +269,16 @@ export function CommunityClient() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [commentModalId]);
+
+  // "맨 위로" 버튼 — 300px 넘게 스크롤했을 때만 보여준다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const runSearch = () => {
     setSearchQuery(searchInput.trim());
@@ -1310,6 +1322,29 @@ export function CommunityClient() {
           </svg>
           {toastMsg}
         </div>
+      ) : null}
+
+      {showScrollTop ? (
+        <button
+          type="button"
+          className={styles.scrollTopBtn}
+          onClick={scrollToTop}
+          aria-label="맨 위로"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="19" x2="12" y2="5" />
+            <polyline points="5 12 12 5 19 12" />
+          </svg>
+        </button>
       ) : null}
     </div>
   );
