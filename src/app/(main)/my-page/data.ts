@@ -9,18 +9,11 @@ export interface NotificationDef {
 
 export const NOTIFICATION_DEFS: NotificationDef[] = [
   {
-    key: 'schedule',
-    emoji: '📅',
-    title: '일정 알림',
-    desc: '여행 일정과 계획된 활동을 미리 알려드려요.',
-  },
-  {
     key: 'scheduleStart',
     emoji: '📍',
     title: '일정 시작 알림',
     desc: '다음 일정이 시작되기 전에 알려드려요.',
   },
-  { key: 'route', emoji: '🚶', title: '동선 알림', desc: '최적 동선 및 이동 정보를 알려드려요.' },
   {
     key: 'communityComment',
     emoji: '💬',
@@ -33,23 +26,18 @@ export const NOTIFICATION_DEFS: NotificationDef[] = [
     title: '좋아요 알림',
     desc: '내 댓글이나 게시물에 좋아요가 눌리면 알려드려요.',
   },
-  {
-    key: 'serviceNews',
-    emoji: '📢',
-    title: '서비스 소식',
-    desc: '새로운 기능 및 서비스 관련 소식을 알려드려요.',
-  },
 ];
 
 export type NotificationPrefs = Record<string, boolean>;
 
+// 'schedule' 은 설정 화면에는 더 이상 노출하지 않지만, 편집 권한 요청 알림
+// (createNotification(..., 'schedule', ...))이 여전히 이 키로 on/off 여부를 확인하므로
+// 기본값 자체는 그대로 남겨둔다 — 지우면 그 알림 생성 로직이 깨진다.
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   schedule: true,
   scheduleStart: true,
-  route: true,
   communityComment: true,
   like: true,
-  serviceNews: false,
 };
 
 export interface TermsSection {
