@@ -1,4 +1,4 @@
-> 문서: 11-Hello-component-inventory.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 11-Hello-component-inventory.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 ## 컴포넌트
 
@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | Button | src/components/ui/Button.tsx | 기본/hover(opacity)/`:active`(scale)/`disabled`(opacity+cursor) 구현. `:focus-visible` 전용 스타일은 없고 전역 규칙에 의존 | SC06(내 일정), SC07(플래너, 상품 투어), SC09(마이페이지) | src/components/ui/Button.module.css, 각 화면의 `import { Button } from '@/components/ui'` |
 | Card | src/components/ui/Card.tsx | `interactive` props에 hover(테두리·그림자·이동) 구현 | **사용처 없음** — `src/app/` 전체에서 import가 발견되지 않는다(정의만 있고 실제 화면에서 쓰이지 않는 컴포넌트) | src/app 전체 grep 결과(일치 없음) |
-| Modal | src/components/ui/Modal.tsx | 네이티브 `<dialog>` 기반(브라우저 기본 포커스 트랩/ESC 지원), 닫기 버튼 hover만 별도 스타일 | SC03(회원가입 약관 모달), SC05(탐색, 일수 선택/로그인 모달), SC06(내 일정, 새 일정/삭제/일정수정/로그인 안내), SC07(플래너, 각종 팝업), SC08(커뮤니티, 로그인 유도/사진 크롭), SC09(마이페이지) | 각 화면의 `import { Modal } from '@/components/ui'`(grep 결과) |
+| Modal | src/components/ui/Modal.tsx | 네이티브 `<dialog>` 기반(브라우저 기본 포커스 트랩/ESC 지원), 닫기 버튼 hover만 별도 스타일 | SC03(회원가입 약관 모달), SC05(탐색, 일수 선택/로그인 모달), SC06(내 일정, 새 일정/삭제/일정수정/로그인 안내/AI 생성 좌표 매칭 실패 안내), SC07(플래너, 각종 팝업), SC08(커뮤니티, 로그인 유도/사진 크롭), SC09(마이페이지) | 각 화면의 `import { Modal } from '@/components/ui'`(grep 결과) |
 | SegmentedControl | src/components/ui/SegmentedControl.tsx | hover/active(선택됨) 구현, `disabled` 옵션 자체가 없음 | **사용처 없음** — `src/app/` 전체에서 import가 발견되지 않는다(정의만 있고 실제로는 이모지 버튼 그룹 등으로 대체되어 쓰이는 것으로 보임) | src/app 전체 grep 결과(일치 없음) |
 | DateRangeCalendar | src/components/ui/DateRangeCalendar.tsx | 이전/다음 달 버튼 hover만 CSS로 구현, 선택 범위 색상은 CSS 클래스가 아니라 인라인 style로 계산되어 적용됨(`:disabled`/`:focus-visible` 없음) | SC06(내 일정 — 새 일정 만들기, 일정 수정 팝업) | src/app/(main)/routes/NewTripFlow.tsx, src/app/(main)/routes/MyRoutesClient.tsx |
 | ImageCropModal | src/components/ui/ImageCropModal.tsx | 확인 버튼은 `naturalSize` 없으면 `disabled`(Button의 disabled 스타일 상속), 크롭 프레임은 `:active`(grabbing)만 별도 구현 | SC08(커뮤니티 글쓰기 — 사진 첨부 시 4:3 크롭) | src/app/(main)/community/CommunityClient.tsx |

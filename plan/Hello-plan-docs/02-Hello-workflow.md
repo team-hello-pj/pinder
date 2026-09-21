@@ -1,4 +1,4 @@
-> 문서: 02-Hello-workflow.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 02-Hello-workflow.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 ## 행위자
 
@@ -20,8 +20,8 @@
 | S2 | 생성 방식 선택 | "직접 생성하기" 또는 "AI 생성하기" 중 선택 | 선택한 모드를 저장하고 날짜 선택 모달을 연다 | src/app/(main)/routes/NewTripFlow.tsx (`chooseMode`) |
 | S3 | 여행 날짜 선택 | 달력에서 출발·도착 날짜(범위) 선택 후 "시작하기" | 수동 모드면 `/planner?new=1&tripStart=...&tripEnd=...&mode=manual`로 이동, AI 모드면 AI 마법사를 연다 | src/app/(main)/routes/NewTripFlow.tsx (`startNewTrip`), src/components/ui/DateRangeCalendar.tsx |
 | S4a | (수동) 방문지 추가 | 플래너 화면에서 주소 검색·지도 클릭·현재 위치로 장소를 추가 | Kakao로 지오코딩해 방문지를 목록/지도에 추가한다 | src/app/planner/PlannerClient.tsx (`runMapSearch`, `handleMapClick`, `openCurrentLocationAddConfirm`) |
-| S4b | (AI) 조건 입력 및 생성 | AI 마법사에서 지역·스타일·관심사·동행·이동수단 5단계를 고르고 "AI 일정 생성하기" 클릭 | Gemini(`gemini-3.8-flash`)로 방문지 목록을 생성하고, 각 장소를 Kakao로 지오코딩·구간 거리/시간을 계산해 결과를 보여준다 | src/app/(main)/routes/AiGenerateWizard.tsx (`generate`), src/app/api/route-generate/route.ts |
-| S5 | AI 결과 확인 및 반영 | 결과 화면에서 "다시 추천받기"(재생성) 또는 "이 일정으로 시작하기" 클릭 | 재생성은 방금 나온 장소를 제외하고 다시 요청하고, 확정하면 플래너로 결과를 넘긴다 | src/app/(main)/routes/AiGenerateWizard.tsx (`generate`의 `excludeNames`, `onConfirm`), src/lib/ai-route-handoff.ts |
+| S4b | (AI) 조건 입력 및 생성 | AI 마법사에서 지역·스타일·관심사·동행·이동수단 5단계를 고르고 "AI 일정 생성하기" 클릭 | Gemini(`gemini-3.8-flash`)로 방문지 목록을 생성하고, 선택한 지역 주소와 일치하는 Kakao 검색 결과로만 각 장소의 좌표를 매칭한다(동명이지만 다른 지역인 후보는 제외). 매칭에 실패한 장소는 같은 조건으로 최대 3회까지 대체 후보를 다시 받아 채우고, 매칭된 장소들 사이의 구간 거리/시간은 Kakao 길찾기로 계산해 결과를 보여준다 | src/app/(main)/routes/AiGenerateWizard.tsx (`generate`, `matchesRegion`, `resolvePlaceCoords`), src/app/api/route-generate/route.ts |
+| S5 | AI 결과 확인 및 반영 | 결과 화면에서 "다시 추천받기"(재생성) 또는 "이 일정으로 시작하기" 클릭 | 재생성은 방금 나온 장소를 제외하고 다시 요청하고, 확정하면 플래너로 결과를 넘긴다. 대체 후보까지 반복했는데도 좌표를 끝내 찾지 못한 장소가 있으면 "좌표 매칭에 실패했습니다" 모달로 안내한다(일부만 실패하면 해당 장소만 제외하고 진행, 전부 실패하면 결과 화면 자체로 넘어가지 않음) | src/app/(main)/routes/AiGenerateWizard.tsx (`generate`의 `excludeNames`, `onConfirm`, `unmatchedNotice`), src/lib/ai-route-handoff.ts |
 | S6 | 경로 기준 선택·계산 | "최단시간"/"최단거리" 기준을 고르고 "경로 계산" 클릭 | 캐시된 결과가 있으면 재사용하고, 없으면 Kakao 구간 데이터 + Gemini 가중치(`/api/route-weights`)로 방문 순서를 최적화한다 | src/app/planner/PlannerClient.tsx (`setCriteria`, `runOptimalRoute`), src/lib/route-optimizer.ts |
 | S7 | 상황 변경(변수) 반영 | "변수 추가"에서 짐/날씨/지연/교통 중 항목과 불편 정도를 고르고 "AI로 동선 재구성" 클릭 | 선택한 지점 이후의 방문지만 Gemini에 보내 순서를 재배치하고, 실패하면 원래 순서를 그대로 유지한다 | src/app/planner/PlannerClient.tsx (`applySituationWithAi`), src/app/api/route-adjust/route.ts |
 | S8 | AI 도우미 대화 | AI 도우미(FAB)에 자연어로 질문·요청 입력 | `/api/chat`으로 응답을 받아 대화창에 보여주고, 장소 추가/교체 제안이 포함되면 확인 팝업을 거쳐 적용할 수 있다 | src/app/planner/PlannerClient.tsx (`sendAiMessage`, `advanceRecommendedQueue`), src/app/api/chat/route.ts |

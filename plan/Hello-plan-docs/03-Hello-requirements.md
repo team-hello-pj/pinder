@@ -1,4 +1,4 @@
-> 문서: 03-Hello-requirements.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 03-Hello-requirements.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 > 비고: 아래 요구사항은 신규로 발굴한 것이 아니라, 02-Hello-workflow.md의 단계(S)에서 실제로 구현된 기능이 "왜 필요했는지"를 역으로 정리한 것이다. 모든 행은 실제 코드에서 확인된 동작만 담았다.
 
@@ -55,6 +55,9 @@
 | R47 | A1-A4 | "아이디 저장"을 선택하면 이메일 문자열만 브라우저에 남고 비밀번호는 저장하지 않는다 | 데이터 | src/app/(auth)/login/LoginClient.tsx, src/lib/storage.ts (`STORAGE_KEYS.savedId`) |
 | R48 | S22 | 회원가입이 완료되면 시스템이 자동으로 환영 이메일을 발송해야 하며, 발송 실패가 가입 처리 자체를 막아서는 안 된다 | 기능 | src/app/api/auth/register/route.ts, src/lib/server/email.ts (`sendWelcomeEmail`) |
 | R49 | A1, A2, A3, S23 | 플래너 화면에 처음 접속한 사용자에게 주요 기능(장소 검색·목록·순서 변경·일정 설정·변수·지도 전환·현재 위치·AI 도우미·경로 계산)을 순서대로 안내하는 투어를 제공해야 한다 | 기능 | src/app/planner/ProductTour.tsx |
+| R50 | A1, S4b | AI가 추천한 장소의 좌표는 선택한 지역 주소와 일치하는 카카오 검색 결과만 인정하고, 동명이지만 다른 지역인 후보는 매칭에서 제외한다 | 제약 | src/app/(main)/routes/AiGenerateWizard.tsx (`matchesRegion`, `resolvePlaceCoords`) |
+| R51 | A1, S4b, S5 | 좌표 매칭에 실패한 장소는 가짜 좌표를 만들지 않고, 같은 조건으로 최대 3회까지 AI에게 대체 후보를 다시 요청한다. 그래도 실패하면 사용자에게 모달로 안내한다 | 기능 | src/app/(main)/routes/AiGenerateWizard.tsx (`MAX_REPLACEMENT_ROUNDS`, `unmatchedNotice`) |
+| R52 | A1, A2, S6 | 방문지 좌표가 없는 구간은 임의의 이동시간·거리·교통수단명을 만들지 않고, 조회 실패와 동일한 상태로 표시한다 | 제약 | src/app/planner/PlannerClient.tsx (`enrichedSegments`) |
 
 ## 검토했으나 제외
 

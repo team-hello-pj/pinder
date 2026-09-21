@@ -1,4 +1,4 @@
-> 문서: 05-Hello-policy.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 05-Hello-policy.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 ## 정책
 
@@ -18,6 +18,7 @@
 | P12 | F30,F31,F33 | 이메일 인증이 필요한 모든 흐름 | 코드 6자리, 5분 만료, 60초 재전송 대기, 5회 시도 제한, 인증 후 30분간 유효 | 위 수치를 벗어나면 각각 다른 사유로 거부한다 | "만료되었어요"/"시도 횟수를 초과했어요" 등 사유별 안내, 재전송 버튼은 카운트다운 동안 비활성화 | src/lib/server/verification-code.ts, src/app/api/auth/verify-code/route.ts, src/app/api/auth/register/route.ts (`VERIFIED_TTL_MS`) |
 | P13 | F27,F31 | 사용자 | 이미지 형식 png/jpeg/jpg/webp, data URL 약 200만자 이하 | 프로필 사진은 클라이언트에서 200×200 JPEG로 강제 리사이즈한 뒤 서버가 형식·용량을 다시 검사한다 | "이미지 형식이 올바르지 않습니다" / "이미지 용량이 너무 큽니다" | src/lib/avatar-upload.ts, src/app/api/account/avatar/route.ts |
 | P14 | F1,F20,F21-F24,F26,F27,F28,F29 | 비로그인 사용자(게스트) | 화면별로 다름 | 홈·여행지 탐색은 서버·화면 모두 완전히 공개하고, 커뮤니티는 서버 데이터는 공개하되 화면이 로그인 모달로 덮으며, 마이페이지는 화면(설정 UI와 모달 문구 전체)까지 완전히 공개하고 개별 저장·조회 액션만 서버에서 로그인 필요로 거부한다. 쓰기 액션(일정 생성/저장/편집 권한 요청/글쓰기 등)은 예외 없이 로그인이 필요하다 | 홈의 "새 일정"과 탐색의 "일정 짜기"는 클릭 즉시 `/login`으로 이동, 커뮤니티는 모달을 닫으면 홈으로 이동, 마이페이지는 아무 안내 없이 화면이 그대로 열리고 닉네임·이메일 등 값이 비어 보일 뿐이다 | src/app/(main)/routes/NewTripFlow.tsx, src/app/(main)/explore/ExploreClient.tsx, src/app/(main)/community/CommunityClient.tsx, src/app/api/community/posts/route.ts, src/app/(main)/my-page/MyPageClient.tsx(진입 가드 부재), src/app/api/account/nickname/route.ts |
+| P15 | F7,F38 | 시스템(클라이언트) | 방문지 좌표를 실제로 확보하지 못한 경우(AI 추천 장소의 카카오 매칭 실패, 또는 경로 구간의 좌표 결측) | 임의의 좌표·이동시간·거리·교통수단명을 만들어내지 않는다 — AI 생성 결과는 선택한 지역 주소와 일치하는 카카오 검색 결과만 좌표로 인정하고, 실패한 장소는 대체 후보를 재요청한 뒤에도 남으면 사용자에게 알린다. 플래너 화면은 좌표 없는 구간을 조회 성공처럼 보여주지 않고 실패 상태로 표시한다 | AI 생성: "좌표 매칭에 실패했습니다" 모달. 플래너: "방문지 좌표가 없어 경로를 조회할 수 없습니다" 실패 표시 — 이전에는 하드코딩된 예시 거리·지하철 노선명(`src/lib/route-engine.ts`의 `computeMockSteps`/`SEGMENT_DISTANCES`)으로 대체해 보여주던 결함이 있었으나 커밋 8d81aaa로 해당 파일이 삭제되며 고쳐졌다 | src/app/(main)/routes/AiGenerateWizard.tsx (`resolvePlaceCoords`, `matchesRegion`), src/app/planner/PlannerClient.tsx (`enrichedSegments`) |
 
 ## 상태값 전이
 

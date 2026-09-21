@@ -1,4 +1,4 @@
-> 문서: 01-Hello-project-overview.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 01-Hello-project-overview.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 ## 타깃 사용자
 국내에서 여행·데이트·모임 등으로 여러 장소를 이동해야 하는 사람들(외국인 포함)이다(근거: plan/plan-example/01-merged.md "대상" 항목).
@@ -26,5 +26,6 @@ plan/plan-example/01-merged.md에 기록된 팀의 문제 정의에 따르면, �
 - 경로 기준(최단시간/최단거리)을 사용자가 바꿀 수 있고, 구간별로 조회한 결과를 `routeCache`에 캐시해 재조회 비용을 줄인다(근거: src/db/schema.ts `schedules.criteria`, `schedules.routeCache` 주석).
 - 보기 링크와 편집 링크를 서로 다른 토큰(`inviteTokenViewer`/`inviteTokenEditor`)으로 분리해, 하나가 유출돼도 그 권한만 노출되게 설계했다(근거: src/db/schema.ts `schedules` 테이블 주석 "보기전용/편집가능 초대 링크는 서로 다른 토큰을 쓴다").
 - 편집 권한은 요청 → 제작자 승인의 절차를 거치도록 `scheduleEditRequests` 테이블로 별도 관리한다(근거: src/db/schema.ts `scheduleEditRequests` 테이블 주석).
-- 짐 추가·기상 변화·일정 지연·교통 상황 악화 같은 변수와 불편 정도를 고르면 동선을 재계산하는 규칙 엔진을 별도 모듈로 분리해 두었다(근거: src/lib/route-engine.ts, src/constants/index.ts `SITUATION_VARS`/`SEVERITY_LEVELS`).
+- 짐 추가·기상 변화·일정 지연·교통 상황 악화 같은 변수와 불편 정도를 고르면, 선택한 지점 이후의 방문지만 Gemini에 보내 순서를 재배치한다. 악천후 속 실외 방문지 노출에 대한 지연 비용은 최적 경로 계산에도 함께 반영된다(근거: src/app/api/route-adjust/route.ts, src/lib/route-optimizer.ts `computeDelayCost`, src/constants/index.ts `SITUATION_VARS`/`SEVERITY_LEVELS`).
+- AI가 추천한 장소는 실제 좌표를 확보하지 못하면 가짜 좌표·이동시간·거리로 채우지 않는다 — 선택한 지역 주소와 일치하는 카카오 검색 결과만 좌표로 인정하고, 매칭에 실패하면 같은 조건으로 대체 후보를 다시 받아 채우거나 사용자에게 안내한다(근거: src/app/(main)/routes/AiGenerateWizard.tsx `matchesRegion`/`resolvePlaceCoords`).
 - 여행지 탐색(`destinations`) 데이터에 당일치기/1박2일/2박3일용으로 미리 만들어 둔 AI 동선(`routes` jsonb)을 함께 저장해, 큐레이션된 여행지에서 바로 "이 여행지로 일정 짜기"로 이어지게 했다(근거: src/db/schema.ts `destinations.routes` 주석).

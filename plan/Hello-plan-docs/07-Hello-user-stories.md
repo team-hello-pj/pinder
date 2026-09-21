@@ -1,4 +1,4 @@
-> 문서: 07-Hello-user-stories.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 07-Hello-user-stories.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
 
 > 비고: 아래 스토리는 04-Hello-features.md의 기능을 유저스토리 형식으로 다시 서술한 것이며, 신규로 발굴한 요구가 아니다.
 
@@ -34,3 +34,4 @@
 | US26 | 자주 방문하는 사용자로서, 아이디를 저장해두고 매번 다시 입력하지 않고 싶다, 그래야 로그인이 더 빠르다 | F35 | SC02 | src/app/(auth)/login/LoginClient.tsx |
 | US27 | 비밀번호를 잊은 사용자로서, 이메일 인증만으로 새 비밀번호를 설정하고 싶다, 그래야 계정에 다시 접근할 수 있다 | F33 | SC04 | src/app/(auth)/forgot-password/ForgotPasswordClient.tsx |
 | US28 | 아직 가입하지 않은 방문자로서, 로그인 없이도 홈과 여행지 탐색을 둘러보고 싶다, 그래야 가입 전에 서비스가 쓸만한지 확인할 수 있다 | F1, F20 | SC01, SC05 | src/app/(main)/explore/ExploreClient.tsx, src/app/api/explore/destinations/route.ts |
+| US29 | AI 추천을 받는 사용자로서, 실제로 위치를 확인할 수 없는 장소는 가짜 이동시간·거리 대신 정직하게 제외되거나 안내받고 싶다, 그래야 틀린 정보로 일정을 짜지 않는다 | F38 | SC06 | src/app/(main)/routes/AiGenerateWizard.tsx |
