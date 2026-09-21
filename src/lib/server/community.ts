@@ -76,72 +76,76 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
   if (postRows.length === 0) return [];
   const postIds = postRows.map((p) => p.id);
 
-  const likeRows = await db
-    .select({ postId: postLikes.postId, userId: postLikes.userId })
-    .from(postLikes)
-    .where(inArray(postLikes.postId, postIds));
+  // 아래 세 조회는 서로 결과를 참조하지 않고 postIds 에만 의존하므로, 순차 await 대신
+  // Promise.all 로 동시에 보내 DB 왕복 횟수만큼 쌓이던 지연을 줄인다.
+  const [likeRows, bookmarkRows, commentRows] = await Promise.all([
+    db
+      .select({ postId: postLikes.postId, userId: postLikes.userId })
+      .from(postLikes)
+      .where(inArray(postLikes.postId, postIds)),
+    viewerId
+      ? db
+          .select({ postId: postBookmarks.postId })
+          .from(postBookmarks)
+          .where(and(inArray(postBookmarks.postId, postIds), eq(postBookmarks.userId, viewerId)))
+      : [],
+    db
+      .select({
+        id: postComments.id,
+        postId: postComments.postId,
+        authorId: postComments.authorId,
+        authorNickname: users.nickname,
+        authorName: users.name,
+        authorAvatarUrl: users.avatarUrl,
+        text: postComments.text,
+        createdAt: postComments.createdAt,
+      })
+      .from(postComments)
+      .innerJoin(users, eq(postComments.authorId, users.id))
+      .where(inArray(postComments.postId, postIds))
+      .orderBy(postComments.createdAt),
+  ]);
   const likeCountByPost = new Map<string, number>();
   const likedPostIdsByViewer = new Set<string>();
   for (const row of likeRows) {
     likeCountByPost.set(row.postId, (likeCountByPost.get(row.postId) ?? 0) + 1);
     if (viewerId && row.userId === viewerId) likedPostIdsByViewer.add(row.postId);
   }
-
-  const bookmarkRows = viewerId
-    ? await db
-        .select({ postId: postBookmarks.postId })
-        .from(postBookmarks)
-        .where(and(inArray(postBookmarks.postId, postIds), eq(postBookmarks.userId, viewerId)))
-    : [];
   const bookmarkedPostIds = new Set(bookmarkRows.map((r) => r.postId));
-
-  const commentRows = await db
-    .select({
-      id: postComments.id,
-      postId: postComments.postId,
-      authorId: postComments.authorId,
-      authorNickname: users.nickname,
-      authorName: users.name,
-      authorAvatarUrl: users.avatarUrl,
-      text: postComments.text,
-      createdAt: postComments.createdAt,
-    })
-    .from(postComments)
-    .innerJoin(users, eq(postComments.authorId, users.id))
-    .where(inArray(postComments.postId, postIds))
-    .orderBy(postComments.createdAt);
   const commentIds = commentRows.map((c) => c.id);
 
-  const commentLikeRows = commentIds.length
-    ? await db
-        .select({ commentId: postCommentLikes.commentId, userId: postCommentLikes.userId })
-        .from(postCommentLikes)
-        .where(inArray(postCommentLikes.commentId, commentIds))
-    : [];
+  // commentLikeRows 와 replyRows 도 서로 무관하게 commentIds 에만 의존하므로 동시에 조회한다.
+  const [commentLikeRows, replyRows] = await Promise.all([
+    commentIds.length
+      ? db
+          .select({ commentId: postCommentLikes.commentId, userId: postCommentLikes.userId })
+          .from(postCommentLikes)
+          .where(inArray(postCommentLikes.commentId, commentIds))
+      : [],
+    commentIds.length
+      ? db
+          .select({
+            id: postCommentReplies.id,
+            commentId: postCommentReplies.commentId,
+            authorId: postCommentReplies.authorId,
+            authorNickname: users.nickname,
+            authorName: users.name,
+            authorAvatarUrl: users.avatarUrl,
+            text: postCommentReplies.text,
+            createdAt: postCommentReplies.createdAt,
+          })
+          .from(postCommentReplies)
+          .innerJoin(users, eq(postCommentReplies.authorId, users.id))
+          .where(inArray(postCommentReplies.commentId, commentIds))
+          .orderBy(postCommentReplies.createdAt)
+      : [],
+  ]);
   const commentLikeCount = new Map<string, number>();
   const commentLikedByViewer = new Set<string>();
   for (const row of commentLikeRows) {
     commentLikeCount.set(row.commentId, (commentLikeCount.get(row.commentId) ?? 0) + 1);
     if (viewerId && row.userId === viewerId) commentLikedByViewer.add(row.commentId);
   }
-
-  const replyRows = commentIds.length
-    ? await db
-        .select({
-          id: postCommentReplies.id,
-          commentId: postCommentReplies.commentId,
-          authorId: postCommentReplies.authorId,
-          authorNickname: users.nickname,
-          authorName: users.name,
-          authorAvatarUrl: users.avatarUrl,
-          text: postCommentReplies.text,
-          createdAt: postCommentReplies.createdAt,
-        })
-        .from(postCommentReplies)
-        .innerJoin(users, eq(postCommentReplies.authorId, users.id))
-        .where(inArray(postCommentReplies.commentId, commentIds))
-        .orderBy(postCommentReplies.createdAt)
-    : [];
   const replyIds = replyRows.map((r) => r.id);
 
   const replyLikeRows = replyIds.length

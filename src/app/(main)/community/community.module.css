@@ -334,6 +334,36 @@
   overflow: hidden;
 }
 
+/* 게시물 목록 최초 로딩 중 잠깐 보여주는 자리표시자(PostCardSkeleton) */
+.skeletonBlock {
+  background: var(--pd-border);
+  border-radius: 6px;
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeletonTextGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.skeletonLine {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+}
+
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .postHead {
   display: flex;
   align-items: center;

@@ -152,6 +152,29 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
   );
 }
 
+/**
+ * 목록 최초 조회(listPosts)가 끝나기 전 잠깐 보여주는 자리표시자.
+ * .postCard 뼈대만 그대로 써서 실제 카드가 채워질 때 레이아웃이 튀지 않게 한다.
+ */
+function PostCardSkeleton() {
+  return (
+    <article className={styles.postCard} aria-hidden="true">
+      <div className={styles.postHead}>
+        <span className={`${styles.postAvatar} ${styles.skeletonBlock}`} />
+        <div className={styles.skeletonTextGroup}>
+          <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '35%' }} />
+          <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '55%' }} />
+        </div>
+      </div>
+      <div className={`${styles.postImage} ${styles.skeletonBlock}`} />
+      <div className={styles.postBody}>
+        <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '90%' }} />
+        <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '60%' }} />
+      </div>
+    </article>
+  );
+}
+
 /** legacy/Community.dc.html 을 그대로 이식. 헤더/푸터는 (main) 레이아웃이 담당한다. */
 export function CommunityClient() {
   const router = useRouter();
@@ -160,6 +183,9 @@ export function CommunityClient() {
   const { isLoggedIn, isLoading: sessionLoading, user } = useSession();
   const myAuthorName = user?.nickname || user?.name || '';
   const [posts, setPosts] = useState<PostView[]>([]);
+  // 최초 목록 조회(listPosts)가 끝나기 전까지는 posts가 그냥 빈 배열이라 "아직 게시물이
+  // 없어요"로 잘못 보였다 — 로딩 중과 실제로 게시물이 0개인 상태를 구분해 스켈레톤을 보여준다.
+  const [postsLoading, setPostsLoading] = useState(true);
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
 
   const [composerOpen, setComposerOpen] = useState(false);
@@ -206,9 +232,13 @@ export function CommunityClient() {
 
   useEffect(() => {
     let cancelled = false;
-    listPosts().then((list) => {
-      if (!cancelled) setPosts(list);
-    });
+    listPosts()
+      .then((list) => {
+        if (!cancelled) setPosts(list);
+      })
+      .finally(() => {
+        if (!cancelled) setPostsLoading(false);
+      });
     listTrendingPlaces().then((list) => {
       if (!cancelled) setTrending(list);
     });
@@ -690,200 +720,223 @@ export function CommunityClient() {
             </div>
           ) : null}
 
-          {sorted.length === 0 ? (
-            <p className={styles.empty}>
-              {!isLoggedIn
-                ? '로그인이 필요한 페이지예요.'
-                : q
-                  ? '검색 결과가 없어요.'
-                  : '아직 게시물이 없어요'}
-            </p>
-          ) : null}
-
-          {viewMode === 'grid' ? (
-            <div className={styles.grid}>
-              {visiblePosts.map((post) => (
-                <button
-                  key={post.id}
-                  type="button"
-                  className={styles.gridCell}
-                  onClick={() => setProfileAuthor(post.author)}
-                >
-                  <PostPhoto images={post.images} label={`${post.place} 사진`} interactive={false} />
-                </button>
+          {postsLoading ? (
+            <div className={styles.list}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <PostCardSkeleton key={i} />
               ))}
             </div>
           ) : (
-            <div className={styles.list}>
-              {visiblePosts.map((post) => {
-                const total = totalCommentCount(post);
-                const showInlineAll = total < INLINE_COMMENT_THRESHOLD;
-                const visibleComments = showInlineAll ? post.comments : post.comments.slice(0, 1);
-                const likeColor = post.liked ? '#e5342e' : 'var(--pd-text-sub)';
-                const bookmarkColor = post.bookmarked ? 'var(--pd-brand)' : 'var(--pd-text-sub)';
-                return (
-                  <article key={post.id} className={styles.postCard}>
-                    <div className={styles.postHead}>
-                      <button
-                        type="button"
-                        className={styles.postAvatarBtn}
-                        onClick={() => setProfileAuthor(post.author)}
-                      >
-                        <AuthorAvatar
-                          name={post.author}
-                          avatarUrl={post.authorAvatarUrl}
-                          isMine={post.isMine}
-                          className={styles.postAvatar}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.postAuthorBtn}
-                        onClick={() => setProfileAuthor(post.author)}
-                      >
-                        <div className={styles.postAuthor}>{post.author}</div>
-                        <div className={styles.postMeta}>
-                          {post.place} · {formatRelativeTime(post.timestamp)}
-                        </div>
-                      </button>
-                      {post.isMine ? (
-                        <div className={styles.postOwnerActions}>
-                          <button
-                            type="button"
-                            className={styles.textBtn}
-                            onClick={() => openEditComposer(post.id)}
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.textBtnDanger}
-                            onClick={() => requestDelete(post.id)}
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
+            <>
+              {sorted.length === 0 ? (
+                <p className={styles.empty}>
+                  {!isLoggedIn
+                    ? '로그인이 필요한 페이지예요.'
+                    : q
+                      ? '검색 결과가 없어요.'
+                      : '아직 게시물이 없어요'}
+                </p>
+              ) : null}
 
-                    <div className={styles.postImage}>
-                      <PostPhoto images={post.images} label={`${post.place} 사진`} />
-                    </div>
-
-                    <div className={styles.postBody}>
-                      <div className={styles.postActions}>
-                        <button
-                          type="button"
-                          className={styles.likeBtn}
-                          style={{ color: likeColor }}
-                          onClick={() => toggleLike(post.id)}
-                        >
-                          {post.liked ? (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill={likeColor}>
-                              <path d="M12 21s-6.7-4.35-9.3-8.1C1.1 10.6 1.6 7.4 4.2 5.7c2.2-1.4 5-.8 6.6 1.1l1.2 1.4 1.2-1.4c1.6-1.9 4.4-2.5 6.6-1.1 2.6 1.7 3.1 4.9 1.5 7.2C18.7 16.65 12 21 12 21Z" />
-                            </svg>
-                          ) : (
-                            <span
-                              className={styles.iconMask}
-                              style={{
-                                maskImage: 'url(/icons/heart.png)',
-                                WebkitMaskImage: 'url(/icons/heart.png)',
-                                background: likeColor,
-                              }}
-                            />
-                          )}
-                          <span>{post.likeCount}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.commentCountBtn}
-                          onClick={() => setCommentModalId(post.id)}
-                        >
-                          <span
-                            className={styles.iconMask}
-                            style={{
-                              maskImage: 'url(/icons/message-circle.png)',
-                              WebkitMaskImage: 'url(/icons/message-circle.png)',
-                              background: 'var(--pd-text-sub)',
-                            }}
-                          />
-                          <span>{total}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.bookmarkBtn}
-                          onClick={() => toggleBookmark(post.id)}
-                          aria-label="저장"
-                        >
-                          {post.bookmarked ? (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill={bookmarkColor}>
-                              <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
-                            </svg>
-                          ) : (
-                            <span
-                              className={styles.iconMask}
-                              style={{
-                                maskImage: 'url(/icons/bookmark-icon.png)',
-                                WebkitMaskImage: 'url(/icons/bookmark-icon.png)',
-                                background: bookmarkColor,
-                              }}
-                            />
-                          )}
-                        </button>
-                      </div>
-
-                      <p className={styles.caption}>
-                        <b>{post.author}</b> <HighlightedCaption text={post.caption} />
-                      </p>
-
-                      <CommentThread
-                        comments={visibleComments}
-                        openReplyBoxes={openReplyBoxes}
-                        replyDrafts={replyDrafts}
-                        onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
-                        onToggleReplyLike={(commentId, replyId) =>
-                          toggleReplyLike(commentId, replyId)
-                        }
-                        onToggleReplyBox={toggleReplyBox}
-                        onReplyInput={onReplyInput}
-                        onReplySubmit={(commentId) => submitReply(post.id, commentId)}
-                        onDeleteComment={deleteComment}
-                        onDeleteReply={deleteReply}
+              {viewMode === 'grid' ? (
+                <div className={styles.grid}>
+                  {visiblePosts.map((post) => (
+                    <button
+                      key={post.id}
+                      type="button"
+                      className={styles.gridCell}
+                      onClick={() => setProfileAuthor(post.author)}
+                    >
+                      <PostPhoto
+                        images={post.images}
+                        label={`${post.place} 사진`}
+                        interactive={false}
                       />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.list}>
+                  {visiblePosts.map((post) => {
+                    const total = totalCommentCount(post);
+                    const showInlineAll = total < INLINE_COMMENT_THRESHOLD;
+                    const visibleComments = showInlineAll
+                      ? post.comments
+                      : post.comments.slice(0, 1);
+                    const likeColor = post.liked ? '#e5342e' : 'var(--pd-text-sub)';
+                    const bookmarkColor = post.bookmarked
+                      ? 'var(--pd-brand)'
+                      : 'var(--pd-text-sub)';
+                    return (
+                      <article key={post.id} className={styles.postCard}>
+                        <div className={styles.postHead}>
+                          <button
+                            type="button"
+                            className={styles.postAvatarBtn}
+                            onClick={() => setProfileAuthor(post.author)}
+                          >
+                            <AuthorAvatar
+                              name={post.author}
+                              avatarUrl={post.authorAvatarUrl}
+                              isMine={post.isMine}
+                              className={styles.postAvatar}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.postAuthorBtn}
+                            onClick={() => setProfileAuthor(post.author)}
+                          >
+                            <div className={styles.postAuthor}>{post.author}</div>
+                            <div className={styles.postMeta}>
+                              {post.place} · {formatRelativeTime(post.timestamp)}
+                            </div>
+                          </button>
+                          {post.isMine ? (
+                            <div className={styles.postOwnerActions}>
+                              <button
+                                type="button"
+                                className={styles.textBtn}
+                                onClick={() => openEditComposer(post.id)}
+                              >
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.textBtnDanger}
+                                onClick={() => requestDelete(post.id)}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
 
-                      {!showInlineAll ? (
-                        <button
-                          type="button"
-                          className={styles.moreCommentsBtn}
-                          onClick={() => setCommentModalId(post.id)}
-                        >
-                          댓글 {total}개 더보기
-                        </button>
-                      ) : null}
+                        <div className={styles.postImage}>
+                          <PostPhoto images={post.images} label={`${post.place} 사진`} />
+                        </div>
 
-                      <div className={styles.commentInputRow}>
-                        <input
-                          value={commentDrafts[post.id] ?? ''}
-                          onChange={(e) => onCommentInput(post.id, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') submitComment(post.id);
-                          }}
-                          placeholder="댓글 달기..."
-                          className={styles.commentInput}
-                        />
-                        <button
-                          type="button"
-                          className={styles.postBtn}
-                          onClick={() => submitComment(post.id)}
-                        >
-                          게시
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                        <div className={styles.postBody}>
+                          <div className={styles.postActions}>
+                            <button
+                              type="button"
+                              className={styles.likeBtn}
+                              style={{ color: likeColor }}
+                              onClick={() => toggleLike(post.id)}
+                            >
+                              {post.liked ? (
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill={likeColor}>
+                                  <path d="M12 21s-6.7-4.35-9.3-8.1C1.1 10.6 1.6 7.4 4.2 5.7c2.2-1.4 5-.8 6.6 1.1l1.2 1.4 1.2-1.4c1.6-1.9 4.4-2.5 6.6-1.1 2.6 1.7 3.1 4.9 1.5 7.2C18.7 16.65 12 21 12 21Z" />
+                                </svg>
+                              ) : (
+                                <span
+                                  className={styles.iconMask}
+                                  style={{
+                                    maskImage: 'url(/icons/heart.png)',
+                                    WebkitMaskImage: 'url(/icons/heart.png)',
+                                    background: likeColor,
+                                  }}
+                                />
+                              )}
+                              <span>{post.likeCount}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.commentCountBtn}
+                              onClick={() => setCommentModalId(post.id)}
+                            >
+                              <span
+                                className={styles.iconMask}
+                                style={{
+                                  maskImage: 'url(/icons/message-circle.png)',
+                                  WebkitMaskImage: 'url(/icons/message-circle.png)',
+                                  background: 'var(--pd-text-sub)',
+                                }}
+                              />
+                              <span>{total}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.bookmarkBtn}
+                              onClick={() => toggleBookmark(post.id)}
+                              aria-label="저장"
+                            >
+                              {post.bookmarked ? (
+                                <svg
+                                  width="15"
+                                  height="15"
+                                  viewBox="0 0 24 24"
+                                  fill={bookmarkColor}
+                                >
+                                  <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
+                                </svg>
+                              ) : (
+                                <span
+                                  className={styles.iconMask}
+                                  style={{
+                                    maskImage: 'url(/icons/bookmark-icon.png)',
+                                    WebkitMaskImage: 'url(/icons/bookmark-icon.png)',
+                                    background: bookmarkColor,
+                                  }}
+                                />
+                              )}
+                            </button>
+                          </div>
+
+                          <p className={styles.caption}>
+                            <b>{post.author}</b> <HighlightedCaption text={post.caption} />
+                          </p>
+
+                          <CommentThread
+                            comments={visibleComments}
+                            openReplyBoxes={openReplyBoxes}
+                            replyDrafts={replyDrafts}
+                            onToggleCommentLike={(commentId) => toggleCommentLike(commentId)}
+                            onToggleReplyLike={(commentId, replyId) =>
+                              toggleReplyLike(commentId, replyId)
+                            }
+                            onToggleReplyBox={toggleReplyBox}
+                            onReplyInput={onReplyInput}
+                            onReplySubmit={(commentId) => submitReply(post.id, commentId)}
+                            onDeleteComment={deleteComment}
+                            onDeleteReply={deleteReply}
+                          />
+
+                          {!showInlineAll ? (
+                            <button
+                              type="button"
+                              className={styles.moreCommentsBtn}
+                              onClick={() => setCommentModalId(post.id)}
+                            >
+                              댓글 {total}개 더보기
+                            </button>
+                          ) : null}
+
+                          <div className={styles.commentInputRow}>
+                            <input
+                              value={commentDrafts[post.id] ?? ''}
+                              onChange={(e) => onCommentInput(post.id, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') submitComment(post.id);
+                              }}
+                              placeholder="댓글 달기..."
+                              className={styles.commentInput}
+                            />
+                            <button
+                              type="button"
+                              className={styles.postBtn}
+                              onClick={() => submitComment(post.id)}
+                            >
+                              게시
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
 
           {sorted.length > visibleCount ? (
