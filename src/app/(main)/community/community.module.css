@@ -685,6 +685,18 @@
   gap: 16px;
 }
 
+/* PC(768px 초과)에서만 오른쪽 사이드 영역을 헤더 바로 아래에 붙여 스크롤을 따라오게 한다.
+   .row가 align-items:flex-start인 flex 컨테이너라 높이는 이미 가장 긴 형제(.mainCol,
+   게시물 목록)를 기준으로 정해져 있으므로, sticky 특유의 "부모 영역을 넘어가지 않는" 동작이
+   .sideCol에 position/top만 추가해도 그대로 성립한다 — 별도 wrapper나 JS 없이 CSS만으로 충분하다.
+   767px 이하는 .sideCol 자체가 display:none으로 이미 숨겨져 있어 기존 모바일 동작 그대로다. */
+@media (min-width: 768px) {
+  .sideCol {
+    position: sticky;
+    top: calc(var(--pd-header-height) + 20px);
+  }
+}
+
 .sideCard {
   background: var(--pd-card-bg);
   border: 1px solid var(--pd-border);
