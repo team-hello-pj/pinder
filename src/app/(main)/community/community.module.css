@@ -472,6 +472,7 @@
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--pd-text);
+  white-space: pre-wrap;
 }
 
 .tagRow {
@@ -1109,6 +1110,7 @@
   font-size: 13px;
   line-height: 1.6;
   color: var(--pd-text);
+  white-space: pre-wrap;
 }
 
 .captionClamped {
