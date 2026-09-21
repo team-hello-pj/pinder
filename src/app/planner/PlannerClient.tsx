@@ -1219,7 +1219,13 @@ export function PlannerClient() {
   };
   const confirmDateEdit = async () => {
     if (!scheduleId) {
+      // 아직 저장 전인 일정은 PATCH할 대상이 없으니, 로컬 날짜 상태만 갱신하고
+      // 저장 시점에 이 값이 그대로 반영되게 한다(장소/순서/이동수단 등은 건드리지 않음).
+      setTripStart(draftTripStart);
+      setTripEnd(draftTripEnd);
       setDateEditModalOpen(false);
+      logActivity(`일정 날짜를 ${draftTripStart} ~ ${draftTripEnd}(으)로 변경했습니다`);
+      showToast('일정 날짜가 변경되었어요');
       return;
     }
     const updated = await updateSchedule(scheduleId, {
@@ -3236,7 +3242,7 @@ export function PlannerClient() {
                 </div>
               </div>
               <div className={styles.summaryActions}>
-                {role === 'creator' && scheduleId ? (
+                {canEdit ? (
                   <button
                     type="button"
                     className={`${styles.dateEditIconBtn} ${styles.mobileActionsRow2Col1}`}
