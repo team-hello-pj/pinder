@@ -290,7 +290,7 @@ export function MyRoutesClient() {
                               {m.isOwner ? <span className={styles.ownerCrown}>👑</span> : null}
                               <AuthorAvatar
                                 name={m.nickname}
-                                avatarUrl={isMe ? (user?.avatarUrl ?? null) : null}
+                                avatarUrl={isMe ? (user?.avatarUrl ?? null) : m.avatarUrl}
                                 isMine={isMe}
                                 style={{
                                   width: '100%',

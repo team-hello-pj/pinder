@@ -55,10 +55,16 @@ export async function createNotification(
   });
 }
 
+/** 일정 tripStart 는 사용자가 고른 한국 달력 날짜(KST)인데, 서버(Vercel 함수)는 UTC로
+ * 돌아간다 — new Date()/getDate() 로 그냥 "내일"을 계산하면 KST 00:00~09:00 구간(=UTC로는
+ * 아직 전날 15:00~24:00) 동안 서버 쪽 날짜가 하루 밀려서, 그 시간대에는 알림이 하루 일찍
+ * (일정 당일에) 뜨거나 안 뜨는 문제가 있었다. 서버 시간대와 무관하게 항상 KST 기준
+ * "내일"을 계산하도록 UTC 타임스탬프에 9시간을 더해서 날짜를 뽑는다. */
 function tomorrowDateStr(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(Date.now() + KST_OFFSET_MS);
+  kstNow.setUTCDate(kstNow.getUTCDate() + 1);
+  return kstNow.toISOString().slice(0, 10);
 }
 
 /** 저장된 알림 + "내일 출발" 일정 임박 알림(그때그때 계산, 저장 안 함)을 합쳐서 돌려준다. */
