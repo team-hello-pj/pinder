@@ -33,7 +33,10 @@ async function getMyTitleOverride(scheduleId: string, userId: string): Promise<s
     .select({ title: scheduleTitleOverrides.title })
     .from(scheduleTitleOverrides)
     .where(
-      and(eq(scheduleTitleOverrides.scheduleId, scheduleId), eq(scheduleTitleOverrides.userId, userId)),
+      and(
+        eq(scheduleTitleOverrides.scheduleId, scheduleId),
+        eq(scheduleTitleOverrides.userId, userId),
+      ),
     )
     .limit(1);
   return row?.title;
