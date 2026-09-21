@@ -148,18 +148,29 @@ async function buildRoutes(region, tags, desc) {
       y,
     });
   }
-  fullPlaces.sort((a, b) => a.day - b.day);
+  // 지오코딩에 끝내 실패한(x/y가 null인) 장소는 저장하지 않는다 — 좌표 없이 저장하면
+  // 지도에 핀이 안 뜨거나 엉뚱한 좌표(0,0)로 오해되기 쉽다. 실패한 장소는 위에서 이미
+  // 콘솔에 "(좌표없음)"으로 표시했으니, 여기서 걸러내고 남은 장소로만 동선을 구성한다.
+  const geocodedPlaces = fullPlaces.filter((p) => p.x != null && p.y != null);
+  geocodedPlaces.sort((a, b) => a.day - b.day);
 
   // --days=1 처럼 그 기간까지만 만들라고 하면, routes 는 그 하나만 담아 통째로 교체한다
   // (더 긴 기간 옵션 자체가 없어져서 화면에서도 며칠인지 묻지 않고 바로 시작한다).
   const routes = {};
-  for (let len = 1; len <= TRIP_DAYS; len++) routes[len] = buildVariant(fullPlaces, len);
+  for (let len = 1; len <= TRIP_DAYS; len++) routes[len] = buildVariant(geocodedPlaces, len);
   return routes;
 }
 
 async function main() {
+  const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL,
+    // pg-connection-string 최신 버전은 URL의 sslmode=require 를 verify-full 로 취급해버려,
+    // 아래 ssl:{rejectUnauthorized:false} 를 무시하고 Supabase pooler 의 자체 서명 인증서에서
+    // "self-signed certificate in certificate chain" 로 실패한다 — uselibpqcompat=true 를
+    // 붙이면 libpq 본래 의미(require=암호화만, 검증 안 함)로 되돌아간다.
+    connectionString: connectionString?.includes('uselibpqcompat=')
+      ? connectionString
+      : `${connectionString}${connectionString?.includes('?') ? '&' : '?'}uselibpqcompat=true`,
     // Supabase pooler 인증서 체인 문제로 기본 verify-full 검증이 실패해 완화한다.
     ssl: { rejectUnauthorized: false },
   });
