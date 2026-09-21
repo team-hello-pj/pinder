@@ -8,6 +8,22 @@ import { getSessionUser } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
 
+/**
+ * 목록(GET /api/community/posts)에서는 사진 원본을 빼고 내려주므로, 화면에 실제로 보이는
+ * 게시물만 이 엔드포인트로 사진을 따로 받아온다. 목록 자체가 로그인 없이도 보이는 공개
+ * 읽기이므로 여기도 별도 인증 없이 공개한다.
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [row] = await db
+    .select({ images: posts.images })
+    .from(posts)
+    .where(eq(posts.id, id))
+    .limit(1);
+  if (!row) return NextResponse.json({ error: '게시물을 찾을 수 없습니다.' }, { status: 404 });
+  return NextResponse.json({ images: (row.images as string[] | null) ?? [] });
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getSessionUser();

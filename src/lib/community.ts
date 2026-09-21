@@ -32,6 +32,8 @@ export interface PostView {
   caption: string;
   tags: string[];
   images: string[];
+  /** 실제 사진 장수. 목록 조회에서는 images가 비어 있어도(사진은 따로 불러옴) 이 값은 항상 채워진다. */
+  imageCount: number;
   timestamp: number;
   liked: boolean;
   likeCount: number;
@@ -98,6 +100,14 @@ async function postsJson(res: Response): Promise<PostView[]> {
 export async function listPosts(): Promise<PostView[]> {
   const res = await fetch('/api/community/posts');
   return postsJson(res);
+}
+
+/** 목록 응답엔 사진 원본이 빠져 있으므로, 실제 화면에 보이는 게시물의 사진만 이걸로 따로 받는다. */
+export async function getPostImages(id: string): Promise<string[]> {
+  const res = await fetch(`/api/community/posts/${id}`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) return [];
+  return (data as { images?: string[] } | null)?.images ?? [];
 }
 
 export async function createPost(input: PostInput): Promise<PostView[]> {

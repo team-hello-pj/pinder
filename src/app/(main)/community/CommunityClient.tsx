@@ -10,6 +10,7 @@ import {
   deleteComment as apiDeleteComment,
   deletePost,
   deleteReply as apiDeleteReply,
+  getPostImages,
   listPosts,
   listTrendingPlaces,
   MAX_POST_IMAGES,
@@ -162,14 +163,26 @@ function PostCardSkeleton() {
       <div className={styles.postHead}>
         <span className={`${styles.postAvatar} ${styles.skeletonBlock}`} />
         <div className={styles.skeletonTextGroup}>
-          <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '35%' }} />
-          <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '55%' }} />
+          <span
+            className={`${styles.skeletonLine} ${styles.skeletonBlock}`}
+            style={{ width: '35%' }}
+          />
+          <span
+            className={`${styles.skeletonLine} ${styles.skeletonBlock}`}
+            style={{ width: '55%' }}
+          />
         </div>
       </div>
       <div className={`${styles.postImage} ${styles.skeletonBlock}`} />
       <div className={styles.postBody}>
-        <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '90%' }} />
-        <span className={`${styles.skeletonLine} ${styles.skeletonBlock}`} style={{ width: '60%' }} />
+        <span
+          className={`${styles.skeletonLine} ${styles.skeletonBlock}`}
+          style={{ width: '90%' }}
+        />
+        <span
+          className={`${styles.skeletonLine} ${styles.skeletonBlock}`}
+          style={{ width: '60%' }}
+        />
       </div>
     </article>
   );
@@ -186,6 +199,10 @@ export function CommunityClient() {
   // 최초 목록 조회(listPosts)가 끝나기 전까지는 posts가 그냥 빈 배열이라 "아직 게시물이
   // 없어요"로 잘못 보였다 — 로딩 중과 실제로 게시물이 0개인 상태를 구분해 스켈레톤을 보여준다.
   const [postsLoading, setPostsLoading] = useState(true);
+  // 목록 응답(posts)에는 사진 원본이 빠져 있다 — 실제로 화면에 보이는 게시물의 사진만
+  // postId 별로 따로 받아와 채워 넣는다(아래 이미지 지연 로딩 useEffect 참고).
+  const [imagesByPostId, setImagesByPostId] = useState<Record<string, string[]>>({});
+  const requestedImageIdsRef = useRef<Set<string>>(new Set());
   const [trending, setTrending] = useState<{ name: string; count: number }[]>([]);
 
   const [composerOpen, setComposerOpen] = useState(false);
@@ -525,6 +542,37 @@ export function CommunityClient() {
   const profilePost = profileAuthor ? posts.find((p) => p.author === profileAuthor) : null;
   const commentModalPost = commentModalId ? posts.find((p) => p.id === commentModalId) : null;
 
+  /** 사진이 없어도(images가 빈 배열) imageCount로 알고 있으면 아직 안 불러온 것으로 본다. */
+  const displayImagesOf = (post: PostView): string[] =>
+    post.images.length > 0 ? post.images : (imagesByPostId[post.id] ?? []);
+
+  // 화면에 실제로 보이는 게시물(목록/그리드에 노출 중인 것 + 댓글 상세 모달로 연 것)의
+  // 사진만 그때그때 불러온다 — 게시물 전체 사진을 한 번에 받아오던 것이 최초 진입을
+  // 느리게 만든 원인이었다. visiblePosts/commentModalPost는 매 렌더 새로 계산되는 값이라
+  // effect가 자주 재실행되지만, requestedImageIdsRef가 게시물당 요청을 한 번으로 막아준다
+  // (그래서 렌더마다 새로 생기는 값을 여기 의존성으로 둬도 안전하다 — 요청 자체가 중복되지 않음).
+  useEffect(() => {
+    const idsToFetch: string[] = [];
+    const collect = (post: PostView | null | undefined) => {
+      if (!post) return;
+      if (
+        post.imageCount > 0 &&
+        post.images.length === 0 &&
+        !requestedImageIdsRef.current.has(post.id)
+      ) {
+        requestedImageIdsRef.current.add(post.id);
+        idsToFetch.push(post.id);
+      }
+    };
+    visiblePosts.forEach(collect);
+    collect(commentModalPost);
+    idsToFetch.forEach((id) => {
+      getPostImages(id).then((images) => {
+        setImagesByPostId((prev) => ({ ...prev, [id]: images }));
+      });
+    });
+  }, [visiblePosts, commentModalPost]);
+
   return (
     <div className={styles.page}>
       <div className={styles.headRow}>
@@ -688,7 +736,9 @@ export function CommunityClient() {
               <AuthorAvatar
                 name={profileAuthor}
                 avatarUrl={
-                  profileAuthor === myAuthorName ? (user?.avatarUrl ?? null) : profilePost?.authorAvatarUrl
+                  profileAuthor === myAuthorName
+                    ? (user?.avatarUrl ?? null)
+                    : profilePost?.authorAvatarUrl
                 }
                 isMine={profileAuthor === myAuthorName}
                 className={styles.profileAvatar}
@@ -760,7 +810,7 @@ export function CommunityClient() {
                       onClick={() => setProfileAuthor(post.author)}
                     >
                       <PostPhoto
-                        images={post.images}
+                        images={displayImagesOf(post)}
                         label={`${post.place} 사진`}
                         interactive={false}
                       />
@@ -825,7 +875,7 @@ export function CommunityClient() {
                         </div>
 
                         <div className={styles.postImage}>
-                          <PostPhoto images={post.images} label={`${post.place} 사진`} />
+                          <PostPhoto images={displayImagesOf(post)} label={`${post.place} 사진`} />
                         </div>
 
                         <div className={styles.postBody}>
@@ -1136,7 +1186,12 @@ export function CommunityClient() {
       </Modal>
 
       {/* 사진 위치 조정(4:3 크롭) — 여러 장을 골랐으면 한 장씩 순서대로 뜬다. */}
-      <ImageCropModal open={cropSrc != null} imageSrc={cropSrc} onCancel={cancelCrop} onConfirm={confirmCrop} />
+      <ImageCropModal
+        open={cropSrc != null}
+        imageSrc={cropSrc}
+        onCancel={cancelCrop}
+        onConfirm={confirmCrop}
+      />
 
       {/* 댓글 상세: 좌측 사진 / 우측 댓글창 2단 구조 */}
       {commentModalPost ? (
@@ -1144,7 +1199,7 @@ export function CommunityClient() {
           <div className={styles.commentModalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.commentModalPhoto}>
               <PostPhoto
-                images={commentModalPost.images}
+                images={displayImagesOf(commentModalPost)}
                 label={`${commentModalPost.place} 사진`}
               />
             </div>

@@ -15,7 +15,10 @@ const IMAGE_DATA_URL_RE = /^data:image\/(png|jpeg|jpg|webp);base64,/;
 
 export async function GET() {
   const session = await getSessionUser();
-  const list = await listPosts(session?.id ?? null);
+  // 목록 화면은 사진 원본 없이 imageCount만 받고, 실제 화면에 보이는 게시물의 사진만
+  // /api/community/posts/[id] 로 따로/뒤늦게 받아온다 — 게시물 수가 적어도 사진이 여러
+  // 장씩 붙으면 목록 응답이 수십 MB까지 커져서 최초 진입이 느려지는 문제가 있었다.
+  const list = await listPosts(session?.id ?? null, false);
   return NextResponse.json({ posts: list });
 }
 
@@ -70,6 +73,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const list = await listPosts(session.id);
+  const list = await listPosts(session.id, false);
   return NextResponse.json({ posts: list });
 }

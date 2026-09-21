@@ -45,6 +45,8 @@ export interface PostView {
   caption: string;
   tags: string[];
   images: string[];
+  /** 실제 저장된 사진 장수. images가 비어 있어도(목록 응답에서 사진을 생략한 경우) 몇 장인지 알 수 있게 별도로 둔다. */
+  imageCount: number;
   timestamp: number;
   liked: boolean;
   likeCount: number;
@@ -53,8 +55,17 @@ export interface PostView {
   comments: CommentView[];
 }
 
-/** 게시글 목록 + 댓글/답글까지 한 번에 조립해서 돌려준다 (커뮤니티 화면은 전체를 한 번에 그린다). */
-export async function listPosts(viewerId: string | null): Promise<PostView[]> {
+/**
+ * 게시글 목록 + 댓글/답글까지 한 번에 조립해서 돌려준다 (커뮤니티 화면은 전체를 한 번에 그린다).
+ * includeImages=false 면 조회는 그대로 하되(내부 DB 왕복은 동일) 응답 JSON에는 사진 원본을
+ * 담지 않고 imageCount만 내려준다 — 게시물당 여러 장씩 붙는 base64 사진이 목록 응답 크기를
+ * 수십 MB로 부풀려 최초 진입을 느리게 만들었기 때문. 실제 사진은 화면에 보이는 게시물만
+ * /api/community/posts/[id] 로 따로 받아온다.
+ */
+export async function listPosts(
+  viewerId: string | null,
+  includeImages: boolean = true,
+): Promise<PostView[]> {
   const postRows = await db
     .select({
       id: posts.id,
@@ -192,22 +203,26 @@ export async function listPosts(viewerId: string | null): Promise<PostView[]> {
     commentsByPost.set(c.postId, list);
   }
 
-  return postRows.map((p) => ({
-    id: p.id,
-    author: p.authorNickname || p.authorName,
-    authorAvatarUrl: p.authorAvatarUrl,
-    place: p.place,
-    region: p.region,
-    caption: p.caption,
-    tags: p.tags as string[],
-    images: (p.images as string[] | null) ?? [],
-    timestamp: p.createdAt.getTime(),
-    liked: likedPostIdsByViewer.has(p.id),
-    likeCount: likeCountByPost.get(p.id) ?? 0,
-    bookmarked: bookmarkedPostIds.has(p.id),
-    isMine: viewerId === p.authorId,
-    comments: commentsByPost.get(p.id) ?? [],
-  }));
+  return postRows.map((p) => {
+    const allImages = (p.images as string[] | null) ?? [];
+    return {
+      id: p.id,
+      author: p.authorNickname || p.authorName,
+      authorAvatarUrl: p.authorAvatarUrl,
+      place: p.place,
+      region: p.region,
+      caption: p.caption,
+      tags: p.tags as string[],
+      images: includeImages ? allImages : [],
+      imageCount: allImages.length,
+      timestamp: p.createdAt.getTime(),
+      liked: likedPostIdsByViewer.has(p.id),
+      likeCount: likeCountByPost.get(p.id) ?? 0,
+      bookmarked: bookmarkedPostIds.has(p.id),
+      isMine: viewerId === p.authorId,
+      comments: commentsByPost.get(p.id) ?? [],
+    };
+  });
 }
 
 /** 사이드바 "이번 주 인기 여행지" — 실제 게시글의 place 별 개수를 집계한다. */
