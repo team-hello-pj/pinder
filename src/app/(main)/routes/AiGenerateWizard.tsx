@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui';
 import { MODE_MAP } from '@/constants';
 import { runWithConcurrencyLimit } from '@/lib/concurrency';
 import { type KakaoPlaceDoc, fetchRouteLeg, searchKeyword } from '@/lib/kakao/client';
-import { requestAiRouteGeneration } from '@/lib/route-generate';
+import { type AiGeneratedPlace, requestAiRouteGeneration } from '@/lib/route-generate';
 import type { Place, TransportMode } from '@/types';
 
 import styles from './my-routes.module.css';
@@ -54,6 +54,28 @@ interface ResultPlace extends Place {
 function matchesRegion(doc: KakaoPlaceDoc, region: string): boolean {
   const addr = `${doc.address_name || ''} ${doc.road_address_name || ''}`;
   return addr.includes(region);
+}
+
+/** 장소명(+주소 힌트)으로 카카오에 검색해, 선택한 지역 주소를 가진 후보의 좌표만 반환한다.
+ * 지역이 다른 동명 장소만 나오면 못 찾은 것으로 취급한다(null). */
+async function resolvePlaceCoords(
+  name: string,
+  addressHint: string | undefined,
+  region: string,
+): Promise<{ x: number; y: number } | null> {
+  const queries = addressHint
+    ? [`${region} ${addressHint} ${name}`, `${region} ${name}`, name]
+    : [`${region} ${name}`, name];
+  for (const query of queries) {
+    try {
+      const data = await searchKeyword(query);
+      const doc = (data.documents ?? []).find((d) => matchesRegion(d, region));
+      if (doc) return { x: Number(doc.x), y: Number(doc.y) };
+    } catch {
+      // 이 쿼리는 실패했으니 다음 후보 쿼리로 넘어간다.
+    }
+  }
+  return null;
 }
 
 function haversineKm(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -147,61 +169,91 @@ export function AiGenerateWizard({
       });
 
       const resolved: ResultPlace[] = [];
-      const unmatchedNames: string[] = [];
-      for (const p of aiPlaces) {
-        // 지역명+주소힌트+이름을 다 붙인 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
-        // 잦다(직접 검색해서 추가하는 일반 흐름은 사용자가 이미 검색 결과 중에서 고르므로 이
-        // 문제가 없다) — 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다.
-        const queries = p.addressHint
-          ? [
-              `${effectiveRegion} ${p.addressHint} ${p.name}`,
-              `${effectiveRegion} ${p.name}`,
-              p.name,
-            ]
-          : [`${effectiveRegion} ${p.name}`, p.name];
-        let x: number | null = null;
-        let y: number | null = null;
-        for (const query of queries) {
-          try {
-            const data = await searchKeyword(query);
-            // 이름만 같고 지역은 전혀 다른 동명 장소가 1등으로 나오는 경우가 있어, 검색 결과
-            // 중 실제로 선택한 지역 주소를 가진 후보만 진짜 매칭으로 인정한다. 지역이 다른
-            // 결과만 나온 쿼리는 버리고 다음(더 느슨한) 쿼리로 넘어간다.
-            const doc = (data.documents ?? []).find((d) => matchesRegion(d, effectiveRegion));
-            if (doc) {
-              x = Number(doc.x);
-              y = Number(doc.y);
-              break;
-            }
-          } catch {
-            // 이 쿼리는 실패했으니 다음 후보 쿼리로 넘어간다.
+      // 지역이 다르거나 아예 못 찾은 장소는 빈 자리로 남기지 않고, AI에게 같은 조건으로 대체
+      // 후보를 다시 받아 그 자리를 채운다 — 사용자에게는 이 과정을 보여주지 않고 여기서 끝낸다.
+      // 대체 후보도 계속 실패하는 경우를 대비해 라운드 수를 제한한다.
+      const MAX_REPLACEMENT_ROUNDS = 3;
+      const triedNames = new Set(aiPlaces.map((p) => p.name));
+      let pending: AiGeneratedPlace[] = aiPlaces;
+      let round = 0;
+      let finalUnmatchedNames: string[] = [];
+
+      while (pending.length > 0) {
+        const stillUnresolved: AiGeneratedPlace[] = [];
+        for (const p of pending) {
+          const coords = await resolvePlaceCoords(p.name, p.addressHint, effectiveRegion);
+          if (!coords) {
+            stillUnresolved.push(p);
+            continue;
           }
+          resolved.push({
+            id: resolved.length + 1,
+            name: p.name,
+            category: p.category || '미분류',
+            address: p.addressHint || p.name,
+            duration: p.duration,
+            hours: 'unknown',
+            hoursLabel: '영업시간 확인 필요',
+            visitTime: '',
+            packItems: '',
+            weather: 'sunny',
+            day: Math.max(0, (p.day || 1) - 1),
+            x: coords.x,
+            y: coords.y,
+          });
         }
-        if (x == null || y == null) {
-          // 좌표를 못 찾았거나 지역이 맞는 후보가 없었던 경우 — 가짜 좌표를 넣지 않고 이
-          // 장소는 결과에서 아예 제외한다.
-          unmatchedNames.push(p.name);
-          continue;
+
+        if (stillUnresolved.length === 0) break;
+        round += 1;
+        if (round > MAX_REPLACEMENT_ROUNDS) {
+          finalUnmatchedNames = stillUnresolved.map((p) => p.name);
+          break;
         }
-        resolved.push({
-          id: resolved.length + 1,
-          name: p.name,
-          category: p.category || '미분류',
-          address: p.addressHint || p.name,
-          duration: p.duration,
-          hours: 'unknown',
-          hoursLabel: '영업시간 확인 필요',
-          visitTime: '',
-          packItems: '',
-          weather: 'sunny',
-          day: Math.max(0, (p.day || 1) - 1),
-          x,
-          y,
+
+        let replacements: AiGeneratedPlace[] = [];
+        try {
+          const res = await requestAiRouteGeneration({
+            region: effectiveRegion,
+            style,
+            interests,
+            companion,
+            tripStart,
+            tripEnd,
+            transportMode,
+            excludeNames: Array.from(triedNames),
+          });
+          replacements = res.places;
+        } catch {
+          // 이번 라운드는 실패 — 다음 라운드(있다면)에서 다시 시도한다.
+        }
+        replacements.forEach((p) => triedNames.add(p.name));
+
+        // 실패한 슬롯마다 같은 일차의 대체 후보를 하나씩 배정한다(순서는 유지하되 날짜만
+        // 맞춘다). 같은 날짜 후보가 부족하면 다른 날짜 후보를 당겨와 날짜만 맞춰 쓰고, 그마저
+        // 없으면 이번 라운드엔 못 채운 채로 다음 라운드에 다시 맡긴다.
+        const byDay = new Map<number, AiGeneratedPlace[]>();
+        for (const rp of replacements) {
+          const list = byDay.get(rp.day) ?? [];
+          list.push(rp);
+          byDay.set(rp.day, list);
+        }
+        pending = stillUnresolved.map((failed) => {
+          const sameDay = byDay.get(failed.day);
+          const picked =
+            sameDay?.shift() ??
+            (() => {
+              for (const list of byDay.values()) {
+                const next = list.shift();
+                if (next) return next;
+              }
+              return undefined;
+            })();
+          return picked ? { ...picked, day: failed.day } : failed;
         });
       }
 
-      if (unmatchedNames.length > 0) {
-        setUnmatchedNotice({ names: unmatchedNames, allFailed: resolved.length === 0 });
+      if (finalUnmatchedNames.length > 0) {
+        setUnmatchedNotice({ names: finalUnmatchedNames, allFailed: resolved.length === 0 });
       }
       if (resolved.length === 0) return;
 
