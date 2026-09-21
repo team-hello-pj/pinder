@@ -224,10 +224,16 @@ export function ProductTour() {
     const placeBelow = spaceBelow >= height + BUBBLE_GAP || spaceBelow >= spaceAbove;
 
     let top = placeBelow ? rect.bottom + BUBBLE_GAP : rect.top - height - BUBBLE_GAP;
-    top = Math.min(Math.max(top, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, vh - height - VIEWPORT_MARGIN));
+    top = Math.min(
+      Math.max(top, VIEWPORT_MARGIN),
+      Math.max(VIEWPORT_MARGIN, vh - height - VIEWPORT_MARGIN),
+    );
 
     let left = rect.left + rect.width / 2 - width / 2;
-    left = Math.min(Math.max(left, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, vw - width - VIEWPORT_MARGIN));
+    left = Math.min(
+      Math.max(left, VIEWPORT_MARGIN),
+      Math.max(VIEWPORT_MARGIN, vw - width - VIEWPORT_MARGIN),
+    );
 
     return { top, left };
   }, [rect, bubbleSize]);
