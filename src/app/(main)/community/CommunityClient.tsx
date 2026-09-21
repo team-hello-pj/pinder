@@ -1159,18 +1159,34 @@ export function CommunityClient() {
             </div>
             <div className={styles.commentModalRight}>
               <div className={styles.commentModalHead}>
-                <AuthorAvatar
-                  name={commentModalPost.author}
-                  avatarUrl={commentModalPost.authorAvatarUrl}
-                  isMine={commentModalPost.isMine}
-                  className={styles.postAvatar}
-                />
-                <div className={styles.commentModalHeadInfo}>
+                <button
+                  type="button"
+                  className={styles.postAvatarBtn}
+                  onClick={() => {
+                    setProfileAuthor(commentModalPost.author);
+                    setCommentModalId(null);
+                  }}
+                >
+                  <AuthorAvatar
+                    name={commentModalPost.author}
+                    avatarUrl={commentModalPost.authorAvatarUrl}
+                    isMine={commentModalPost.isMine}
+                    className={styles.postAvatar}
+                  />
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.postAuthorBtn} ${styles.commentModalHeadInfo}`}
+                  onClick={() => {
+                    setProfileAuthor(commentModalPost.author);
+                    setCommentModalId(null);
+                  }}
+                >
                   <div className={styles.postAuthor}>{commentModalPost.author}</div>
                   <div className={styles.postMeta}>
                     {commentModalPost.place} · {formatRelativeTime(commentModalPost.timestamp)}
                   </div>
-                </div>
+                </button>
                 <button
                   type="button"
                   className={styles.commentModalCloseBtn}
