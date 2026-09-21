@@ -39,6 +39,7 @@ type SortMode = 'popular' | 'latest' | 'oldest';
 type ViewMode = 'list' | 'grid';
 
 const PAGE_STEP = 5;
+const GRID_PAGE_STEP = 6;
 const INLINE_COMMENT_THRESHOLD = 4;
 
 /** 답글까지 합친 총 댓글 수 (목록 카드/댓글 수 배지에 표시하는 값). */
@@ -282,7 +283,7 @@ export function CommunityClient() {
 
   const runSearch = () => {
     setSearchQuery(searchInput.trim());
-    setVisibleCount(PAGE_STEP);
+    setVisibleCount(viewMode === 'grid' ? GRID_PAGE_STEP : PAGE_STEP);
   };
 
   const [authGateOpen, setAuthGateOpen] = useState(false);
@@ -600,7 +601,7 @@ export function CommunityClient() {
                 onClick={() => {
                   setSelectedRegion(r);
                   setProfileAuthor(null);
-                  setVisibleCount(PAGE_STEP);
+                  setVisibleCount(viewMode === 'grid' ? GRID_PAGE_STEP : PAGE_STEP);
                 }}
               >
                 {r}
@@ -630,7 +631,10 @@ export function CommunityClient() {
                 type="button"
                 className={styles.viewBtn}
                 style={{ color: viewMode === 'list' ? 'var(--pd-link)' : 'var(--pd-text-sub)' }}
-                onClick={() => setViewMode('list')}
+                onClick={() => {
+                  setViewMode('list');
+                  setVisibleCount(PAGE_STEP);
+                }}
               >
                 <svg
                   width="13"
@@ -655,7 +659,10 @@ export function CommunityClient() {
                 type="button"
                 className={styles.viewBtn}
                 style={{ color: viewMode === 'grid' ? 'var(--pd-link)' : 'var(--pd-text-sub)' }}
-                onClick={() => setViewMode('grid')}
+                onClick={() => {
+                  setViewMode('grid');
+                  setVisibleCount(GRID_PAGE_STEP);
+                }}
               >
                 <svg
                   width="13"
@@ -757,7 +764,7 @@ export function CommunityClient() {
                       key={post.id}
                       type="button"
                       className={styles.gridCell}
-                      onClick={() => setProfileAuthor(post.author)}
+                      onClick={() => setCommentModalId(post.id)}
                     >
                       <PostPhoto
                         images={post.images}
@@ -955,7 +962,9 @@ export function CommunityClient() {
             <button
               type="button"
               className={styles.showMoreBtn}
-              onClick={() => setVisibleCount((v) => v + PAGE_STEP)}
+              onClick={() =>
+                setVisibleCount((v) => v + (viewMode === 'grid' ? GRID_PAGE_STEP : PAGE_STEP))
+              }
             >
               더보기
             </button>
