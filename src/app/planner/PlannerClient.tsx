@@ -372,6 +372,9 @@ export function PlannerClient() {
   const [activityLogOpen, setActivityLogOpen] = useState(false);
   const [activityLog, setActivityLog] = useState<{ id: string; text: string; time: string }[]>([]);
   const [saveLabel, setSaveLabel] = useState('저장');
+  // 저장 요청이 끝나기 전에 버튼을 다시 누르면(느린 네트워크, 급하게 연타 등) scheduleId가
+  // 아직 세팅되기 전이라 새 일정이 하나 더 생성될 수 있었다 — 진행 중에는 재진입을 막는다.
+  const [savingInFlight, setSavingInFlight] = useState(false);
   const lastTitleRef = useRef('');
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -1690,38 +1693,46 @@ export function PlannerClient() {
 
   // ---- 저장 / 내 일정 ----
   const saveCurrentRoute = async (): Promise<boolean> => {
+    // 저장 요청이 아직 끝나기 전에 다시 호출되면(느린 네트워크 중 연타 등) scheduleId가
+    // 아직 세팅되기 전이라 새 일정으로 취급돼 하나 더 생성될 수 있었다 — 재진입을 막는다.
+    if (savingInFlight) return false;
     if (places.length === 0 && !scheduleId) return false;
-    // 처음 저장할 때는 제목을 설정한 여행 기간으로 만든다. 이미 저장된 일정을 업데이트할 때는
-    // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
-    const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
-    const input = {
-      places,
-      segments,
-      criteria,
-      tripStart: tripStart || '',
-      tripEnd: tripEnd || '',
-      // "경로 계산"/"경로 검색"으로 이미 조회해 둔 구간 결과도 같이 저장해서, 다시 불러왔을 때
-      // 재검색 없이 그대로 쓸 수 있게 한다.
-      routeCache,
-    };
+    setSavingInFlight(true);
+    try {
+      // 처음 저장할 때는 제목을 설정한 여행 기간으로 만든다. 이미 저장된 일정을 업데이트할 때는
+      // 기존 제목을 그대로 유지한다(방문지 목록/일정만 갱신되는 구조).
+      const title = lastTitleRef.current || fmtRange(tripStart, tripEnd) || '내 일정';
+      const input = {
+        places,
+        segments,
+        criteria,
+        tripStart: tripStart || '',
+        tripEnd: tripEnd || '',
+        // "경로 계산"/"경로 검색"으로 이미 조회해 둔 구간 결과도 같이 저장해서, 다시 불러왔을 때
+        // 재검색 없이 그대로 쓸 수 있게 한다.
+        routeCache,
+      };
 
-    // 업데이트할 때는 title 을 다시 보내지 않는다 — 응답으로 오는 title 은 "내 일정"에서
-    // 계정별로 다르게 보일 수 있는 개인화 이름이라, 그대로 되돌려 보내면 제작자가 처음
-    // 공유한 원본 이름(schedules.title)을 덮어써 버리게 된다. 새로 만들 때만 최초 제목을 정한다.
-    const saved = scheduleId
-      ? await updateSchedule(scheduleId, input)
-      : await createSchedule({ ...input, title });
-    if (!saved) {
-      showToast('저장하지 못했어요. 다시 시도해주세요.');
-      return false;
+      // 업데이트할 때는 title 을 다시 보내지 않는다 — 응답으로 오는 title 은 "내 일정"에서
+      // 계정별로 다르게 보일 수 있는 개인화 이름이라, 그대로 되돌려 보내면 제작자가 처음
+      // 공유한 원본 이름(schedules.title)을 덮어써 버리게 된다. 새로 만들 때만 최초 제목을 정한다.
+      const saved = scheduleId
+        ? await updateSchedule(scheduleId, input)
+        : await createSchedule({ ...input, title });
+      if (!saved) {
+        showToast('저장하지 못했어요. 다시 시도해주세요.');
+        return false;
+      }
+      if (!scheduleId) setScheduleId(saved.id);
+      lastTitleRef.current = saved.title;
+      setSaveLabel('저장됨');
+      logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
+      setTimeout(() => setSaveLabel('저장'), 1500);
+      markClean();
+      return true;
+    } finally {
+      setSavingInFlight(false);
     }
-    if (!scheduleId) setScheduleId(saved.id);
-    lastTitleRef.current = saved.title;
-    setSaveLabel('저장됨');
-    logActivity(`현재 일정을 "${saved.title}"으로 저장했습니다`);
-    setTimeout(() => setSaveLabel('저장'), 1500);
-    markClean();
-    return true;
   };
 
   const saveOrRemoveAction = async () => {
@@ -3274,12 +3285,15 @@ export function PlannerClient() {
                   type="button"
                   className={`${styles.actionBtn} ${styles.mobileActionsRow1Col3}`}
                   onClick={saveOrRemoveAction}
+                  disabled={savingInFlight}
                 >
                   {inviteJoinRole
                     ? '저장'
                     : isViewerRole && isLoggedIn
                       ? '내 일정에서 제거'
-                      : saveLabel}
+                      : savingInFlight
+                        ? '저장 중...'
+                        : saveLabel}
                 </button>
                 {!inviteJoinRole && role === 'viewer' && !myEditRequestPending ? (
                   <button
@@ -4147,7 +4161,7 @@ export function PlannerClient() {
           <Button variant="secondary" size="sm" onClick={leaveWithoutSaving}>
             저장 안 함
           </Button>
-          <Button size="sm" onClick={saveAndLeave}>
+          <Button size="sm" onClick={saveAndLeave} disabled={savingInFlight}>
             저장
           </Button>
         </div>
