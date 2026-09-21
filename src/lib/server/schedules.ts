@@ -22,13 +22,16 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
     .where(eq(scheduleCollaborators.userId, userId));
 
   const allIds = [...owned.map((s) => s.id), ...collabRows.map((r) => r.schedule.id)];
-  const ownerNicknameById = new Map<string, string | null>();
-  const collabNicknamesById = new Map<string, string[]>();
+  const ownerInfoById = new Map<string, { nickname: string | null; avatarUrl: string | null }>();
+  const collabInfoById = new Map<string, { nickname: string; avatarUrl: string | null }[]>();
   const myTitleById = new Map<string, string>();
 
   if (allIds.length > 0) {
     const overrideRows = await db
-      .select({ scheduleId: scheduleTitleOverrides.scheduleId, title: scheduleTitleOverrides.title })
+      .select({
+        scheduleId: scheduleTitleOverrides.scheduleId,
+        title: scheduleTitleOverrides.title,
+      })
       .from(scheduleTitleOverrides)
       .where(
         and(
@@ -39,16 +42,19 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
     for (const row of overrideRows) myTitleById.set(row.scheduleId, row.title);
 
     const ownerRows = await db
-      .select({ id: schedules.id, nickname: users.nickname })
+      .select({ id: schedules.id, nickname: users.nickname, avatarUrl: users.avatarUrl })
       .from(schedules)
       .innerJoin(users, eq(schedules.ownerId, users.id))
       .where(inArray(schedules.id, allIds));
-    for (const row of ownerRows) ownerNicknameById.set(row.id, row.nickname);
+    for (const row of ownerRows) {
+      ownerInfoById.set(row.id, { nickname: row.nickname, avatarUrl: row.avatarUrl });
+    }
 
     const collabNicknameRows = await db
       .select({
         scheduleId: scheduleCollaborators.scheduleId,
         nickname: users.nickname,
+        avatarUrl: users.avatarUrl,
         joinedAt: scheduleCollaborators.createdAt,
       })
       .from(scheduleCollaborators)
@@ -56,27 +62,29 @@ export async function listSchedulesForUser(userId: string): Promise<ScheduleSumm
       .where(inArray(scheduleCollaborators.scheduleId, allIds))
       .orderBy(scheduleCollaborators.createdAt);
     for (const row of collabNicknameRows) {
-      const list = collabNicknamesById.get(row.scheduleId) ?? [];
-      list.push(row.nickname ?? '');
-      collabNicknamesById.set(row.scheduleId, list);
+      const list = collabInfoById.get(row.scheduleId) ?? [];
+      list.push({ nickname: row.nickname ?? '', avatarUrl: row.avatarUrl });
+      collabInfoById.set(row.scheduleId, list);
     }
   }
 
   // 제작자를 항상 맨 앞에 고정하고(왕관 표시용으로 isOwner: true), 이후 참여자는 참여한(=협업자로
   // 추가된) 순서대로 붙인다. 본인도 어차피 참여자 중 하나이므로 제외하지 않고 그대로 포함한다.
-  function buildMembers(scheduleId: string): { nickname: string; isOwner: boolean }[] {
-    const owner = ownerNicknameById.get(scheduleId);
-    const collabs = collabNicknamesById.get(scheduleId) ?? [];
+  function buildMembers(
+    scheduleId: string,
+  ): { nickname: string; isOwner: boolean; avatarUrl: string | null }[] {
+    const owner = ownerInfoById.get(scheduleId);
+    const collabs = collabInfoById.get(scheduleId) ?? [];
     const seen = new Set<string>();
-    const result: { nickname: string; isOwner: boolean }[] = [];
-    if (owner) {
-      seen.add(owner);
-      result.push({ nickname: owner, isOwner: true });
+    const result: { nickname: string; isOwner: boolean; avatarUrl: string | null }[] = [];
+    if (owner?.nickname) {
+      seen.add(owner.nickname);
+      result.push({ nickname: owner.nickname, isOwner: true, avatarUrl: owner.avatarUrl });
     }
-    for (const nickname of collabs) {
-      if (!nickname || seen.has(nickname)) continue;
-      seen.add(nickname);
-      result.push({ nickname, isOwner: false });
+    for (const collab of collabs) {
+      if (!collab.nickname || seen.has(collab.nickname)) continue;
+      seen.add(collab.nickname);
+      result.push({ nickname: collab.nickname, isOwner: false, avatarUrl: collab.avatarUrl });
     }
     return result;
   }

@@ -72,7 +72,7 @@ export interface SavedRoute {
    * 이 일정에 관여된 사람 전체(본인 포함) — 제작자가 항상 맨 앞이고 isOwner: true(왕관 표시용),
    * 이후 참여한 순서대로 이어진다.
    */
-  members?: { nickname: string; isOwner: boolean }[];
+  members?: { nickname: string; isOwner: boolean; avatarUrl: string | null }[];
   /** 제목을 사용자가 직접 바꿨는지 — 자동 생성 제목과 구분할 때 쓴다. */
   customName?: boolean;
 }
