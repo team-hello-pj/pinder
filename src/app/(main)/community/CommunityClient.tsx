@@ -836,16 +836,6 @@ export function CommunityClient() {
                         <b>{post.author}</b> <HighlightedCaption text={post.caption} />
                       </p>
 
-                      {post.tags.length > 0 ? (
-                        <div className={styles.tagRow}>
-                          {post.tags.map((tag) => (
-                            <span key={tag} className={styles.postTag}>
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
                       <CommentThread
                         comments={visibleComments}
                         openReplyBoxes={openReplyBoxes}
