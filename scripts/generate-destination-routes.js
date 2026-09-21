@@ -24,7 +24,7 @@
 // 주의: scripts/seed-destinations.mjs 를 다시 실행하면 destinations 테이블 행 자체가 삭제/재삽입돼
 // 여기서 저장한 routes 도 함께 사라진다 — seed 스크립트를 다시 돌렸다면 이 스크립트도 다시 돌려야 한다.
 
-const { Pool } = require('@neondatabase/serverless');
+const { Pool } = require('pg');
 
 const GENERATE_BASE = 'http://localhost:3000';
 const GEOCODE_BASE = 'https://pinder-one.vercel.app';
@@ -158,7 +158,11 @@ async function buildRoutes(region, tags, desc) {
 }
 
 async function main() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL,
+    // Supabase pooler 인증서 체인 문제로 기본 verify-full 검증이 실패해 완화한다.
+    ssl: { rejectUnauthorized: false },
+  });
   const { rows } = await pool.query(
     'select id, name, region, tags, "desc" from destinations order by section_order, item_order',
   );

@@ -1,13 +1,13 @@
 // 탐색(Explore) 화면의 큐레이션 데이터를 destinations 테이블에 채운다.
 // 이미 있는 행은 지우고 다시 넣는다 — 관리자 화면이 없어서 지금은 이 스크립트가 유일한 편집 경로다.
-// 사용법: node scripts/seed-destinations.mjs  (.env 의 DATABASE_URL 을 사용한다)
+// 사용법: node scripts/seed-destinations.mjs  (.env 의 DATABASE_URL_UNPOOLED/DATABASE_URL 을 사용한다)
 //
 // 주의: 행을 통째로 지우고 다시 넣으므로, scripts/generate-destination-routes.js 로 미리
 // 만들어 둔 "이 여행지로 일정 짜기"용 동선(places/segments)도 함께 사라진다. 이 스크립트를
 // 다시 실행했다면 generate-destination-routes.js 도 다시 실행해야 한다.
 
 import { readFileSync } from 'node:fs';
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 for (const line of readFileSync(new URL('../.env', import.meta.url), 'utf8').split('\n')) {
   const t = line.trim();
@@ -132,7 +132,10 @@ const SECTIONS = [
   },
 ];
 
-const sql = neon(process.env.DATABASE_URL);
+const sql = postgres(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL, {
+  prepare: false,
+  ssl: 'require',
+});
 
 await sql`DELETE FROM destinations`;
 
@@ -150,3 +153,4 @@ for (let si = 0; si < SECTIONS.length; si++) {
 }
 
 console.log(`Seeded ${inserted} destinations across ${SECTIONS.length} sections.`);
+await sql.end();

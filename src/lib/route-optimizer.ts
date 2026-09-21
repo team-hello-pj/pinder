@@ -62,7 +62,7 @@ export function haversineKm(a: { x: number; y: number }, b: { x: number; y: numb
 
 /**
  * "늦게 방문할수록 나쁜 정도"(0~1). 현재 데이터 구조에서 실제로 쓸 수 있는 신호인
- * 악천후 속 실외 방문지 노출만 반영한다(기존 route-engine.ts 의 OUTDOOR_CATEGORIES 재사용).
+ * 악천후 속 실외 방문지 노출만 반영한다.
  */
 export function computeDelayCost(place: Place): number {
   const isBadWeatherNow = place.weather === 'rain' || place.weather === 'snow';
