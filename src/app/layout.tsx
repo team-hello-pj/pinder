@@ -4,12 +4,28 @@ import { SessionProvider } from '@/components/providers/SessionProvider';
 import { THEME_INIT_SCRIPT, ThemeProvider } from '@/components/providers/ThemeProvider';
 import '@/styles/globals.css';
 
+const SITE_TITLE = 'p:nder — 여행 경로 플래너';
+const SITE_DESCRIPTION = '방문지를 모아 최적의 이동 순서를 만들어 주는 여행 경로 플래너';
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pinder-one.vercel.app'),
   title: {
-    default: 'p:nder — 여행 경로 플래너',
+    default: SITE_TITLE,
     template: '%s | p:nder',
   },
-  description: '방문지를 모아 최적의 이동 순서를 만들어 주는 여행 경로 플래너',
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ['/og-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ['/og-image.png'],
+  },
 };
 
 export const viewport: Viewport = {
