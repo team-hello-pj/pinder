@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 
+import { Modal } from '@/components/ui';
 import { MODE_MAP } from '@/constants';
 import { runWithConcurrencyLimit } from '@/lib/concurrency';
-import { fetchRouteLeg, searchKeyword } from '@/lib/kakao/client';
+import { type KakaoPlaceDoc, fetchRouteLeg, searchKeyword } from '@/lib/kakao/client';
 import { requestAiRouteGeneration } from '@/lib/route-generate';
 import type { Place, TransportMode } from '@/types';
 
@@ -48,6 +49,13 @@ interface ResultPlace extends Place {
   legMinutes?: number | null;
 }
 
+/** 이름만으로 검색하면 전혀 다른 지역의 동명 장소가 나올 수 있으므로, 주소에 선택한 지역명이
+ * 실제로 들어있는 후보만 진짜 매칭으로 인정한다 — 지역이 다르면 검색 결과 1등이라도 버린다. */
+function matchesRegion(doc: KakaoPlaceDoc, region: string): boolean {
+  const addr = `${doc.address_name || ''} ${doc.road_address_name || ''}`;
+  return addr.includes(region);
+}
+
 function haversineKm(a: { x: number; y: number }, b: { x: number; y: number }): number {
   const R = 6371;
   const dLat = ((b.y - a.y) * Math.PI) / 180;
@@ -87,6 +95,10 @@ export function AiGenerateWizard({
   const [error, setError] = useState<string | null>(null);
   const [resultPlaces, setResultPlaces] = useState<ResultPlace[] | null>(null);
   const [resultSegments, setResultSegments] = useState<TransportMode[]>([]);
+  const [unmatchedNotice, setUnmatchedNotice] = useState<{
+    names: string[];
+    allFailed: boolean;
+  } | null>(null);
 
   if (!open) return null;
 
@@ -104,6 +116,7 @@ export function AiGenerateWizard({
     setError(null);
     setResultPlaces(null);
     setResultSegments([]);
+    setUnmatchedNotice(null);
     onClose();
   };
 
@@ -117,6 +130,7 @@ export function AiGenerateWizard({
     if (!effectiveRegion || !style || !companion || !transportMode) return;
     setGenerating(true);
     setError(null);
+    setUnmatchedNotice(null);
     try {
       // "다시 추천받기"로 재생성하는 경우, 방금 받았던 장소는 이번엔 빼고 추천받도록 알려준다
       // — 안 그러면 낮은 다양성 때문에 거의 같은 결과가 다시 나오기 쉽다.
@@ -133,11 +147,11 @@ export function AiGenerateWizard({
       });
 
       const resolved: ResultPlace[] = [];
+      const unmatchedNames: string[] = [];
       for (const p of aiPlaces) {
         // 지역명+주소힌트+이름을 다 붙인 쿼리는 카카오 검색에서 결과가 아예 안 나오는 경우가
         // 잦다(직접 검색해서 추가하는 일반 흐름은 사용자가 이미 검색 결과 중에서 고르므로 이
-        // 문제가 없다). 그러면 좌표가 없는 채로 저장돼 지도에 핀이 안 뜨고, 그 핀이 차지해야
-        // 할 순번도 비어버린다 — 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다.
+        // 문제가 없다) — 조합 쿼리가 실패하면 장소명만으로 한 번 더 시도한다.
         const queries = p.addressHint
           ? [
               `${effectiveRegion} ${p.addressHint} ${p.name}`,
@@ -150,7 +164,10 @@ export function AiGenerateWizard({
         for (const query of queries) {
           try {
             const data = await searchKeyword(query);
-            const doc = data.documents?.[0];
+            // 이름만 같고 지역은 전혀 다른 동명 장소가 1등으로 나오는 경우가 있어, 검색 결과
+            // 중 실제로 선택한 지역 주소를 가진 후보만 진짜 매칭으로 인정한다. 지역이 다른
+            // 결과만 나온 쿼리는 버리고 다음(더 느슨한) 쿼리로 넘어간다.
+            const doc = (data.documents ?? []).find((d) => matchesRegion(d, effectiveRegion));
             if (doc) {
               x = Number(doc.x);
               y = Number(doc.y);
@@ -159,6 +176,12 @@ export function AiGenerateWizard({
           } catch {
             // 이 쿼리는 실패했으니 다음 후보 쿼리로 넘어간다.
           }
+        }
+        if (x == null || y == null) {
+          // 좌표를 못 찾았거나 지역이 맞는 후보가 없었던 경우 — 가짜 좌표를 넣지 않고 이
+          // 장소는 결과에서 아예 제외한다.
+          unmatchedNames.push(p.name);
+          continue;
         }
         resolved.push({
           id: resolved.length + 1,
@@ -176,6 +199,11 @@ export function AiGenerateWizard({
           y,
         });
       }
+
+      if (unmatchedNames.length > 0) {
+        setUnmatchedNotice({ names: unmatchedNames, allFailed: resolved.length === 0 });
+      }
+      if (resolved.length === 0) return;
 
       // 날짜별로 묶이도록 정렬한다 (같은 날짜 안에서의 순서는 AI가 준 순서를 그대로 유지).
       resolved.sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
@@ -547,6 +575,19 @@ export function AiGenerateWizard({
           )}
         </div>
       ) : null}
+
+      <Modal
+        open={unmatchedNotice !== null}
+        title="좌표 매칭에 실패했습니다"
+        onClose={() => setUnmatchedNotice(null)}
+      >
+        <p>
+          {unmatchedNotice?.names.join(', ')}의 정확한 위치를 찾지 못했어요.{' '}
+          {unmatchedNotice?.allFailed
+            ? '조건을 바꾸거나 다시 시도해주세요.'
+            : '해당 장소는 일정에서 제외했어요.'}
+        </p>
+      </Modal>
     </div>
   );
 }

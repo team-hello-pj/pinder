@@ -28,7 +28,6 @@ import {
 } from '@/lib/kakao/client';
 import { fmtRange } from '@/lib/calendar';
 import { tripDayCount } from '@/lib/format';
-import { computeMockSteps, SEGMENT_DISTANCES } from '@/lib/route-engine';
 import {
   buildRouteSignature,
   computeDelayCost,
@@ -2057,9 +2056,11 @@ export function PlannerClient() {
           status = 'unsearched';
           steps = [{ mode, arrowLabel: mode, minutes: 0, distanceKm: 0, nodeLabel: null }];
         } else {
-          const pairKey = fromP && toP ? Number(fromP.id) * 131 + Number(toP.id) * 17 : idx;
-          const dist = SEGMENT_DISTANCES[Math.abs(pairKey) % SEGMENT_DISTANCES.length];
-          steps = computeMockSteps(mode, dist, idx);
+          // 방문지 중 하나라도 좌표가 없으면 실제 이동시간/거리를 계산할 방법이 없다 — 지어낸
+          // 숫자를 보여주는 대신 조회 실패와 동일하게 실패 상태로 표시한다.
+          status = 'failed';
+          errorMsg = '방문지 좌표가 없어 경로를 조회할 수 없습니다';
+          steps = [{ mode, arrowLabel: mode, minutes: 0, distanceKm: 0, nodeLabel: null }];
         }
 
         const totalMinutes = steps.reduce((s, st) => s + st.minutes, 0);
