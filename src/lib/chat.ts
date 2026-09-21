@@ -3,8 +3,6 @@
 export interface RecommendedPlace {
   name: string;
   address?: string;
-  /** 채워져 있으면 현재 경로에서 이 이름을 가진 방문지를 대체하라는 뜻. */
-  replaces?: string;
 }
 
 export interface ChatMessage {
