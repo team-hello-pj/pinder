@@ -124,8 +124,21 @@ function PostPhoto({
   );
 }
 
-/** 댓글 상세 팝업 상단의 작성자 글(제목). 3줄을 넘으면 "전체 보기/접기"로 잘라 보여준다. */
-function PostCaption({ author, caption }: { author: string; caption: string }) {
+/**
+ * 게시물 본문(작성자 + 줄바꿈 유지된 캡션). 실제로 렌더링했을 때 5줄을 넘는 경우에만
+ * "더보기/접기"를 보여준다 — 글자 수가 아니라 스크롤 높이 vs 실제 높이를 비교해
+ * 진짜로 잘렸는지를 판단한다. 목록 카드와 댓글 상세 모달이 이 컴포넌트를 그대로 공유한다.
+ */
+function ClampedCaption({
+  author,
+  caption,
+  className,
+}: {
+  author: string;
+  caption: string;
+  /** 폰트/색상/간격을 정하는 타이포그래피 클래스 — 접혔을 때는 여기에 captionLineClamp가 추가로 붙는다. */
+  className: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -137,8 +150,8 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
   }, [caption]);
 
   return (
-    <div className={styles.modalCaptionBlock}>
-      <p ref={textRef} className={expanded ? styles.captionFull : styles.captionClamped}>
+    <>
+      <p ref={textRef} className={expanded ? className : `${className} ${styles.captionLineClamp}`}>
         <b>{author}</b> <HighlightedCaption text={caption} />
       </p>
       {overflowing ? (
@@ -147,10 +160,10 @@ function PostCaption({ author, caption }: { author: string; caption: string }) {
           className={styles.captionToggleBtn}
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? '접기' : '전체 보기'}
+          {expanded ? '접기' : '더보기'}
         </button>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -952,9 +965,11 @@ export function CommunityClient() {
                             </button>
                           </div>
 
-                          <p className={styles.caption}>
-                            <b>{post.author}</b> <HighlightedCaption text={post.caption} />
-                          </p>
+                          <ClampedCaption
+                            author={post.author}
+                            caption={post.caption}
+                            className={styles.caption}
+                          />
 
                           <CommentThread
                             comments={visibleComments}
@@ -1253,7 +1268,13 @@ export function CommunityClient() {
               </div>
 
               <div className={styles.commentModalScroll}>
-                <PostCaption author={commentModalPost.author} caption={commentModalPost.caption} />
+                <div className={styles.modalCaptionBlock}>
+                  <ClampedCaption
+                    author={commentModalPost.author}
+                    caption={commentModalPost.caption}
+                    className={styles.captionClamped}
+                  />
+                </div>
                 {commentModalPost.comments.length === 0 ? (
                   <p className={styles.empty}>아직 댓글이 없어요</p>
                 ) : (

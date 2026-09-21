@@ -1199,9 +1199,11 @@
   white-space: pre-wrap;
 }
 
-.captionClamped {
+/* 본문이 5줄을 넘을 때만(실제 렌더링 결과로 판단) 씌우는 접기 모디파이어 —
+   .caption(목록 카드)/.captionClamped(상세 모달) 둘 다에서 그대로 재사용한다. */
+.captionLineClamp {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
