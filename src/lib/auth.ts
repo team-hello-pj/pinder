@@ -43,8 +43,8 @@ export function registerUser(profile: RegisterProfile): Promise<AuthResult> {
   return postJson('/api/auth/register', profile);
 }
 
-export function loginUser(email: string, password: string): Promise<AuthResult> {
-  return postJson('/api/auth/login', { email, password });
+export function loginUser(identifier: string, password: string): Promise<AuthResult> {
+  return postJson('/api/auth/login', { identifier, password });
 }
 
 export async function isUsernameTaken(username: string): Promise<boolean> {
