@@ -21,7 +21,7 @@ export function LoginClient() {
   const { login } = useSession();
   const { isDark } = useTheme();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [saveId, setSaveId] = useState(false);
@@ -34,7 +34,7 @@ export function LoginClient() {
     const saved = storage.read<string>(STORAGE_KEYS.savedId, '');
     if (saved) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEmail(saved);
+      setIdentifier(saved);
       setSaveId(true);
     }
   }, []);
@@ -61,24 +61,24 @@ export function LoginClient() {
     );
   }, [isDark, login, router]);
 
-  const onEmailChange = (value: string) => {
-    setEmail(value);
+  const onIdentifierChange = (value: string) => {
+    setIdentifier(value);
     setError('');
     if (saveId) storage.write(STORAGE_KEYS.savedId, value);
   };
   const onToggleSaveId = (checked: boolean) => {
     setSaveId(checked);
-    if (checked) storage.write(STORAGE_KEYS.savedId, email);
+    if (checked) storage.write(STORAGE_KEYS.savedId, identifier);
     else storage.write(STORAGE_KEYS.savedId, '');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError('아이디와 비밀번호를 모두 입력해주세요.');
       return;
     }
-    const result = await loginUser(email, password);
+    const result = await loginUser(identifier, password);
     if (!result.ok) {
       setError(result.message);
       return;
@@ -120,10 +120,10 @@ export function LoginClient() {
           <div className={error ? `${styles.inputRow} ${styles.inputRowError}` : styles.inputRow}>
             <span className={styles.inputIconAnt} aria-hidden />
             <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => onEmailChange(e.target.value)}
+              type="text"
+              placeholder="아이디를 입력하세요"
+              value={identifier}
+              onChange={(e) => onIdentifierChange(e.target.value)}
               className={styles.input}
             />
           </div>

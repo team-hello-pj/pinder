@@ -163,7 +163,9 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildSystemPreamble(dayCount, transportModeValue) }] },
+        system_instruction: {
+          parts: [{ text: buildSystemPreamble(dayCount, transportModeValue) }],
+        },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         generationConfig: {
           // 낮은 temperature 는 (특히 도 전체처럼 넓은 지역에서) 매번 같은 대표 도시/장소로
