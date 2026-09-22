@@ -2565,6 +2565,45 @@ export function PlannerClient() {
     openNextModal(() => setOriginConfirmOpen(true));
   };
 
+  /**
+   * 출발지로 고른 방문지를 그 일차 맨 앞으로 옮긴다. 다른 방문지의 상대 순서는 그대로
+   * 두고, 다른 일차의 방문지에는 손대지 않는다. "방문지 목록"과 "변수 추가" 팝업(어느
+   * 장소까지 왔는지 고르는 목록)이 모두 이 places 순서를 그대로 읽으므로, 여기서 한 번만
+   * 재배치하면 실제 경로 계산(runOptimalRoute/applyOptimizedOrder)이 끝나길 기다리지
+   * 않고도 두 화면에 곧바로 반영된다 — applyOptimizedOrder는 AI가 계산한 최적 방문
+   * 순서(다른 방문지끼리의 순서도 바뀔 수 있음)를 적용하는 별개의 로직이라 그대로 둔다.
+   */
+  const moveOriginToFrontOfDay = useCallback((id: number) => {
+    let changed = false;
+    let nextPlaces: Place[] = [];
+    setPlaces((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (!target) {
+        nextPlaces = prev;
+        return prev;
+      }
+      const day = target.day ?? 0;
+      // 그 일차의 현재 첫 번째 방문지를 prev(제거 전) 기준으로 찾는다 — target이 이미 그
+      // 자리라면(id가 같으면) 바꿀 게 없고, 아니라면 target은 반드시 이 자리보다 뒤에 있으므로
+      // (그렇지 않다면 이 자리가 target이었을 것) target을 빼도 이 인덱스는 그대로 유효하다.
+      const firstDayIndex = prev.findIndex((p) => (p.day ?? 0) === day);
+      if (firstDayIndex === -1 || prev[firstDayIndex].id === target.id) {
+        nextPlaces = prev;
+        return prev;
+      }
+      const rest = prev.filter((p) => p.id !== id);
+      const next = [...rest];
+      next.splice(firstDayIndex, 0, target);
+      changed = true;
+      nextPlaces = next;
+      return next;
+    });
+    if (changed) {
+      setSegments((prevSegments) => resizeSegments(nextPlaces, prevSegments));
+      setRouteSegmentsReady(false);
+    }
+  }, []);
+
   const finalizeOrigin = () => {
     if (originChoiceId == null) return;
     const chosenId = originChoiceId;
@@ -2582,6 +2621,7 @@ export function PlannerClient() {
       });
     }
     setOriginId(chosenId);
+    moveOriginToFrontOfDay(chosenId);
     proceedAfterOrigin(chosenId);
   };
 
