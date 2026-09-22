@@ -75,7 +75,7 @@ export function LoginClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError('이메일과 비밀번호를 모두 입력해주세요.');
+      setError('아이디와 비밀번호를 모두 입력해주세요.');
       return;
     }
     const result = await loginUser(email, password);
@@ -116,7 +116,7 @@ export function LoginClient() {
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <label className={styles.field}>
-          <span className={styles.label}>이메일</span>
+          <span className={styles.label}>아이디</span>
           <div className={error ? `${styles.inputRow} ${styles.inputRowError}` : styles.inputRow}>
             <svg
               viewBox="0 0 24 24"
