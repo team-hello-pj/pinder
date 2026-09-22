@@ -4,7 +4,7 @@ import styles from './home.module.css';
 
 const STATS = [
   { value: '128,400+', label: '빠진 머리카락 개수' },
-  { value: '280+', label: '총 커밋 횟수' },
+  { value: '396+', label: '총 커밋 횟수' },
   { value: '38,880+', label: '박애관 체류 시간' },
 ];
 
