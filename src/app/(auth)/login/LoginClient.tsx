@@ -118,19 +118,7 @@ export function LoginClient() {
         <label className={styles.field}>
           <span className={styles.label}>아이디</span>
           <div className={error ? `${styles.inputRow} ${styles.inputRowError}` : styles.inputRow}>
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              className={styles.inputIcon}
-              aria-hidden
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M4 5.5C2.89543 5.5 2 6.39543 2 7.5V16.5C2 17.6046 2.89543 18.5 4 18.5H20C21.1046 18.5 22 17.6046 22 16.5V7.5C22 6.39543 21.1046 5.5 20 5.5H4ZM4.6 7.3L12 12.5L19.4 7.3H4.6Z"
-              />
-            </svg>
+            <span className={styles.inputIconAnt} aria-hidden />
             <input
               type="text"
               placeholder="아이디를 입력하세요"

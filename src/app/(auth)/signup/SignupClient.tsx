@@ -395,6 +395,7 @@ export function SignupClient() {
         <label className={styles.field}>
           <span className={styles.label}>이름</span>
           <div className={styles.inputRow}>
+            <span className={styles.inputIconUserRound} aria-hidden />
             <input
               type="text"
               placeholder="실명을 입력해주세요"
@@ -420,6 +421,7 @@ export function SignupClient() {
                     : styles.inputRow
               }
             >
+              <span className={styles.inputIconAnt} aria-hidden />
               <input
                 type="text"
                 placeholder="영문, 숫자 조합 4~16자"
@@ -464,6 +466,7 @@ export function SignupClient() {
                     : styles.inputRow
               }
             >
+              <span className={styles.inputIconBot} aria-hidden />
               <input
                 type="text"
                 placeholder="다른 여행자에게 보여질 이름이에요"
