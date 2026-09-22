@@ -32,7 +32,9 @@ export interface PlaceCardProps {
   expanded: boolean;
   memoSaved: boolean;
   canEdit: boolean;
-  /** 전체보기에서는 일차 경계를 넘나드는 순서 변경을 막기 위해 드래그 자체를 비활성화한다 */
+  /** 편집 권한이 없을 때 등 드래그 자체를 막아야 하는 경우에만 false로 넘긴다 — 전체보기에서도
+   * 일차 간 이동을 허용하므로, 일차 경계를 이유로 여기를 false로 두지 않는다(PlannerClient의
+   * onDrop이 일차 이동 자체를 처리한다). */
   canReorder: boolean;
   handlers: PlaceCardHandlers;
 }
