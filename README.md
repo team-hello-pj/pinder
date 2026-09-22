@@ -216,7 +216,7 @@ gitGraph
 - PR 13건 중 7건(#1,2,3,4,5,7,10)은 각자 자기 PR을 스스로 merge 버튼을 눌러 병합함(자가병합) — 유일하게 **PR#10**은 김예린이 열었지만("02-R-workflow.md 재구성... 류다님 확인 바랍니다") 실제 병합은 류다연이 함(`55a6025`, 09-10 17:11) — 이 저장소 전체에서 "내가 아닌 다른 사람이 리뷰하고 병합해준" 유일한 사례
 - PR#6(류다연, `R-branch`)이 막힌 뒤 `new-R-Branch`(류다연이 실제 커밋 작성, PR은 김예린이 대신 열어줌 — `git log`상 커밋 작성자와 PR#11의 GitHub 작성자가 다름)로, 다시 `cherry-branch`로 두 번 더 새 브랜치를 파서 재시도했지만 PR#11~14·16 다섯 건 모두 병합되지 못함
 
-**개발 단계(`pinder`) — "브랜치"라는 이름은 있지만 실제로는 분기가 거의 없었음**
+**개발 단계(`pinder`) — 09-17까지는 "브랜치"라는 이름은 있지만 실제로는 분기가 거의 없었음. 09-22 README 문서화부터 처음으로 실제 PR 기반 분기·병합이 자리 잡음**
 ```mermaid
 gitGraph
     commit id: "init(09-15 16:17)"
@@ -230,10 +230,30 @@ gitGraph
     commit id: "기획 문서 갱신, main을 계속 pull해서 추적"
     checkout main
     commit id: "문서 R-branch->Main 직접 복사(09-17, merge 없이 파일만 복사)"
+    commit id: "chore/format-fix 병합" tag: "PR#9"
+    commit id: "로그인 아이디/이메일 겸용 기능"
+    branch P-branch
+    commit id: "2절 디자인 시스템 작성"
+    checkout main
+    merge P-branch tag: "PR#11"
+    branch feature/readme-1-3-4
+    commit id: "1·3·4절 작성"
+    checkout main
+    merge feature/readme-1-3-4 tag: "PR#10"
+    branch K-branch
+    commit id: "5·6절 작성 + 이슈·PR 스크린샷"
+    checkout main
+    merge K-branch tag: "PR#7"
+    branch Y-branch
+    commit id: "7절 회고 작성"
+    checkout main
+    merge Y-branch tag: "PR#6"
+    commit id: "루트 README.md 교체(직접 push)"
 ```
 - `feat/google-login`·`feat/home-page-port`·`feat/login-signup-screens`·`feat/planner-screen`·`feature/migration`: 5개 브랜치 tip 커밋을 전부 확인한 결과 **부모가 1개뿐**임(`git log -1 --format=%P`) → 실제로 분기된 적이 없고, 같은 한 줄의 커밋 위에 이름표만 붙어 있는 상태. 그래서 위 그래프에는 넣지 않고 "화면 이식 다수" 한 줄로만 표시함
-- `feat/saved-view-past-trips`: 유일하게 진짜로 갈라진 브랜치 — `main`에 없는 커밋이 정확히 1개 있음(`a487d9a` 김예린, 09-17 09:57, "종료된 일정을 KST 기준 저장된 뷰(읽기 전용)로 전환") — 지금까지 병합되지 않고 그대로 방치돼 있음. 이게 바로 02-Hello-workflow.md에서 "확인되지 않은 분기"로 적어둔 "일정 종료 후에도 편집·저장·초대가 그대로 동작한다"는 문제의 원인 — 그 기능을 실제로 만들다가 병합을 안 한 것
+- `feat/saved-view-past-trips`: 09-17까지 기준으로는 유일하게 진짜로 갈라진 브랜치 — `main`에 없는 커밋이 정확히 1개 있음(`a487d9a` 김예린, 09-17 09:57, "종료된 일정을 KST 기준 저장된 뷰(읽기 전용)로 전환") — 지금까지 병합되지 않고 그대로 방치돼 있음. 이게 바로 02-Hello-workflow.md에서 "확인되지 않은 분기"로 적어둔 "일정 종료 후에도 편집·저장·초대가 그대로 동작한다"는 문제의 원인 — 그 기능을 실제로 만들다가 병합을 안 한 것
 - `R-branch`: 기획 저장소의 `R-branch`와 이름만 같은 별개 브랜치. 류다연이 `origin/main`을 반복해서 merge해 들여오며(`041905b` 등) 기획 문서를 갱신하다가, 09-17에 결국 PR·merge 없이 `069a41c 문서 R-branch->Main 옮김` 커밋으로 파일만 `main`에 복사해 넣고 끝남
+- **09-22 README 문서화 — 개발 저장소(`pinder`)에서 처음으로 실제 PR 분기·병합이 일어남**: 기획 저장소의 `K-branch`·`P-branch`·`Y-branch`와 이름만 같은(내용은 무관한) 별개 브랜치를 `pinder`에도 새로 파서, 팀원별로 섹션을 나눠(2절 박유수, 1·3·4절 류다연, 5·6절 김예린, 7절 양다연) 각자 커밋 후 PR을 열고 실제로 GitHub에서 "Merge pull request" 버튼을 눌러 병합함(`PR#6,7,10,11`) — 그동안 이 저장소는 PR 없이 `main` 직접 커밋만 반복했는데, 이번이 사실상 "PR 생성 → 리뷰 없이 병합" 방식으로나마 기획 저장소의 관행을 처음 재현한 사례. 다만 병합 도중 main에 먼저 들어와 있던 다른 기능 커밋(로그인 아이디/이메일 겸용, `vercel-deployments.json` 제거)과 충돌이 나서, `Y-branch`·`P-branch`는 각각 main을 다시 merge해 충돌을 해결한 뒤 재push해야 했음. 루트 `README.md` 교체 커밋만은 예외적으로 PR 없이 `main`에 직접 push함(문서 내용을 옮기는 후속 작업이라 팀 판단하에 생략)
 
 - 브랜치 이름 규칙: 기획 단계는 `<성 이니셜>-branch`, 개발 단계 초기엔 `feat/<화면명>`(그러나 위에서 확인했듯 실제로 분기되지는 않음). 이슈 번호를 붙이는 규칙(`feature/<이슈번호>-<기능명>`)은 두 저장소 어디에서도 실제로 쓰인 적이 없음(전체 커밋 메시지에 `#<숫자>` 형태 이슈 참조 0건)
 - 합치기 규칙: 기획 단계는 "PR 생성 → (대부분 자가)병합"을 실제로 시도했음(총 PR 13건 중 7건 병합, 아래 "PR 활용" 참고). 개발 단계로 넘어오면서는 PR 없이 "각자 `main`에 직접 커밋 → 로컬 `git pull`로 병합 → 충돌은 로컬에서 직접 해결"로 바뀌었음(병합 커밋 95개 전부 pull 충돌 해소용, `Merge pull request` 흔적 0건)
@@ -256,14 +276,15 @@ gitGraph
 - 이슈-PR 연결(`Closes #`, `Fixes #`) 관행은 0건 — 이슈 본문·PR 본문 어디에도 서로를 참조하는 표현이 없음
 - 이슈 템플릿 사용 여부: 아니오 → 코드 저장소(`pinder`)의 `.github/ISSUE_TEMPLATE/`(버그 신고·기능 요청·화면 작업)는 만들어져 있지만 실제 이슈가 하나도 없음(0건). 기획 저장소(`hello-planning`)의 이슈 3건(위 표)도 템플릿 없이 자유 형식(체크리스트)으로 작성됐고 라벨도 전혀 쓰지 않음 — "추적할 문제"가 아니라 "todo 메모장"으로 쓴 것
 
-![이슈 목록](docs/images/issues-list.png)
-![이슈 #15 상세](docs/images/issues-15.png)
+| 이슈 목록 | 이슈 #15 상세 |
+|---|---|
+| <img src="docs/images/issues-list.png" width="380"> | <img src="docs/images/issues-15.png" width="380"> |
 
 ### PR 활용
 - PR 템플릿: `pinder`에는 `.github/PULL_REQUEST_TEMPLATE.md` 있음(작업 내용/관련 이슈/lint·typecheck·build 체크리스트/라이트·다크·모바일 확인/스크린샷) — 그러나 실제 PR 자체가 없어 쓰인 적이 없음. `hello-planning`에는 별도 템플릿 없이 자유 형식으로 PR을 열었음(본문이 "01-K" 한 줄뿐인 경우가 대부분)
 - PR 본문 필수 항목(템플릿상): 작업 내용 / 스크린샷 / `closes #이슈번호` — 그러나 실제 병합된 PR(`hello-planning` #1,2,3,4,5,7,10)의 본문은 한 줄 제목뿐이라 이 형식이 실제로 지켜진 적은 없음
 - 리뷰 규칙: `pinder`의 CODEOWNERS(`@팀장`/`@담당자`)는 실제 GitHub 계정으로 치환되지 않은 채 남아 있어 강제되는 리뷰가 없었음. 다만 `hello-planning`의 PR#10 제목("...류다님 확인 바랍니다")처럼 특정 팀원을 지목해 리뷰를 요청하는 관행은 있었고, PR#6에는 실제 인라인 리뷰 코멘트가 12건 오갔음(양다연: "05번 파일 정책... 추가하면 좋을 거 같습니다", 김예린: "문서 2,3까지만 완료함" 등)
-- 총 PR 수: `hello-planning` 13개(#1~16, 결번 8·9·15는 위 이슈 번호), `pinder` 0개. 리뷰 코멘트가 오간 PR: 3개(#6에 12건, #12·#13에 각 1건) — 나머지 10개는 코멘트 없이 병합되거나 방치됨. 병합 결과는 7건 병합(#1,2,3,4,5,7,10 — 전부 기획 첫 주 09-08~09-10) / 6건 미병합(#6,11,12,13,14,16 — 류다연이 `R-branch`→`new-R-Branch`→`cherry-branch`로 계속 새 브랜치를 파며 재시도했지만 끝내 병합되지 못하고 방치됨, 09-17에 `069a41c` 커밋으로 PR 없이 `main`에 직접 복사해 넣으며 마무리) [확인 필요: 이번 README 문서화 PR이 병합되면 `pinder`의 "0개"를 실제 개수로 갱신]
+- 총 PR 수: `hello-planning` 13개(#1~16, 결번 8·9·15는 위 이슈 번호), `pinder` 5개(#6,7,9,10,11 — 아래는 이 5개 기준, `hello-planning`의 동일 번호와는 무관한 별개 저장소 번호). 리뷰 코멘트가 오간 PR: `hello-planning` 3개(#6에 12건, #12·#13에 각 1건) — 나머지 10개는 코멘트 없이 병합되거나 방치됨. `pinder`의 5개는 전부 코멘트 없이 병합됨. 병합 결과는 `hello-planning` 7건 병합(#1,2,3,4,5,7,10 — 전부 기획 첫 주 09-08~09-10) / 6건 미병합(#6,11,12,13,14,16 — 류다연이 `R-branch`→`new-R-Branch`→`cherry-branch`로 계속 새 브랜치를 파며 재시도했지만 끝내 병합되지 못하고 방치됨, 09-17에 `069a41c` 커밋으로 PR 없이 `main`에 직접 복사해 넣으며 마무리), `pinder`는 09-22에 연 5건 전부 병합(#9 chore/format-fix, #11 P-branch, #10 feature/readme-1-3-4, #7 K-branch, #6 Y-branch — 이 저장소가 생긴 이후 처음 발생한 PR이자 첫 병합)
 
 ### 역할 분담
 
@@ -289,7 +310,9 @@ gitGraph
 - **플래너의 "출발지 선택" 팝업 흐름 — 류다연이 같은 날 4번 고침**: `114ecb4`(추가 후 되돌아갈 팝업을 "목록"에서 "출발지 확정"으로 변경) → `b4eacf0`("취소"를 "이전"으로 바꾸고 스크롤 추가) → `7d8159b`(ESC/뒤로가기 처리에 `returnToOriginPickerAfterAdd` 상태 확인 로직 추가) → `b2d8349`·`3349a20`(위 흐름 재조정). git 충돌은 아니지만, 추가 후 어느 팝업으로 돌아가야 하는지에 대한 요구사항이 구현 중 계속 바뀐 사례
 - **플래너 모바일 버튼 위치 — 박유수·양다연이 `planner.module.css`를 반복 수정**: 박유수는 지도 화면 "뒤로가기" 버튼이 검색 오버레이와 겹치는 문제를 09-17에 5번 수정(`602267a`에서 버튼 JSX를 `mapCol` 밖에서 `mapArea` 안으로 옮김); 양다연은 AI 도우미·현재 위치 버튼이 하단 요약바와 겹치는 문제를 09-18 아침에 7번 연속 수정(`ddcc42c`→...→`f27b62e`) — 전부 CSS `position`/`z-index`만 계속 바꾸며 한 번에 맞는 값을 못 찾은 패턴
 
-![PR 화면](docs/images/pr.png)
+| PR 화면 |
+|---|
+| <img src="docs/images/pr.png" width="700"> |
 
 ---
 
