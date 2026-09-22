@@ -52,31 +52,48 @@
 
 ## 2. 디자인 시스템
 
-![디자인 시스템](docs/images/design-system.png)
+![디자인 시스템](docs/images/design-system.jpg)
 
 ### 사용 도구와 역할
 | 도구 | 어느 단계에 썼나 | 원본 여부 |
 |---|---|---|
-| 피그마 | <예: 색·타이포·컴포넌트 정의> | <원본 / 참고> |
-| Claude Design | <예: 시스템 기반 화면 생성·변형> | <원본 / 참고> |
+| 피그마 | 초안 main 화면 참고 및 디자인 방향 확인 / 색상 팔레트 원본 정의 | 참고 |
+| Claude Design | Figma의 디자인과 색상 팔레트를 참고하여 초기 프로토타입 제작 및 UI/UX 구체화 | 원본 |
+| VS Code / Claude Code | Claude Design에서 구성한 프로토타입을 기반으로 실제 React/Next.js 화면 및 서비스 구현 및 UI/UX 수정 | 구현 |
+
 
 ### 정의
 | 구분 | 정의 | 피그마 | Claude Design |
 |---|---|---|---|
-| 색상 | Primary <#hex>, Secondary <#hex>, Background <#hex> | ✅ | ✅ |
-| 타이포 | 제목 <글꼴/크기>, 본문 <글꼴/크기> | ✅ | ✅ |
-| 아이콘 | Lucide | ✅ | ✅ |
+| 색상 | Brand `#7BCB93`, Brand-strong `#63B37E`, Brand-accent `#26AB4E`, Light/Dark Background, Text 색상 사용  | ❌ | ✅ |
+| 타이포 |  Pretendard 기반으로 화면·컴포넌트별 크기 및 굵기 적용 | ❌ | ❌ |
+| 아이콘 | Lucide 등 아이콘 라이브러리 미사용. PNG 래스터(`public/icons/`)가 주력이며, 이모지, 인라인 `<svg>` 및 유니코드 기호 혼용 | ❌ | ❌ |
 
 ### 컴포넌트 목록
-- Button (primary / secondary / disabled)
-- Card
-- Header
-- <추가 컴포넌트>
+`src/components/ui/` 기준 실제 export된 컴포넌트 총 9개 사용
+- Button (sm / md / lg, primary / secondary / disabled)
+- Card (interactive)
+- Header (desktop / mobile)
+- Modal
+- SegmentedControl
+- DateRangeCalendar (date range)
+- ImageCropModal (4:3 crop)
+- PlaceholderImage
+- AuthorAvatar
+- HighlightedCaption (hashtag)
+- NotificationBell
+- ThemeToggle
+- MobileMenu
+
 
 ### 디자인 vs 구현
 | 피그마 | Claude Design | 실제 화면 |
 |---|---|---|
-| ![](docs/images/figma-home.png) | ![](docs/images/cdesign-home.png) | ![](docs/images/real-home.png) |
+| ![](docs/images/figma-01.png) | ![](docs/images/pinder-01.png) | ![](docs/images/UI-01.png) |
+| ![](docs/images/figma-02.png) | ![](docs/images/pinder-02.png) | ![](docs/images/UI-02.png) |
+| ![](docs/images/figma-03.png) | ![](docs/images/pinder-03.png) | ![](docs/images/UI-03.png) |
+| ![](docs/images/figma-04.png) | ![](docs/images/pinder-04.png) | ![](docs/images/UI-04.png) |
+| ![](docs/images/figma-05.png) | ![](docs/images/pinder-05.png) | ![](docs/images/UI-05.png) |
 
 ---
 
