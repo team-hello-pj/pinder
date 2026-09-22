@@ -1,4 +1,4 @@
-> 문서: 11-Hello-component-inventory.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-21
+> 문서: 11-Hello-component-inventory.md · 마지막 갱신: 2026-09-21
 
 ## 컴포넌트
 

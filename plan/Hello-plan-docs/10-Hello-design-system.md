@@ -1,4 +1,4 @@
-> 문서: 10-Hello-design-system.md · 근거: 코드베이스 분석 · 마지막 갱신: 2026-09-18
+> 문서: 10-Hello-design-system.md · 마지막 갱신: 2026-09-18
 
 ## 색상
 
