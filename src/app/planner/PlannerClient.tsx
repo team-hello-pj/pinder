@@ -164,6 +164,10 @@ export function PlannerClient() {
   const [routeCache, setRouteCache] = useState<Record<string, CacheEntry>>({});
   const [routeSearching, setRouteSearching] = useState(false);
   const [lastAppliedMode, setLastAppliedMode] = useState<TransportMode | null>(null);
+  // "변수 추가"로 AI가 순서를 다시 짠 직후 실제 경로(거리·시간)를 계산해 캐시에 채워 넣기 위한
+  // 트리거 — setPlaces/setSegments 직후에는 아직 이전 값이라 그 자리에서 바로 searchAllRoutes를
+  // 부르면 안 되고, 리렌더로 반영된 뒤(아래 effect)에 불러야 한다.
+  const [situationJustApplied, setSituationJustApplied] = useState(false);
 
   const [tripStart, setTripStart] = useState(
     isNewRoute ? new Date().toISOString().slice(0, 10) : '',
@@ -1103,6 +1107,9 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    // closeAddConfirm과 마찬가지로, 지도 클릭으로 들어온 팝업을 취소할 때도 찍어둔 임시
+    // marker를 지워야 한다 — 여기가 빠져 있으면 "바로 추가" 후 취소해도 핀이 지도에 남는다.
+    if (addConfirmFromMapClick) clearSearchMarker();
     setAddConfirmFromMapClick(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
@@ -1313,17 +1320,14 @@ export function PlannerClient() {
   const onDrop = (idx: number) => {
     const wasDragging = dragIndex !== null && dragIndex !== idx;
     if (dragIndex === null || dragIndex === idx) return;
-    // 전체보기에서는 일차 경계를 넘어 순서가 섞이면 일차 구분이 무너지므로, 같은 일차
-    // 안에서의 순서 변경만 허용한다(다른 일차로 드롭하면 무시).
+    // 전체보기에서 다른 일차 카드 위에 드롭하면, 그 방문지를 드롭 대상의 일차로 옮긴다
+    // (일차 경계를 넘는 이동 자체를 의도적으로 허용 — 전체보기에서 일차 간 재배치 용도).
     const fromDay = places[dragIndex]?.day ?? 0;
     const toDay = places[idx]?.day ?? 0;
-    if (fromDay !== toDay) {
-      setDragIndex(null);
-      return;
-    }
     const arr = [...places];
     const [moved] = arr.splice(dragIndex, 1);
-    arr.splice(idx, 0, moved);
+    const movedForInsert = fromDay !== toDay ? { ...moved, day: toDay } : moved;
+    arr.splice(idx, 0, movedForInsert);
     setPlaces(arr);
     setSegments(resizeSegments(arr, segments));
     // 방문지 순서를 스위치하면 구간(이동수단)이 어느 방문지 사이 것인지 더 이상 유효하지 않으므로
@@ -1331,7 +1335,11 @@ export function PlannerClient() {
     setRouteSegmentsReady(false);
     setDragIndex(null);
     setRouteCache({});
-    if (wasDragging) logActivity('방문 순서를 변경했습니다');
+    if (fromDay !== toDay) {
+      logActivity(`${moved.name}을(를) ${toDay + 1}일차로 옮겼습니다`);
+    } else if (wasDragging) {
+      logActivity('방문 순서를 변경했습니다');
+    }
   };
   const onDragEnd = () => setDragIndex(null);
 
@@ -1509,10 +1517,12 @@ export function PlannerClient() {
         next.splice(anchorEntry.i, movableEntries.length, ...newSegs);
         return next;
       });
-      setRouteSegmentsReady(true);
       setRouteCache({});
+      // 순서만 바꿨을 뿐 새 순서에 맞는 실제 거리·시간은 아직 없다 — 아래 effect가 리렌더 이후
+      // 최신 places/segments로 곧바로 "경로 계산"을 이어서 돌린다.
+      setSituationJustApplied(true);
       logActivity(`AI 상황 반영: "${text}" → ${result.note || '동선을 재구성했습니다'}`);
-      showToast(result.note || '변경된 상황을 동선에 반영했어요');
+      showToast(result.note || '변경된 상황을 동선에 반영했어요. 경로를 다시 계산할게요');
     } catch (err) {
       console.error('applySituationWithAi failed:', err);
       showToast('AI 응답을 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
@@ -1522,6 +1532,26 @@ export function PlannerClient() {
       setVariableAnchorPlaceId(null);
     }
   };
+
+  /** applySituationWithAi가 방문지 순서를 새로 짠 직후, 그 새 순서에 맞는 실제 이동수단별
+   * 경로(거리·시간)를 계산해 캐시에 채워 넣는다 — "변수 추가"를 완료하면(또는 "경로 계산"을
+   * 누르다 변수 추가로 빠졌더라도) 다시 "경로 계산"을 누르지 않아도 곧바로 반영되게 한다.
+   * 한 번 계산된 결과는 기존 routeCache/routeOptimizationByDay 저장 방식 그대로 저장된다. */
+  useEffect(() => {
+    if (!situationJustApplied) return;
+    void (async () => {
+      setSituationJustApplied(false);
+      setLoading(true);
+      try {
+        await searchAllRoutes();
+        setRouteSegmentsReady(true);
+        showToast('변경된 상황을 반영해 경로 계산을 완료했어요');
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchAllRoutes/showToast는 이 렌더의 최신 클로저를 그대로 쓴다
+  }, [situationJustApplied]);
 
   const applySituation = () => {
     void applySituationWithAi();
@@ -2006,7 +2036,8 @@ export function PlannerClient() {
   const dayTabs = hasDayTabs
     ? Array.from({ length: dayCount }, (_, di) => ({ value: di, label: `${di + 1}일차` }))
     : [];
-  /** 전체보기(모든 일차를 한 번에 보는 상태) — 일차 경계가 모호해지는 동작은 모두 막는다. */
+  /** 전체보기(모든 일차를 한 번에 보는 상태) — 주소 추가처럼 "어느 일차인지" 자체가 필요한
+   * 동작은 막지만, 드래그로 다른 일차로 옮기는 것은 허용한다(onDrop 참고). */
   const isAllDaysView = hasDayTabs && selectedDay === null;
 
   // mapClickAddConfirmRef 에 매 렌더 최신 호출부를 담아둔다 — handleMapClick(더 위에서 선언)은
