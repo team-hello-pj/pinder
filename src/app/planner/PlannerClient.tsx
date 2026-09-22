@@ -1103,6 +1103,9 @@ export function PlannerClient() {
     setAddConfirmOpen(false);
     setAddConfirmDayPickerNeeded(false);
     setAddConfirmDayChoice(null);
+    // closeAddConfirm과 마찬가지로, 지도 클릭으로 들어온 팝업을 취소할 때도 찍어둔 임시
+    // marker를 지워야 한다 — 여기가 빠져 있으면 "바로 추가" 후 취소해도 핀이 지도에 남는다.
+    if (addConfirmFromMapClick) clearSearchMarker();
     setAddConfirmFromMapClick(false);
     if (returnToOriginPickerAfterAdd) openNextModal(() => setAddPlaceModalOpen(true));
   };
