@@ -133,6 +133,7 @@
 }
 
 .inputRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -159,31 +160,39 @@
   fill: var(--pd-text-sub);
 }
 
-/* 아이디/별명/이름 필드 아이콘 — 래스터 이미지를 그대로 색 있는 도형으로 쓰기 위해 mask 로
-   씌우고 실제 색은 다른 입력창 아이콘과 같은 --pd-text-sub 로 칠한다(AntCtaCard.module.css 의
-   .antMark 와 같은 방식). */
-.inputIconAnt,
-.inputIconBot,
-.inputIconUserRound {
-  flex-shrink: 0;
+/* 별명/이름 필드 아이콘 — 지정된 PNG(/public/icons/bot.png, user-round.png)를 있는 그대로
+   img 로 배치한다. */
+.inputImgIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 18px;
   height: 18px;
-  background: var(--pd-text-sub);
+  object-fit: contain;
+  pointer-events: none;
 }
 
-.inputIconAnt {
-  mask: url('/icons/pinder_ant.png') center / contain no-repeat;
-  -webkit-mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+/* 아이디 필드 아이콘 — 지정된 PNG(/public/icons/ant.png)를 파일 수정 없이 그대로 쓰되, 원본
+   이미지 안에서 개미가 차지하는 영역이 캔버스 전체의 일부라 18px 슬롯에 꽉 차 보이도록
+   슬롯(overflow:hidden)으로 감싸고 내부 img 를 확대/이동해 크롭한다. */
+.inputIconSlot {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.inputIconBot {
-  mask: url('/icons/bot.png') center / contain no-repeat;
-  -webkit-mask: url('/icons/bot.png') center / contain no-repeat;
-}
-
-.inputIconUserRound {
-  mask: url('/icons/user-round.png') center / contain no-repeat;
-  -webkit-mask: url('/icons/user-round.png') center / contain no-repeat;
+.inputIconAntImg {
+  position: absolute;
+  left: -5.3px;
+  top: -1px;
+  width: 27.6px;
+  height: 18.4px;
 }
 
 .input {
@@ -198,6 +207,10 @@
 
 .input:disabled {
   color: var(--pd-text-sub);
+}
+
+.inputWithImgIcon {
+  padding-left: 26px;
 }
 
 .checkBtn,

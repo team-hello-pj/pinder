@@ -395,7 +395,8 @@ export function SignupClient() {
         <label className={styles.field}>
           <span className={styles.label}>이름</span>
           <div className={styles.inputRow}>
-            <span className={styles.inputIconUserRound} aria-hidden />
+            {/* eslint-disable-next-line @next/next/no-img-element -- 지정된 정적 아이콘 그대로 사용 */}
+            <img src="/icons/user-round.png" alt="" className={styles.inputImgIcon} aria-hidden />
             <input
               type="text"
               placeholder="실명을 입력해주세요"
@@ -404,7 +405,7 @@ export function SignupClient() {
                 setName(e.target.value);
                 setError('');
               }}
-              className={styles.input}
+              className={`${styles.input} ${styles.inputWithImgIcon}`}
             />
           </div>
         </label>
@@ -421,7 +422,10 @@ export function SignupClient() {
                     : styles.inputRow
               }
             >
-              <span className={styles.inputIconAnt} aria-hidden />
+              <span className={styles.inputIconSlot} aria-hidden>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 지정된 정적 아이콘 그대로 사용, CSS로만 확대/크롭 */}
+                <img src="/icons/ant.png" alt="" className={styles.inputIconAntImg} />
+              </span>
               <input
                 type="text"
                 placeholder="영문, 숫자 조합 4~16자"
@@ -431,7 +435,7 @@ export function SignupClient() {
                   setUsernameStatus('');
                   setError('');
                 }}
-                className={styles.input}
+                className={`${styles.input} ${styles.inputWithImgIcon}`}
               />
             </div>
             <button
@@ -466,7 +470,8 @@ export function SignupClient() {
                     : styles.inputRow
               }
             >
-              <span className={styles.inputIconBot} aria-hidden />
+              {/* eslint-disable-next-line @next/next/no-img-element -- 지정된 정적 아이콘 그대로 사용 */}
+              <img src="/icons/bot.png" alt="" className={styles.inputImgIcon} aria-hidden />
               <input
                 type="text"
                 placeholder="다른 여행자에게 보여질 이름이에요"
@@ -476,7 +481,7 @@ export function SignupClient() {
                   setNicknameStatus('');
                   setError('');
                 }}
-                className={styles.input}
+                className={`${styles.input} ${styles.inputWithImgIcon}`}
               />
             </div>
             <button
