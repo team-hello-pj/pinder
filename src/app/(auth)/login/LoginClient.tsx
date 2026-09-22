@@ -118,13 +118,16 @@ export function LoginClient() {
         <label className={styles.field}>
           <span className={styles.label}>아이디</span>
           <div className={error ? `${styles.inputRow} ${styles.inputRowError}` : styles.inputRow}>
-            <span className={styles.inputIconAnt} aria-hidden />
+            <span className={styles.inputIconSlot} aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element -- 지정된 정적 아이콘 그대로 사용, CSS로만 확대/크롭 */}
+              <img src="/icons/ant.png" alt="" className={styles.inputIconAntImg} />
+            </span>
             <input
               type="text"
               placeholder="아이디를 입력하세요"
               value={identifier}
               onChange={(e) => onIdentifierChange(e.target.value)}
-              className={styles.input}
+              className={`${styles.input} ${styles.inputWithImgIcon}`}
             />
           </div>
         </label>
