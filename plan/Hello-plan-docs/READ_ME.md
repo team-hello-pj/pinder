@@ -52,7 +52,7 @@
 
 ## 2. 디자인 시스템
 
-![디자인 시스템](docs/images/design-system.jpg)
+![디자인 시스템](../../docs/images/design-system.jpg)
 
 ### 사용 도구와 역할
 | 도구 | 어느 단계에 썼나 | 원본 여부 |
@@ -89,11 +89,11 @@
 ### 디자인 vs 구현
 | 피그마 | Claude Design | 실제 화면 |
 |---|---|---|
-| ![](docs/images/figma-01.png) | ![](docs/images/pinder-01.png) | ![](docs/images/UI-01.png) |
-| ![](docs/images/figma-02.png) | ![](docs/images/pinder-02.png) | ![](docs/images/UI-02.png) |
-| ![](docs/images/figma-03.png) | ![](docs/images/pinder-03.png) | ![](docs/images/UI-03.png) |
-| ![](docs/images/figma-04.png) | ![](docs/images/pinder-04.png) | ![](docs/images/UI-04.png) |
-| ![](docs/images/figma-05.png) | ![](docs/images/pinder-05.png) | ![](docs/images/UI-05.png) |
+| ![](../../docs/images/figma-01.png) | ![](../../docs/images/pinder-01.png) | ![](../../docs/images/UI-01.png) |
+| ![](../../docs/images/figma-02.png) | ![](../../docs/images/pinder-02.png) | ![](../../docs/images/UI-02.png) |
+| ![](../../docs/images/figma-03.png) | ![](../../docs/images/pinder-03.png) | ![](../../docs/images/UI-03.png) |
+| ![](../../docs/images/figma-04.png) | ![](../../docs/images/pinder-04.png) | ![](../../docs/images/UI-04.png) |
+| ![](../../docs/images/figma-05.png) | ![](../../docs/images/pinder-05.png) | ![](../../docs/images/UI-05.png) |
 
 ---
 
