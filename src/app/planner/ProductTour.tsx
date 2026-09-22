@@ -10,10 +10,16 @@ import styles from './product-tour.module.css';
  * /planner 최초 방문자에게 실제 화면 요소를 순서대로 소개하는 Product Tour.
  * 기존 PlannerClient 코드와는 최소한의 접점(data-tour="..." 셀렉터)만 갖도록 분리했다.
  *
+ * "완료"와 "다시 보지 않기"는 분리되어 있다 — 끝까지 보거나 건너뛰어도 사용자가
+ * "다시 보지 않기"를 직접 체크하지 않았다면 다음 방문에서 다시 노출된다.
+ * 예전에는 완료/건너뛰기만 해도 `pinder-planner-tour-completed` 에 true 를 저장해 영구히
+ * 숨겼다 — 그 키는 더 이상 표시 여부 판단에 쓰지 않는다(과거에 그 키가 true 로 저장된
+ * 사용자도 새 DISMISSED_STORAGE_KEY 가 없으면 다시 노출된다).
+ *
  * 개발 중 다시 보고 싶으면 브라우저 콘솔에서 아래를 실행하고 새로고침:
- *   localStorage.removeItem('pinder-planner-tour-completed')
+ *   localStorage.removeItem('pinder-planner-tour-dismissed')
  */
-const STORAGE_KEY = 'pinder-planner-tour-completed';
+const DISMISSED_STORAGE_KEY = 'pinder-planner-tour-dismissed';
 
 interface TourStep {
   selector: string;
@@ -102,30 +108,33 @@ function hasBlockingDialog(): boolean {
   return false;
 }
 
-function readCompletedPhase(): Phase {
+function readInitialPhase(): Phase {
   if (typeof window === 'undefined') return 'checking';
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === 'true' ? 'done' : 'checking';
+    return window.localStorage.getItem(DISMISSED_STORAGE_KEY) === 'true' ? 'done' : 'checking';
   } catch {
     return 'checking';
   }
 }
 
 export function ProductTour() {
-  const [phase, setPhase] = useState<Phase>(readCompletedPhase);
+  const [phase, setPhase] = useState<Phase>(readInitialPhase);
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [bubbleSize, setBubbleSize] = useState({ width: 0, height: 0 });
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const bubbleRef = useRef<HTMLDivElement>(null);
 
   const finish = useCallback(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, 'true');
-    } catch {
-      // localStorage를 쓸 수 없는 환경(프라이빗 모드 등) — 이번 렌더만 종료 처리하고 넘어간다.
+    if (dontShowAgain) {
+      try {
+        window.localStorage.setItem(DISMISSED_STORAGE_KEY, 'true');
+      } catch {
+        // localStorage를 쓸 수 없는 환경(프라이빗 모드 등) — 이번 렌더만 종료 처리하고 넘어간다.
+      }
     }
     setPhase('done');
-  }, []);
+  }, [dontShowAgain]);
 
   // 아직 완료/건너뛰기 이력이 없으면(phase==='checking'), 첫 타깃이 실제로 렌더될 때까지 대기한다.
   useEffect(() => {
@@ -276,6 +285,14 @@ export function ProductTour() {
         </div>
         <p className={styles.bubbleTitle}>{step.title}</p>
         <p className={styles.bubbleDesc}>{step.desc}</p>
+        <label className={styles.dontShowRow}>
+          <input
+            type="checkbox"
+            checked={dontShowAgain}
+            onChange={(e) => setDontShowAgain(e.target.checked)}
+          />
+          <span>다시 보지 않기</span>
+        </label>
         <div className={styles.bubbleFooter}>
           {isFirst ? (
             <span />

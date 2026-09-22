@@ -81,6 +81,23 @@
   line-height: 1.55;
 }
 
+.dontShowRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  cursor: pointer;
+}
+
+.dontShowRow input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--pd-brand);
+  cursor: pointer;
+}
+
 .bubbleFooter {
   display: flex;
   align-items: center;
