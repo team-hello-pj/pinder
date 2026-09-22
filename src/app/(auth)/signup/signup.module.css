@@ -159,6 +159,33 @@
   fill: var(--pd-text-sub);
 }
 
+/* 아이디/별명/이름 필드 아이콘 — 래스터 이미지를 그대로 색 있는 도형으로 쓰기 위해 mask 로
+   씌우고 실제 색은 다른 입력창 아이콘과 같은 --pd-text-sub 로 칠한다(AntCtaCard.module.css 의
+   .antMark 와 같은 방식). */
+.inputIconAnt,
+.inputIconBot,
+.inputIconUserRound {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  background: var(--pd-text-sub);
+}
+
+.inputIconAnt {
+  mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+  -webkit-mask: url('/icons/pinder_ant.png') center / contain no-repeat;
+}
+
+.inputIconBot {
+  mask: url('/icons/bot.png') center / contain no-repeat;
+  -webkit-mask: url('/icons/bot.png') center / contain no-repeat;
+}
+
+.inputIconUserRound {
+  mask: url('/icons/user-round.png') center / contain no-repeat;
+  -webkit-mask: url('/icons/user-round.png') center / contain no-repeat;
+}
+
 .input {
   border: none;
   outline: none;
