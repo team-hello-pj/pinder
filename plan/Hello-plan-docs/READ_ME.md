@@ -214,8 +214,8 @@ gitGraph
 - 이슈-PR 연결(`Closes #`, `Fixes #`) 관행은 0건 — 이슈 본문·PR 본문 어디에도 서로를 참조하는 표현이 없음
 - 이슈 템플릿 사용 여부: 아니오 → 코드 저장소(`pinder`)의 `.github/ISSUE_TEMPLATE/`(버그 신고·기능 요청·화면 작업)는 만들어져 있지만 실제 이슈가 하나도 없음(0건). 기획 저장소(`hello-planning`)의 이슈 3건(위 표)도 템플릿 없이 자유 형식(체크리스트)으로 작성됐고 라벨도 전혀 쓰지 않음 — "추적할 문제"가 아니라 "todo 메모장"으로 쓴 것
 
-![이슈 보드](docs/images/issues.png)
-<!-- 확인 필요: docs/images/ 폴더 자체가 아직 없음 — hello-planning의 실제 Issues 탭(#8/#9/#15) 스크린샷으로 대체 가능 -->
+![이슈 목록](docs/images/issues-list.png)
+![이슈 #15 상세](docs/images/issues-15.png)
 
 ### PR 활용
 - PR 템플릿: `pinder`에는 `.github/PULL_REQUEST_TEMPLATE.md` 있음(작업 내용/관련 이슈/lint·typecheck·build 체크리스트/라이트·다크·모바일 확인/스크린샷) — 그러나 실제 PR 자체가 없어 쓰인 적이 없음. `hello-planning`에는 별도 템플릿 없이 자유 형식으로 PR을 열었음(본문이 "01-K" 한 줄뿐인 경우가 대부분)
@@ -248,7 +248,6 @@ gitGraph
 - **플래너 모바일 버튼 위치 — 박유수·양다연이 `planner.module.css`를 반복 수정**: 박유수는 지도 화면 "뒤로가기" 버튼이 검색 오버레이와 겹치는 문제를 09-17에 5번 수정(`602267a`에서 버튼 JSX를 `mapCol` 밖에서 `mapArea` 안으로 옮김); 양다연은 AI 도우미·현재 위치 버튼이 하단 요약바와 겹치는 문제를 09-18 아침에 7번 연속 수정(`ddcc42c`→...→`f27b62e`) — 전부 CSS `position`/`z-index`만 계속 바꾸며 한 번에 맞는 값을 못 찾은 패턴
 
 ![PR 화면](docs/images/pr.png)
-<!-- 확인 필요: docs/images/ 폴더 자체가 아직 없음 — hello-planning의 실제 PR 화면 스크린샷으로 대체 가능, 이번 문서화 PR이 병합되면 그 화면으로도 교체 -->
 
 ---
 
