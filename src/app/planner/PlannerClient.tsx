@@ -3394,11 +3394,7 @@ export function PlannerClient() {
         </div>
         <div className={styles.nicknameRow}>
           <span>닉네임</span>
-          <input
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className={styles.nicknameInput}
-          />
+          <span className={styles.nicknameInput}>{nickname}</span>
         </div>
         <div className={styles.drawerBody}>
           {activityLog.length > 0 ? (
