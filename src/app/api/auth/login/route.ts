@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
@@ -9,18 +9,22 @@ import { createSessionCookie } from '@/lib/server/session';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  const { email, password } = ((await request.json().catch(() => null)) ?? {}) as {
-    email?: string;
+  const { identifier, password } = ((await request.json().catch(() => null)) ?? {}) as {
+    identifier?: string;
     password?: string;
   };
-  if (!email || !password) {
+  if (!identifier || !password) {
     return NextResponse.json(
-      { ok: false, message: '이메일과 비밀번호를 모두 입력해주세요.' },
+      { ok: false, message: '아이디와 비밀번호를 모두 입력해주세요.' },
       { status: 400 },
     );
   }
 
-  const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const [account] = await db
+    .select()
+    .from(users)
+    .where(or(eq(users.username, identifier), eq(users.email, identifier)))
+    .limit(1);
   if (!account) {
     return NextResponse.json({ ok: false, message: '가입된 회원이 아닙니다.' }, { status: 401 });
   }
