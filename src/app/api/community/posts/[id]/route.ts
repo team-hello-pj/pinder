@@ -56,7 +56,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: '수정 권한이 없습니다.' }, { status: 403 });
   }
 
-  const list = await listPosts(session.id);
+  // 목록 응답과 마찬가지로 사진 원본은 빼고 imageCount만 내려준다.
+  const list = await listPosts(session.id, false);
   return NextResponse.json({ posts: list });
 }
 
@@ -73,6 +74,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
   }
 
-  const list = await listPosts(session.id);
+  // 목록 응답과 마찬가지로 사진 원본은 빼고 imageCount만 내려준다.
+  const list = await listPosts(session.id, false);
   return NextResponse.json({ posts: list });
 }

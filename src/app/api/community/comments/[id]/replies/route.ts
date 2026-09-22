@@ -37,6 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const list = await listPosts(session.id);
+  // 목록 응답과 마찬가지로 사진 원본은 빼고 imageCount만 내려준다.
+  const list = await listPosts(session.id, false);
   return NextResponse.json({ posts: list });
 }

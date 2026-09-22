@@ -35,6 +35,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const list = await listPosts(session.id);
+  // 목록 응답과 마찬가지로 사진 원본은 빼고 imageCount만 내려준다 — 그대로 두면 댓글을
+  // 남길 때마다 전체 게시물의 사진(최대 수십 MB)을 다시 내려받게 된다.
+  const list = await listPosts(session.id, false);
   return NextResponse.json({ posts: list });
 }

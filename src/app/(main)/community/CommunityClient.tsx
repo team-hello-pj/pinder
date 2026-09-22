@@ -337,23 +337,26 @@ export function CommunityClient() {
   };
 
   // ---- 좋아요 / 북마크 ----
+  // 실패해도 아무 반응이 없으면 버튼이 안 눌리는 것처럼 보인다 — 실패를 토스트로 알린다.
+  const onActionError = (err: unknown) =>
+    showToast(err instanceof Error ? err.message : '요청을 처리하지 못했어요.');
   const toggleLike = (id: string) => {
     if (!requireLogin()) return;
-    togglePostLike(id).then(setPosts);
+    togglePostLike(id).then(setPosts).catch(onActionError);
   };
   const toggleBookmark = (id: string) => {
     if (!requireLogin()) return;
-    togglePostBookmark(id).then(setPosts);
+    togglePostBookmark(id).then(setPosts).catch(onActionError);
   };
 
   // ---- 댓글 / 답글 ----
   const toggleCommentLike = (commentId: string) => {
     if (!requireLogin()) return;
-    apiToggleCommentLike(commentId).then(setPosts);
+    apiToggleCommentLike(commentId).then(setPosts).catch(onActionError);
   };
   const toggleReplyLike = (_commentId: string, replyId: string) => {
     if (!requireLogin()) return;
-    apiToggleReplyLike(replyId).then(setPosts);
+    apiToggleReplyLike(replyId).then(setPosts).catch(onActionError);
   };
   const deleteComment = (commentId: string) => {
     if (!requireLogin()) return;
@@ -380,7 +383,7 @@ export function CommunityClient() {
     if (!requireLogin()) return;
     const text = (replyDrafts[commentId] ?? '').trim();
     if (!text) return;
-    addReply(commentId, text).then(setPosts);
+    addReply(commentId, text).then(setPosts).catch(onActionError);
     setReplyDrafts((prev) => ({ ...prev, [commentId]: '' }));
   };
   const onCommentInput = (id: string, value: string) =>
@@ -389,7 +392,7 @@ export function CommunityClient() {
     if (!requireLogin()) return;
     const text = (commentDrafts[id] ?? '').trim();
     if (!text) return;
-    addComment(id, text).then(setPosts);
+    addComment(id, text).then(setPosts).catch(onActionError);
     setCommentDrafts((prev) => ({ ...prev, [id]: '' }));
   };
   // ---- 삭제 ----
