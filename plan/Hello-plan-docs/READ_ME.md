@@ -90,7 +90,7 @@ flowchart LR
     PP -->|기획 초안| PC[product-planner]
     PC -->|빠진 것·질문 목록| T
     T -->|재답변| PP
-    LG[legacy: Claude Design export] --> DA[design-abstractor]
+    LG["legacy: Claude Design export"] --> DA[design-abstractor]
     PP -->|기획 초안| PE[plan-example 폴더]
     DA -->|design-abstract.md| PE
     PE -->|내용·양식 참고| HW[hello-plan-writer]
