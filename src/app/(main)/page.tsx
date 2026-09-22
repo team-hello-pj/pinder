@@ -60,8 +60,7 @@ export default function HomePage() {
         </h1>
         <p className={styles.lead}>
           목적지를 입력하면 최적화된 일정과 이동 동선을
-          <br className={styles.mobileBreak} />
-          {' '}자동으로 생성해드립니다.
+          <br className={styles.mobileBreak} /> 자동으로 생성해드립니다.
         </p>
 
         <AntCtaCard />
@@ -79,8 +78,7 @@ export default function HomePage() {
       <SectionReveal className={styles.stepsSection}>
         <h2 className={styles.stepsTitle}>
           단 3단계로 완성되는
-          <br className={styles.mobileBreak} />
-          {' '}최적의 동선
+          <br className={styles.mobileBreak} /> 최적의 동선
         </h2>
         <div className={styles.stepsGrid}>
           {STEPS.map((step) => (

@@ -16,7 +16,15 @@ import {
 
 export const runtime = 'nodejs';
 
-type Action = 'geocode' | 'reverseGeocode' | 'keyword' | 'nearby' | 'car' | 'walk' | 'transit' | 'bike';
+type Action =
+  | 'geocode'
+  | 'reverseGeocode'
+  | 'keyword'
+  | 'nearby'
+  | 'car'
+  | 'walk'
+  | 'transit'
+  | 'bike';
 
 /** 지도 클릭 좌표 주변의 실제 장소 후보를 찾을 때 훑는 대표 카테고리 — Kakao 카테고리 검색은
  * "전체" 카테고리 옵션이 없으므로, 자주 방문지가 될 만한 카테고리를 병렬로 조회해 합친다.

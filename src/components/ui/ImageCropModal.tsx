@@ -147,7 +147,11 @@ export function ImageCropModal({
           onLoad={onImageLoad}
           draggable={false}
           className={styles.dragImg}
-          style={{ width: dispW, height: dispH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+          style={{
+            width: dispW,
+            height: dispH,
+            transform: `translate(${offset.x}px, ${offset.y}px)`,
+          }}
         />
       </div>
       <div className={styles.zoomRow}>
