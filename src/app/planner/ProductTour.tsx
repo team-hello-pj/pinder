@@ -45,8 +45,8 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     selector: '[data-tour="schedule"]',
-    title: '일정과 출발지를 여기에서 설정할 수 있어요.',
-    desc: '여행 날짜와 출발지를 정하면 경로 계산에 활용돼요.',
+    title: '일정만 설정 가능',
+    desc: '여행 날짜를 정하면 경로 계산에 활용돼요.',
   },
   {
     selector: '[data-tour="variables"]',
@@ -60,7 +60,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     selector: '[data-tour="my-location"]',
-    title: '현재 위치도 방문지로 추가할 수 있어요.',
+    title: '현재 위치를 확인 할 수 있어요',
     desc: '내 위치 버튼을 누르면 현재 위치를 목적지로 바로 추가할 수 있어요.',
   },
   {
