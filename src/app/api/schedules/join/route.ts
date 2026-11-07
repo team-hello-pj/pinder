@@ -3,6 +3,7 @@ import { and, eq, or } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { scheduleCollaborators, scheduleEditRequests, schedules } from '@/db/schema';
+import { isInviteActive } from '@/lib/server/invite-token';
 import { createNotification } from '@/lib/server/notifications';
 import { getSessionUser } from '@/lib/server/session';
 
@@ -33,11 +34,19 @@ export async function POST(request: Request) {
       title: schedules.title,
       inviteTokenViewer: schedules.inviteTokenViewer,
       inviteTokenEditor: schedules.inviteTokenEditor,
+      inviteTokenViewerExpiresAt: schedules.inviteTokenViewerExpiresAt,
+      inviteTokenEditorExpiresAt: schedules.inviteTokenEditorExpiresAt,
     })
     .from(schedules)
     .where(or(eq(schedules.inviteTokenViewer, token), eq(schedules.inviteTokenEditor, token)))
     .limit(1);
-  if (!schedule) {
+  // 토큰이 일치한 쪽(viewer/editor) 컬럼의 만료 시각을 확인한다 — 만료·폐기된 링크는 없는 링크와 같게 취급.
+  const matchedExpiresAt = schedule
+    ? schedule.inviteTokenEditor === token
+      ? schedule.inviteTokenEditorExpiresAt
+      : schedule.inviteTokenViewerExpiresAt
+    : null;
+  if (!schedule || !isInviteActive(matchedExpiresAt)) {
     return NextResponse.json({ error: '유효하지 않은 초대 링크예요.' }, { status: 404 });
   }
 

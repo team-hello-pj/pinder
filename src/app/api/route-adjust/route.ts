@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { guardPaidApi } from '@/lib/server/api-guard';
+
 /**
  * POST /api/route-adjust — "변수 추가"에서 사용자가 직접 설명한 상황을 Gemini에 보내
  * 방문 순서와 이동수단을 다시 정하게 한다. GEMINI_API_KEY 환경변수가 필요하다.
@@ -73,6 +75,9 @@ function sanitizeSegments(raw: unknown, length: number, fallback: string[]): str
 }
 
 export async function POST(request: Request) {
+  const guard = await guardPaidApi({ name: 'route-adjust', limit: 50, windowSec: 24 * 60 * 60 });
+  if (guard.response) return guard.response;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'Server is missing GEMINI_API_KEY' }, { status: 500 });
@@ -138,7 +143,7 @@ export async function POST(request: Request) {
       console.error('Body:', errText);
       console.error('================================================');
       return NextResponse.json(
-        { error: 'Gemini API request failed', status: geminiRes.status, detail: errText },
+        { error: 'Gemini API request failed', status: geminiRes.status },
         { status: 502 },
       );
     }
