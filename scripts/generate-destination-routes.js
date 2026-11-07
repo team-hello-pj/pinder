@@ -24,10 +24,21 @@
 // 주의: scripts/seed-destinations.mjs 를 다시 실행하면 destinations 테이블 행 자체가 삭제/재삽입돼
 // 여기서 저장한 routes 도 함께 사라진다 — seed 스크립트를 다시 돌렸다면 이 스크립트도 다시 돌려야 한다.
 
+const fs = require('node:fs');
 const { Pool } = require('pg');
 
 const GENERATE_BASE = 'http://localhost:3000';
 const GEOCODE_BASE = 'https://pinder-one.vercel.app';
+
+// /api/route-generate 와 /api/kakao 는 로그인한 사용자만 호출할 수 있다. 사이트에 로그인한 뒤
+// 브라우저 쿠키 pd_session 값을 SESSION_COOKIE 환경변수에 `pd_session=<값>` 형태로 넣어 둔다.
+// (이 값은 비밀번호와 같은 취급이다 — .env.local 에만 두고 커밋·공유하지 않는다.)
+const SESSION_COOKIE = process.env.SESSION_COOKIE;
+if (!SESSION_COOKIE) {
+  console.error('SESSION_COOKIE 환경변수가 필요합니다. 예: SESSION_COOKIE=pd_session=<쿠키값>');
+  process.exit(1);
+}
+const JSON_HEADERS = { 'Content-Type': 'application/json', Cookie: SESSION_COOKIE };
 
 const args = process.argv.slice(2);
 const flags = {};
@@ -56,7 +67,7 @@ const USE_DESC = Boolean(flags['use-desc']);
 async function generatePlaces(region, interests) {
   const res = await fetch(`${GENERATE_BASE}/api/route-generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: JSON_HEADERS,
     body: JSON.stringify({
       region,
       style: STYLE,
@@ -74,7 +85,7 @@ async function generatePlaces(region, interests) {
 async function searchKeyword(query) {
   const res = await fetch(`${GEOCODE_BASE}/api/kakao`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: JSON_HEADERS,
     body: JSON.stringify({ action: 'keyword', params: { query } }),
   });
   if (!res.ok) return null;
@@ -162,6 +173,11 @@ async function buildRoutes(region, tags, desc) {
 }
 
 async function main() {
+  if (!process.env.DATABASE_CA_CERT_PATH) {
+    throw new Error(
+      'DATABASE_CA_CERT_PATH 환경변수가 필요합니다 (Supabase 대시보드에서 받은 CA 인증서 파일 경로).',
+    );
+  }
   const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
   const pool = new Pool({
     // pg-connection-string 최신 버전은 URL의 sslmode=require 를 verify-full 로 취급해버려,
@@ -171,8 +187,9 @@ async function main() {
     connectionString: connectionString?.includes('uselibpqcompat=')
       ? connectionString
       : `${connectionString}${connectionString?.includes('?') ? '&' : '?'}uselibpqcompat=true`,
-    // Supabase pooler 인증서 체인 문제로 기본 verify-full 검증이 실패해 완화한다.
-    ssl: { rejectUnauthorized: false },
+    // 인증서 검증은 끄지 않는다. Supabase pooler 는 자체 서명 CA 를 쓰므로, Supabase 대시보드
+    // (Database → SSL Configuration)에서 받은 CA 인증서 경로를 DATABASE_CA_CERT_PATH 로 준다.
+    ssl: { ca: fs.readFileSync(process.env.DATABASE_CA_CERT_PATH, 'utf8') },
   });
   const { rows } = await pool.query(
     'select id, name, region, tags, "desc" from destinations order by section_order, item_order',

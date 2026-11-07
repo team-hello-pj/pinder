@@ -37,7 +37,6 @@ travel-route-planner/
 │  ├─ types/                   # 공용 타입 (Place, RouteLeg, SavedRoute…)
 │  └─ styles/                  # tokens.css (디자인 토큰) + globals.css
 ├─ public/                     # 정적 자산 (아이콘, korea-map.svg)
-├─ legacy/                     # 리뉴얼 전 프로토타입 (빌드 제외)
 ├─ docs/                       # 팀 문서
 └─ .github/                    # CI, PR/이슈 템플릿, CODEOWNERS
 ```
