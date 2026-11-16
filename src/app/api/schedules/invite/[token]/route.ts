@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { eq, or } from 'drizzle-orm';
+import { and, eq, gt, or } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { schedules } from '@/db/schema';
@@ -19,7 +19,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const [row] = await db
     .select()
     .from(schedules)
-    .where(or(eq(schedules.inviteTokenViewer, token), eq(schedules.inviteTokenEditor, token)))
+    .where(
+      or(
+        and(
+          eq(schedules.inviteTokenViewer, token),
+          gt(schedules.inviteTokenViewerExpiresAt, new Date()),
+        ),
+        and(
+          eq(schedules.inviteTokenEditor, token),
+          gt(schedules.inviteTokenEditorExpiresAt, new Date()),
+        ),
+      ),
+    )
     .limit(1);
   if (!row) return NextResponse.json({ error: '유효하지 않은 초대 링크예요.' }, { status: 404 });
 

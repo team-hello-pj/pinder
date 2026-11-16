@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { guardPaidApi } from '@/lib/server/api-guard';
 import {
   LOCAL_BASE,
   MOBILITY_BASE,
@@ -59,6 +60,9 @@ const ROUTE_ENDPOINTS = {
 } as const;
 
 export async function POST(request: Request) {
+  const guard = await guardPaidApi({ name: 'kakao', limit: 120, windowSec: 60 });
+  if (guard.response) return guard.response;
+
   if (!process.env.KAKAO_REST_API_KEY) {
     return NextResponse.json({ error: 'Kakao API 키가 설정되지 않았습니다.' }, { status: 500 });
   }

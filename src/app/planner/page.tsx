@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { eq } from 'drizzle-orm';
+import { and, eq, gt } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { schedules } from '@/db/schema';
@@ -36,10 +36,12 @@ export async function generateMetadata({ searchParams }: PlannerPageProps): Prom
   // role별로 실제 초대 토큰이 저장되는 컬럼이 다르므로, 그 role에 해당하는 컬럼만 정확히
   // 조회한다 — editor 조건과 viewer 조건이 하나의 OR 조건으로 뒤섞이지 않게 하기 위함이다.
   const tokenColumn = role === 'editor' ? schedules.inviteTokenEditor : schedules.inviteTokenViewer;
+  const expiresColumn =
+    role === 'editor' ? schedules.inviteTokenEditorExpiresAt : schedules.inviteTokenViewerExpiresAt;
   const [row] = await db
     .select({ id: schedules.id, title: schedules.title })
     .from(schedules)
-    .where(eq(tokenColumn, invite))
+    .where(and(eq(tokenColumn, invite), gt(expiresColumn, new Date())))
     .limit(1);
   if (!row) {
     return DEFAULT_METADATA;

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { MODE_MAP } from '@/constants';
 import { tripDayCount } from '@/lib/format';
 import type { TransportMode } from '@/types';
+import { guardPaidApi } from '@/lib/server/api-guard';
 
 /**
  * POST /api/route-generate — "AI 생성하기" 마법사 마지막 단계에서 사용자가 고른
@@ -117,6 +118,9 @@ function sanitizePlaces(raw: unknown, dayCount: number, maxTotal: number): Gener
 }
 
 export async function POST(request: Request) {
+  const guard = await guardPaidApi({ name: 'route-generate', limit: 20, windowSec: 24 * 60 * 60 });
+  if (guard.response) return guard.response;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'Server is missing GEMINI_API_KEY' }, { status: 500 });
@@ -186,7 +190,7 @@ export async function POST(request: Request) {
       console.error('Body:', errText);
       console.error('================================================');
       return NextResponse.json(
-        { error: 'Gemini API request failed', status: geminiRes.status, detail: errText },
+        { error: 'Gemini API request failed', status: geminiRes.status },
         { status: 502 },
       );
     }

@@ -75,6 +75,9 @@ export const schedules = pgTable('schedules', {
   /** 보기전용/편집가능 초대 링크는 서로 다른 토큰을 쓴다 — 하나가 새면 그 권한만 노출된다. */
   inviteTokenViewer: text('invite_token_viewer').unique(),
   inviteTokenEditor: text('invite_token_editor').unique(),
+  /** 초대 토큰 만료 시각. null 인데 토큰만 있으면 만료 도입 이전에 만든 구형 토큰이라 무효로 본다. */
+  inviteTokenViewerExpiresAt: timestamp('invite_token_viewer_expires_at', { withTimezone: true }),
+  inviteTokenEditorExpiresAt: timestamp('invite_token_editor_expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -305,4 +308,14 @@ export const notifications = pgTable('notifications', {
   relatedScheduleId: text('related_schedule_id'),
   relatedRequestId: text('related_request_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * 호출 횟수 제한(rate limit) 카운터. 서버리스는 인스턴스끼리 메모리를 공유하지 않으므로
+ * DB 한 행(key)에 현재 구간의 횟수를 센다. key 예: `login:ip:1.2.3.4`, `ai:chat:<userId>`.
+ */
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull(),
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull().defaultNow(),
 });

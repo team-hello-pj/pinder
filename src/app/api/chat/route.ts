@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { guardPaidApi } from '@/lib/server/api-guard';
+
 /**
  * POST /api/chat — AI 도우미. Gemini 호출을 서버에서 대신해 API 키 노출을 막는다.
  * GEMINI_API_KEY 환경변수가 필요하다.
@@ -104,6 +106,9 @@ function parseChatReply(rawText: string): ParsedChatReply {
 }
 
 export async function POST(request: Request) {
+  const guard = await guardPaidApi({ name: 'chat', limit: 100, windowSec: 24 * 60 * 60 });
+  if (guard.response) return guard.response;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'Server is missing GEMINI_API_KEY' }, { status: 500 });
@@ -166,8 +171,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Gemini API request failed',
-          status: geminiRes.status,
-          detail: errText,
         },
         { status: 502 },
       );
